@@ -16,7 +16,7 @@ find /tmp/sc02c_initramfs -name .gitignore | xargs rm
 if [ "$ANS" = 'all' -o "$ANS" = 'a' ]; then
   echo "cleaning..."
   make clean
-  make c1_rev02_jpn_ntt_defconfig
+  make c1_sakuramilk_defconfig
 fi
 
 if [ "$ANS" != 'zImage' -a "$ANS" != 'z' ]; then
