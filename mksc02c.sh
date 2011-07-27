@@ -11,7 +11,7 @@ fi
 if [ ! -e /tmp/sc02c ]; then
   mkdir /tmp/sc02c
 fi
-cp -a ../initramfs /tmp/sc02c/
+cp -a ../sc02c_initramfs /tmp/sc02c/
 rm -rf /tmp/sc02c/initramfs/.git
 find /tmp/sc02c/initramfs -name .gitignore | xargs rm
 
