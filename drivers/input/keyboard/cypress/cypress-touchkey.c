@@ -69,6 +69,8 @@ Melfas touchkey register
 #define TEST_JIG_MODE
 */
 
+#undef KERN_DEBUG
+#define KERN_DEBUG KERN_NOTICE
 
 static int touchkey_keycode[3] = { 0, KEY_MENU, KEY_BACK };
 
@@ -134,6 +136,8 @@ int touchkey_led_ldo_on(bool on)
 {
 	struct regulator *regulator;
 
+    printk(KERN_DEBUG "[TouchKey] %s: on=%d\n", __func__, on);
+
 	if (on) {
 		regulator = regulator_get(NULL, "touch_led");
 		if (IS_ERR(regulator))
@@ -157,6 +161,8 @@ int touchkey_ldo_on(bool on)
 {
 	struct regulator *regulator;
 
+    printk(KERN_DEBUG "[TouchKey] %s: on=%d\n", __func__, on);
+
 	if (on) {
 		regulator = regulator_get(NULL, "touch");
 		if (IS_ERR(regulator))
@@ -179,9 +185,11 @@ static void c1_change_touch_key_led_voltage(int vol_mv)
 {
 	struct regulator *tled_regulator;
 
+    printk(KERN_DEBUG "[TouchKey] %s: vol_mv=%d\n", __func__, vol_mv);
+
 	tled_regulator = regulator_get(NULL, "touch_led");
 	if (IS_ERR(tled_regulator)) {
-		pr_err("%s: failed to get resource %s\n", __func__,
+		pr_err("[TouchKey] %s: failed to get resource %s\n", __func__,
 				"touch_led");
 		return;
 	}
@@ -194,6 +202,8 @@ static ssize_t brightness_control(struct device *dev,
 				 size_t size)
 {
 	int data;
+
+    printk(KERN_DEBUG "[TouchKey] %s", __func__);
 
 	if (sscanf(buf, "%d\n", &data) == 1) {
 		printk(KERN_ERR "[TouchKey] touch_led_brightness: %d \n", data);
@@ -249,10 +259,21 @@ static int i2c_touchkey_write(u8 * val, unsigned int len)
 	unsigned char data[2];
 	int retry = 2;
 
-	if ((touchkey_driver == NULL) || !(touchkey_enable == 1)) {
-		//printk(KERN_ERR "[TouchKey] touchkey is not enabled.\n");
-		return -ENODEV;
-	}
+    if (touchkey_driver == NULL) {
+        printk(KERN_ERR "[TouchKey] touchkey driver is null.\n");
+        return -ENODEV;
+    }
+    if (touchkey_enable <= 0) {
+        printk(KERN_ERR "[TouchKey] touchkey is not enabled. touchkey_enable=%d\n", touchkey_enable);
+        return -ENODEV;
+    }
+    if ((touchkey_enable == 2 && !bln_is_ongoing())) {
+        printk(KERN_ERR "[TouchKey] touchkey bln ongoing false. touchkey_enable 2 to 0%d\n", touchkey_enable);
+        touchkey_led_ldo_on(0);
+        touchkey_ldo_on(0);
+        touchkey_enable = 0;
+        return -ENODEV;
+    }
 
 	while (retry--) {
 		data[0] = *val;
@@ -261,7 +282,7 @@ static int i2c_touchkey_write(u8 * val, unsigned int len)
 		msg->len = len;
 		msg->buf = data;
 		err = i2c_transfer(touchkey_driver->client->adapter, msg, 1);
-		//printk("write value %d to address %d\n",*val, msg->addr);
+		printk(KERN_DEBUG "write value %d to address %d\n",*val, msg->addr);
 		if (err >= 0) {
 
 			return 0;
@@ -462,16 +483,22 @@ static int melfas_touchkey_early_suspend(struct early_suspend *h)
 	 * Disallow powering off the touchkey controller
 	 * while a led notification is ongoing
 	 */
-	if (!bln_is_ongoing()) {
+	if (!bln_is_enabled()) {
 #else
 	if (1) {
 #endif
+        printk(KERN_DEBUG "[TouchKey] melfas_touchkey_early_suspend bln_is_enabled=false\n");
 		/* disable ldo18 */
 		touchkey_led_ldo_on(0);
-	}
 
-	/* disable ldo11 */
-	touchkey_ldo_on(0);
+	    /* disable ldo11 */
+    	touchkey_ldo_on(0);
+        printk(KERN_DEBUG "[TouchKey] set touchkey_enable=0\n");
+	} else {
+        printk(KERN_DEBUG "[TouchKey] set touchkey_enable=2\n");
+        touchkey_enable = 2;
+    }
+
 
 
 	return 0;
@@ -480,12 +507,16 @@ static int melfas_touchkey_early_suspend(struct early_suspend *h)
 static void melfas_enable_touchkey_backlights(void) {
 	uint8_t val = 1;
 
+    printk(KERN_DEBUG "[TouchKey] %s\n", __func__);
+
 	touchkey_led_ldo_on(1);
 	i2c_touchkey_write(&val, sizeof(val));
 }
 
 static void melfas_disable_touchkey_backlights(void) {
 	uint8_t val = 0;
+
+    printk(KERN_DEBUG "[TouchKey] %s\n", __func__);
 
 	i2c_touchkey_write(&val, sizeof(val));
 }
@@ -538,7 +569,7 @@ static int melfas_touchkey_late_resume(struct early_suspend *h)
 	if(touchled_cmd_reversed) {
 		touchled_cmd_reversed = 0;
 		i2c_touchkey_write(&touchkey_led_status, 1);
-		printk("LED returned on\n");
+		printk(KERN_DEBUG "LED returned on\n");
 	}
 
 #ifdef TEST_JIG_MODE
