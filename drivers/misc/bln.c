@@ -72,14 +72,13 @@ static void enable_led_notification(void)
 static void disable_led_notification(void)
 {
 	printk(KERN_DEBUG "[BLN] called %s\n", __FUNCTION__);
-	/*
+	
 	bln_blink_state = 0;
 	bln_ongoing = false;
 	printk(KERN_DEBUG "[BLN] bln_blink_state=0, bln_ongoing=false\n");
 
 	if (bln_suspended)
 		bln_disable_backlights();
-	*/
 }
 
 static ssize_t backlightnotification_status_read(struct device *dev,
@@ -128,7 +127,7 @@ static ssize_t notification_led_status_write(struct device *dev,
 {
 	unsigned int data;
 	if (sscanf(buf, "%u\n", &data) == 1) {
-		printk(KERN_DEBUG "[BLN] called %s\n", __FUNCTION__);
+		printk(KERN_DEBUG "[BLN] called %s data=%d\n", __FUNCTION__, data);
 		if (data == 1)
 			enable_led_notification();
 		else if (data == 0)
