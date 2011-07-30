@@ -9,7 +9,5 @@ struct bln_implementation {
 };
 
 void register_bln_implementation(struct bln_implementation *imp);
-bool bln_is_ongoing(void);
-bool bln_is_enabled(void);
 #endif
 

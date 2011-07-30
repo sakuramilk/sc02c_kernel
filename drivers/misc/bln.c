@@ -96,6 +96,7 @@ static ssize_t backlightnotification_status_write(struct device *dev,
 	unsigned int data;
 
 	if (sscanf(buf, "%u\n", &data) == 1) {
+		printk(KERN_DEBUG "[BLN] called %s data=%d\n", __FUNCTION__, data);
 		if (data == 1) {
 			printk(KERN_DEBUG "[BLN] %s: BLN function enabled\n", __FUNCTION__);
 			bln_enabled = true;
@@ -152,12 +153,13 @@ static ssize_t blink_control_write(struct device *dev,
 	unsigned int data;
 
 	if (sscanf(buf, "%u\n", &data) == 1) {
+		printk(KERN_DEBUG "[BLN] called %s data=%d\n", __FUNCTION__, data);
 		if (data == 1) {
 			bln_blink_state = 1;
-			bln_enable_backlights();
+			bln_disable_backlights();
 		} else if (data == 0) {
 			bln_blink_state = 0;
-			bln_disable_backlights();
+			bln_enable_backlights();
 		} else {
 			printk(KERN_DEBUG "[BLN] %s: wrong input %u\n", __FUNCTION__, data);
 		}
@@ -207,17 +209,6 @@ void register_bln_implementation(struct bln_implementation *imp)
 }
 EXPORT_SYMBOL(register_bln_implementation);
 
-bool bln_is_enabled()
-{
-	return bln_enabled;
-}
-EXPORT_SYMBOL(bln_is_enabled);
-
-bool bln_is_ongoing()
-{
-	return bln_ongoing;
-}
-EXPORT_SYMBOL(bln_is_ongoing);
 
 static int __init bln_control_init(void)
 {

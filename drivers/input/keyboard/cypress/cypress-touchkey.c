@@ -475,19 +475,32 @@ static int melfas_touchkey_early_suspend(struct early_suspend *h)
 }
 
 #ifdef CONFIG_GENERIC_BLN
+static void touchkey_bln_wakeup(void)
+{
+	printk(KERN_DEBUG "[TouchKey] touchkey wakeup");
+	wake_lock(&touchkey_wake_lock);
+	touchkey_ldo_on(1);
+	msleep(50);
+	touchkey_led_ldo_on(1);
+	touchkey_enable = 1;
+}
+
+static void touchkey_bln_sleep(void)
+{
+	printk(KERN_DEBUG "[TouchKey] touchkey sleep");
+	touchkey_led_ldo_on(0);
+	touchkey_ldo_on(0);
+	touchkey_enable = 0;
+	wake_unlock(&touchkey_wake_lock);
+}
+
 static void melfas_enable_touchkey_backlights(void) {
 	uint8_t val = 1;
 
 	printk(KERN_DEBUG "[TouchKey] %s\n", __func__);
 
 	if( touchkey_enable == 0 ){
-		printk(KERN_DEBUG "[TouchKey] touchkey wakeup");
-		wake_lock(&touchkey_wake_lock);
-
-		touchkey_ldo_on(1);
-        msleep(50);
-		touchkey_led_ldo_on(1);
-		touchkey_enable = 1;
+		touchkey_bln_wakeup();
 	}
 	i2c_touchkey_write(&val, sizeof(val));
 }
@@ -498,6 +511,9 @@ static void melfas_disable_touchkey_backlights(void) {
 	printk(KERN_DEBUG "[TouchKey] %s\n", __func__);
 
 	i2c_touchkey_write(&val, sizeof(val));
+	if( touchkey_enable == 1 ){
+		touchkey_bln_sleep();
+	}
 }
 
 static struct bln_implementation cypress_touchkey_bln = {
