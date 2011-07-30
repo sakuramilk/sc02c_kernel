@@ -15,12 +15,13 @@
 #include <linux/miscdevice.h>
 #include <linux/bln.h>
 #include <linux/mutex.h>
+#include <linux/wakelock.h>
 
-#undef KERN_DEBUG
-#define KERN_DEBUG KERN_NOTICE
+//#undef KERN_DEBUG
+//#define KERN_DEBUG KERN_NOTICE
 
-static bool bln_enabled = true; /* is BLN function is enabled */
-static bool bln_ongoing = true; /* ongoing LED Notification */
+static bool bln_enabled = false; /* is BLN function is enabled */
+static bool bln_ongoing = false; /* ongoing LED Notification */
 static int bln_blink_state = 0;
 static bool bln_suspended = false; /* is system suspended */
 static struct bln_implementation *bln_imp = NULL;
@@ -61,12 +62,13 @@ static void enable_led_notification(void)
 {
 	printk(KERN_DEBUG "[BLN] called %s bln_enabled=%d\n", __FUNCTION__, bln_enabled);
 
-	if (!bln_enabled)
+	if (!bln_enabled) {
 		return;
+	}
 
-	bln_enable_backlights();
 	printk(KERN_DEBUG "[BLN] bln_ongoing=true\n");
 	bln_ongoing = true;
+	bln_enable_backlights();
 }
 
 static void disable_led_notification(void)
@@ -77,15 +79,14 @@ static void disable_led_notification(void)
 	bln_ongoing = false;
 	printk(KERN_DEBUG "[BLN] bln_blink_state=0, bln_ongoing=false\n");
 
-	if (bln_suspended)
+	if (bln_suspended) {
 		bln_disable_backlights();
+	}
 }
 
 static ssize_t backlightnotification_status_read(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	printk(KERN_DEBUG "[BLN] called %s\n", __FUNCTION__);
-    printk(KERN_DEBUG "[BLN] bln_enabled=%d\n", bln_enabled);
 	return sprintf(buf, "%u\n", (bln_enabled ? 1 : 0));
 }
 
@@ -94,19 +95,18 @@ static ssize_t backlightnotification_status_write(struct device *dev,
 {
 	unsigned int data;
 
-	if(sscanf(buf, "%u\n", &data) == 1) {
-		printk(KERN_DEBUG "[BLN] called %s data=%d\n", __FUNCTION__, data);
+	if (sscanf(buf, "%u\n", &data) == 1) {
 		if (data == 1) {
 			printk(KERN_DEBUG "[BLN] %s: BLN function enabled\n", __FUNCTION__);
 			bln_enabled = true;
 		} else if (data == 0) {
 			printk(KERN_DEBUG "[BLN] %s: BLN function disabled\n", __FUNCTION__);
 			bln_enabled = false;
-			if (bln_ongoing)
+			if (bln_ongoing) {
 				disable_led_notification();
+			}
 		} else {
-			printk(KERN_DEBUG "[BLN] %s: invalid input range %u\n", __FUNCTION__,
-					data);
+			printk(KERN_DEBUG "[BLN] %s: invalid input range %u\n", __FUNCTION__, data);
 		}
 	} else {
 		printk(KERN_DEBUG "[BLN] %s: invalid input\n", __FUNCTION__);
@@ -118,7 +118,6 @@ static ssize_t backlightnotification_status_write(struct device *dev,
 static ssize_t notification_led_status_read(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	printk(KERN_DEBUG "[BLN] called %s bln_ongoing=%d\n", __FUNCTION__, bln_ongoing);
 	return sprintf(buf,"%u\n", (bln_ongoing ? 1 : 0));
 }
 
@@ -128,12 +127,13 @@ static ssize_t notification_led_status_write(struct device *dev,
 	unsigned int data;
 	if (sscanf(buf, "%u\n", &data) == 1) {
 		printk(KERN_DEBUG "[BLN] called %s data=%d\n", __FUNCTION__, data);
-		if (data == 1)
+		if (data == 1) {
 			enable_led_notification();
-		else if (data == 0)
+		} else if (data == 0) {
 			disable_led_notification();
-		else
+		} else {
 			printk(KERN_DEBUG "[BLN] %s: wrong input %u\n", __FUNCTION__, data);
+		}
 	} else {
 		printk(KERN_DEBUG "[BLN] %s: input error\n", __FUNCTION__);
 	}
@@ -150,11 +150,6 @@ static ssize_t blink_control_write(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
 {
 	unsigned int data;
-
-	printk(KERN_DEBUG "[BLN] called %s\n", __FUNCTION__);
-
-	if (!bln_ongoing)
-		return size;
 
 	if (sscanf(buf, "%u\n", &data) == 1) {
 		if (data == 1) {
@@ -237,11 +232,9 @@ static int __init bln_control_init(void)
 	}
 
 	/* add the bln attributes */
-	if (sysfs_create_group(&bln_device.this_device->kobj,
-				&bln_notification_group) < 0) {
+	if (sysfs_create_group(&bln_device.this_device->kobj, &bln_notification_group) < 0) {
 		printk(KERN_ERR "[BLN] %s sysfs_create_group fail\n", __FUNCTION__);
-		printk(KERN_ERR "[BLN] Failed to create sysfs group for device (%s)!\n",
-				bln_device.name);
+		printk(KERN_ERR "[BLN] Failed to create sysfs group for device (%s)!\n", bln_device.name);
 	}
 
 	register_early_suspend(&bln_suspend_data);

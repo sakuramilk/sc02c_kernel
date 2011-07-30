@@ -125,13 +125,12 @@ struct i2c_driver touchkey_i2c_driver = {
 
 static int touchkey_debug_count = 0;
 static char touchkey_debug[104];
-static int touch_version = 0;
-static int module_version = 0;
+//static int touch_version = 0;
+//static int module_version = 0;
 extern int touch_is_pressed;
 
 #ifdef CONFIG_GENERIC_BLN
 static struct wake_lock touchkey_wake_lock;
-static bool touchkey_suspended = false;
 #endif
 
 static void touch_forced_release(void)
@@ -141,8 +140,6 @@ static void touch_forced_release(void)
 int touchkey_led_ldo_on(bool on)
 {
 	struct regulator *regulator;
-
-    printk(KERN_DEBUG "[TouchKey] %s: on=%d\n", __func__, on);
 
 	if (on) {
 		regulator = regulator_get(NULL, "touch_led");
@@ -167,8 +164,6 @@ int touchkey_ldo_on(bool on)
 {
 	struct regulator *regulator;
 
-    printk(KERN_DEBUG "[TouchKey] %s: on=%d\n", __func__, on);
-
 	if (on) {
 		regulator = regulator_get(NULL, "touch");
 		if (IS_ERR(regulator))
@@ -191,11 +186,9 @@ static void c1_change_touch_key_led_voltage(int vol_mv)
 {
 	struct regulator *tled_regulator;
 
-    printk(KERN_DEBUG "[TouchKey] %s: vol_mv=%d\n", __func__, vol_mv);
-
 	tled_regulator = regulator_get(NULL, "touch_led");
 	if (IS_ERR(tled_regulator)) {
-		printk(KERN_ERR "[TouchKey] %s: failed to get resource %s\n", __func__,
+		pr_err("%s: failed to get resource %s\n", __func__,
 				"touch_led");
 		return;
 	}
@@ -208,8 +201,6 @@ static ssize_t brightness_control(struct device *dev,
 				 size_t size)
 {
 	int data;
-
-    printk(KERN_DEBUG "[TouchKey] %s", __func__);
 
 	if (sscanf(buf, "%d\n", &data) == 1) {
 		printk(KERN_ERR "[TouchKey] touch_led_brightness: %d \n", data);
@@ -265,31 +256,10 @@ static int i2c_touchkey_write(u8 * val, unsigned int len)
 	unsigned char data[2];
 	int retry = 2;
 
-	if ((touchkey_driver == NULL) || (touchkey_enable == 0)) {
+	if ((touchkey_driver == NULL) || !(touchkey_enable == 1)) {
 		printk(KERN_ERR "[TouchKey] touchkey is not enabled.\n");
 		return -ENODEV;
 	}
-
-#ifdef CONFIG_GENERIC_BLN
-    printk(KERN_ERR "[TouchKey] touchkey_enbable=%d\n", touchkey_enable);
-	if (touchkey_enable == 1 && touchkey_suspended) {
-		if (bln_is_ongoing()) {
-			printk(KERN_ERR "[TouchKey] bln ongoing true.\n");
-            gpio_direction_output(_3_GPIO_TOUCH_EN, 1);
-            gpio_direction_output(_3_TOUCH_SDA_28V, 1);
-            gpio_direction_output(_3_TOUCH_SCL_28V, 1);
-            gpio_direction_output(_3_GPIO_TOUCH_INT, 1);
-            set_irq_type(IRQ_TOUCH_INT, IRQF_TRIGGER_FALLING);
-            s3c_gpio_cfgpin(_3_GPIO_TOUCH_INT, _3_GPIO_TOUCH_INT_AF);
-            s3c_gpio_setpull(_3_GPIO_TOUCH_INT, S3C_GPIO_PULL_NONE);
-            msleep(50);
-            touchkey_led_ldo_on(1);
-        } else {
-			printk(KERN_ERR "[TouchKey] bln ongoing false.\n");
-			return 0;
-		}
-	}
-#endif
 
 	while (retry--) {
 		data[0] = *val;
@@ -300,6 +270,7 @@ static int i2c_touchkey_write(u8 * val, unsigned int len)
 		err = i2c_transfer(touchkey_driver->client->adapter, msg, 1);
 		printk(KERN_DEBUG "[TouchKey] write value %d to address %d err=%d\n",*val, msg->addr, err);
 		if (err >= 0) {
+
 			return 0;
 
 		}
@@ -307,7 +278,6 @@ static int i2c_touchkey_write(u8 * val, unsigned int len)
 		       __func__, __LINE__);
 		mdelay(10);
 	}
-
 	return err;
 }
 
@@ -388,8 +358,7 @@ void touchkey_work_func(struct work_struct *p)
 		}
 
 		/* touchkey die , do not enable touchkey
-		enable_irq(IRQ_TOUCH_INT); */
-		printk(KERN_DEBUG "[TouchKey] set touchkey_enable = -1");
+			enable_irq(IRQ_TOUCH_INT); */
 		touchkey_enable = -1;
 		gpio_direction_output(_3_GPIO_TOUCH_EN, 0);
 		gpio_direction_output(_3_TOUCH_SDA_28V, 0);
@@ -417,7 +386,7 @@ void touchkey_work_func(struct work_struct *p)
 
 #ifdef TEST_JIG_MODE
 		if(touchkey_keycode[data[0] & KEYCODE_BIT] == touchkey_keycode[1])
-			printk(KERN_DEBUG "menu key sensitivity = %d\n", menu_sensitivity);
+			printk(KERN_DEBUG "[TouchKey] menu key sensitivity = %d\n", menu_sensitivity);
 
 		if(touchkey_keycode[data[0] & KEYCODE_BIT] == touchkey_keycode[2])
 			printk(KERN_DEBUG "[TouchKey] back key sensitivity = %d\n",back_sensitivity);
@@ -430,23 +399,25 @@ void touchkey_work_func(struct work_struct *p)
 		} else {
 			if ((data[0] & KEYCODE_BIT) == 2) {
 				/* if back key is pressed, release multitouch */
-				printk(KERN_DEBUG "[TouchKey] touchkey release tsp input. \n");
+				/*printk(KERN_DEBUG "[TouchKey] touchkey release tsp input. \n");*/
 				touch_forced_release();
 			}
 
 			input_report_key(touchkey_driver->input_dev,  touchkey_keycode[data[0] & KEYCODE_BIT], 1);
 			input_sync(touchkey_driver->input_dev);
 			
+			/*
 			printk(KERN_DEBUG
 			       "[TouchKey] press keycode:%d \n",
 			       touchkey_keycode[data[0] & KEYCODE_BIT]);
+			*/
 
 #ifdef TEST_JIG_MODE
 			if(touchkey_keycode[data[0] & KEYCODE_BIT] == touchkey_keycode[1])
-				printk(KERN_DEBUG "menu key sensitivity = %d\n",menu_sensitivity);
+				printk(KERN_DEBUG "[TouchKey] menu key sensitivity = %d\n",menu_sensitivity);
 
 			if(touchkey_keycode[data[0] & KEYCODE_BIT] == touchkey_keycode[2])
-				printk(KERN_DEBUG "back key sensitivity = %d\n",back_sensitivity);
+				printk(KERN_DEBUG "[TouchKey] back key sensitivity = %d\n",back_sensitivity);
 #endif
 		}
 	}
@@ -474,6 +445,7 @@ static irqreturn_t touchkey_interrupt(int irq, void *dummy)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static int melfas_touchkey_early_suspend(struct early_suspend *h)
 {
+	touchkey_enable = 0;
 	set_touchkey_debug('S');
 	printk(KERN_DEBUG "[TouchKey] melfas_touchkey_early_suspend\n");
 	if (touchkey_enable < 0) {
@@ -481,8 +453,6 @@ static int melfas_touchkey_early_suspend(struct early_suspend *h)
 		       __func__, touchkey_enable);
 		return 0;
 	}
-
-    touchkey_suspended = true;
 
 	disable_irq(IRQ_TOUCH_INT);
 	gpio_direction_input(_3_GPIO_TOUCH_INT);
@@ -494,39 +464,31 @@ static int melfas_touchkey_early_suspend(struct early_suspend *h)
 	s3c_gpio_setpull(_3_GPIO_TOUCH_INT, S3C_GPIO_PULL_DOWN);
 #endif
 
-#ifdef CONFIG_GENERIC_BLN
-	/*
-	 * Disallow powering off the touchkey controller
-	 * while a led notification is ongoing
-	 */
-	if (!bln_is_enabled()) {
-#else
-	if (1) {
-#endif
-        printk(KERN_DEBUG "[TouchKey] bln_is_enabled=false, set touchkey_enable=0\n");
-    	touchkey_enable = 0;
-		/* disable ldo18 */
-		touchkey_led_ldo_on(0);
-    	/* disable ldo11 */
-	    touchkey_ldo_on(0);
-	}
-#ifdef CONFIG_GENERIC_BLN
-    else {
-		printk(KERN_DEBUG "[TouchKey] bln_is_enabled=true\n");
-		printk(KERN_DEBUG "[TouchKey] wake_lock!!!\n");
-		wake_lock(&touchkey_wake_lock);
-	}
-#endif
+	/* disable ldo18 */
+	touchkey_led_ldo_on(0);
+
+	/* disable ldo11 */
+	touchkey_ldo_on(0);
+
 
 	return 0;
 }
 
+#ifdef CONFIG_GENERIC_BLN
 static void melfas_enable_touchkey_backlights(void) {
 	uint8_t val = 1;
 
 	printk(KERN_DEBUG "[TouchKey] %s\n", __func__);
 
-	touchkey_led_ldo_on(1);
+	if( touchkey_enable == 0 ){
+		printk(KERN_DEBUG "[TouchKey] touchkey wakeup");
+		wake_lock(&touchkey_wake_lock);
+
+		touchkey_ldo_on(1);
+        msleep(50);
+		touchkey_led_ldo_on(1);
+		touchkey_enable = 1;
+	}
 	i2c_touchkey_write(&val, sizeof(val));
 }
 
@@ -542,6 +504,7 @@ static struct bln_implementation cypress_touchkey_bln = {
 	.enable = melfas_enable_touchkey_backlights,
 	.disable = melfas_disable_touchkey_backlights,
 };
+#endif
 
 static int melfas_touchkey_late_resume(struct early_suspend *h)
 {
@@ -556,8 +519,6 @@ static int melfas_touchkey_late_resume(struct early_suspend *h)
 	printk(KERN_DEBUG "[TouchKey] wake_unlock!!!\n");
 	wake_unlock(&touchkey_wake_lock);
 #endif
-
-    touchkey_suspended = false;
 
 	/* enable ldo11 */
 	touchkey_ldo_on(1);
@@ -902,7 +863,7 @@ static ssize_t set_touchkey_update_show(struct device *dev, struct device_attrib
 				count=1;
 				break;
 			}
-			printk(KERN_ERR "touchkey_update failed... retry...\n");
+			printk(KERN_ERR "[TouchKey] touchkey_update failed... retry...\n");
 	}
 	if (retry <= 0) {
 			// disable ldo11
@@ -1079,9 +1040,7 @@ static int __init touchkey_init(void)
 
 	if (device_create_file
 		(touchkey_update_device.this_device, &dev_attr_touch_sensitivity) < 0) {
-		printk(KERN_ERR
-		       "%s device_create_file fail dev_attr_touch_sensitivity\n",
-			__func__);
+		printk(KERN_ERR "%s device_create_file fail dev_attr_touch_sensitivity\n", __func__);
 		printk(KERN_ERR "Failed to create device file(%s)!\n",
 			dev_attr_touch_sensitivity.attr.name);
 	}
@@ -1104,7 +1063,7 @@ static int __init touchkey_init(void)
 	}
 	/* Cypress Firmware Update>>>>>>>>>>
 		i2c_touchkey_read(KEYCODE_REG, data, 3);
-		printk(KERN_ERR "%s F/W version: 0x%x, Module version:0x%x\n", __FUNCTION__, data[1], data[2]);
+		printk(KERN_ERR "[TouchKey] %s F/W version: 0x%x, Module version:0x%x\n", __FUNCTION__, data[1], data[2]);
 		retry = 3;
 
 		touch_version = data[1];
@@ -1115,11 +1074,11 @@ static int __init touchkey_init(void)
 			touchkey_update_status=1;
 			while (retry--) {
 				if (ISSP_main() == 0) {
-					printk(KERN_ERR "[TOUCHKEY]Touchkey_update succeeded\n");
+					printk(KERN_ERR "[TouchKey] Touchkey_update succeeded\n");
 					touchkey_update_status=0;
 					break;
 				}
-				printk(KERN_ERR "touchkey_update failed... retry...\n");
+				printk(KERN_ERR "[TouchKey] touchkey_update failed... retry...\n");
 		   }
 			if (retry <= 0) {
 				// disable ldo11
@@ -1142,14 +1101,13 @@ static int __init touchkey_init(void)
 
 	 <<<<<<<<<<<<<< Cypress Firmware Update */
 
+#ifdef CONFIG_GENERIC_BLN
 	wake_lock_init(&touchkey_wake_lock, WAKE_LOCK_SUSPEND, "touchkey_bln");
+	register_bln_implementation(&cypress_touchkey_bln);
+#endif
 
 #ifdef TEST_JIG_MODE
 	i2c_touchkey_write(&get_touch, 1);
-#endif
-
-#ifdef CONFIG_GENERIC_BLN
-	register_bln_implementation(&cypress_touchkey_bln);
 #endif
 
 	return ret;
@@ -1170,7 +1128,9 @@ static void __exit touchkey_exit(void)
 	gpio_free(_3_GPIO_TOUCH_EN);
 	gpio_free(_3_GPIO_TOUCH_INT);
 
+#ifdef CONFIG_GENERIC_BLN
 	wake_lock_destroy(&touchkey_wake_lock);
+#endif
 }
 
 late_initcall(touchkey_init);
@@ -1179,3 +1139,4 @@ module_exit(touchkey_exit);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("@@@");
 MODULE_DESCRIPTION("melfas touch keypad");
+
