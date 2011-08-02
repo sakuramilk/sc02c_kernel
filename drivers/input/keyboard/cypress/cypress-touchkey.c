@@ -113,7 +113,7 @@ static int i2c_touchkey_probe(struct i2c_client *client,
 
 extern int get_touchkey_firmware(char *version);
 static int touchkey_led_status = 0;
-static int touchled_cmd_reversed=0;
+static int touchled_cmd_reversed = 0;
 
 struct i2c_driver touchkey_i2c_driver = {
 	.driver = {
@@ -131,6 +131,7 @@ extern int touch_is_pressed;
 
 #ifdef CONFIG_GENERIC_BLN
 static struct wake_lock touchkey_wake_lock;
+static bool touchkey_is_suspended = false;
 #endif
 
 static void touch_forced_release(void)
@@ -446,6 +447,7 @@ static irqreturn_t touchkey_interrupt(int irq, void *dummy)
 static int melfas_touchkey_early_suspend(struct early_suspend *h)
 {
 	touchkey_enable = 0;
+	touchkey_is_suspended = true;
 	set_touchkey_debug('S');
 	printk(KERN_DEBUG "[TouchKey] melfas_touchkey_early_suspend\n");
 	if (touchkey_enable < 0) {
@@ -470,14 +472,13 @@ static int melfas_touchkey_early_suspend(struct early_suspend *h)
 	/* disable ldo11 */
 	touchkey_ldo_on(0);
 
-
 	return 0;
 }
 
 #ifdef CONFIG_GENERIC_BLN
 static void touchkey_bln_wakeup(void)
 {
-	printk(KERN_DEBUG "[TouchKey] touchkey wakeup");
+	printk(KERN_DEBUG "[TouchKey] touchkey wakeup wake_lock!!!");
 	wake_lock(&touchkey_wake_lock);
 	touchkey_ldo_on(1);
 	msleep(50);
@@ -487,7 +488,7 @@ static void touchkey_bln_wakeup(void)
 
 static void touchkey_bln_sleep(void)
 {
-	printk(KERN_DEBUG "[TouchKey] touchkey sleep");
+	printk(KERN_DEBUG "[TouchKey] touchkey sleep wake_unlock!!!");
 	touchkey_led_ldo_on(0);
 	touchkey_ldo_on(0);
 	touchkey_enable = 0;
@@ -498,21 +499,29 @@ static void melfas_enable_touchkey_backlights(void) {
 	uint8_t val = 1;
 
 	printk(KERN_DEBUG "[TouchKey] %s\n", __func__);
-
-	if( touchkey_enable == 0 ){
-		touchkey_bln_wakeup();
+	if (touchkey_is_suspended)
+	{
+		if (touchkey_enable == 0) {
+			touchkey_bln_wakeup();
+		}
+		i2c_touchkey_write(&val, sizeof(val));
+		touchkey_led_status = 2;
+		touchled_cmd_reversed = 1;
 	}
-	i2c_touchkey_write(&val, sizeof(val));
 }
 
 static void melfas_disable_touchkey_backlights(void) {
 	uint8_t val = 2;
 
 	printk(KERN_DEBUG "[TouchKey] %s\n", __func__);
-
-	i2c_touchkey_write(&val, sizeof(val));
-	if( touchkey_enable == 1 ){
-		touchkey_bln_sleep();
+	if (touchkey_is_suspended)
+	{
+		i2c_touchkey_write(&val, sizeof(val));
+		if (touchkey_enable == 1) {
+			touchkey_bln_sleep();
+		}
+		touchkey_led_status = 1;
+		touchled_cmd_reversed = 0;
 	}
 }
 
@@ -566,6 +575,7 @@ static int melfas_touchkey_late_resume(struct early_suspend *h)
 
 	enable_irq(IRQ_TOUCH_INT);
 	touchkey_enable = 1;
+	touchkey_is_suspended = false;
 
 	if(touchled_cmd_reversed) {
 		touchled_cmd_reversed = 0;
