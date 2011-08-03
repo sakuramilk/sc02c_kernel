@@ -1,6 +1,8 @@
 #
 # Makefile for the s3c framebuffer driver
 #
+subdir-ccflags-y += -O2
+
 ifeq ($(CONFIG_FB_S3C),y)
 obj-y				+= s3cfb.o
 s3cfb-y				:= s3cfb_main.o s3cfb_ops.o

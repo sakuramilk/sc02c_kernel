@@ -17,8 +17,6 @@
 #include <linux/mutex.h>
 #include <linux/wakelock.h>
 
-//#undef KERN_DEBUG
-//#define KERN_DEBUG KERN_NOTICE
 
 static bool bln_enabled = false; /* is BLN function is enabled */
 static bool bln_ongoing = false; /* ongoing LED Notification */

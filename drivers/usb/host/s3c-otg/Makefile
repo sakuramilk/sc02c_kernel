@@ -1,6 +1,7 @@
 #
 # Makefile for USB OTG Host Controller Drivers
 #
+subdir-ccflags-y += -O2
 
 obj-$(CONFIG_USB_S3C_OTG_HOST) += s3c_otg_hcd.o
 
