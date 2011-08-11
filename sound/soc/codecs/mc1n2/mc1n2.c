@@ -1386,7 +1386,7 @@ static unsigned int mc1n2_read_reg(struct snd_soc_codec *codec, unsigned int reg
 static inline int caribrate_vol(unsigned int reg, int vol, int carib_vol)
 {
 	//printk(KERN_NOTICE "[MCDRV] caribrate_vol reg=%d, vol=%d, carib_vol=%d", reg, vol, carib_vol);
-	if (carib_vol != 0) {
+	if (vol != 0 && carib_vol != 0) {
 		if ((vol + carib_vol) >  mc1n2_vreg_map[reg].size) {
 			vol = mc1n2_vreg_map[reg].size - 1;
 		} else if ((vol + carib_vol) < 0) {
