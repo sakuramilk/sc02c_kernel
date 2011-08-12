@@ -138,7 +138,7 @@ static DEFINE_IDA(cic_index_ida);
  */
 static inline int bfq_bio_sync(struct bio *bio)
 {
-	if (bio_data_dir(bio) == READ || (bio->bi_rw & REQ_SYNC))
+	if (bio_data_dir(bio) == READ || bio_rw_flagged(bio, BIO_RW_SYNCIO))
 		return 1;
 
 	return 0;
@@ -187,9 +187,9 @@ static struct request *bfq_choose_req(struct bfq_data *bfqd,
 		return rq1;
 	else if (rq_is_sync(rq2) && !rq_is_sync(rq1))
 		return rq2;
-	if ((rq1->cmd_flags & REQ_META) && !(rq2->cmd_flags & REQ_META))
+	if (rq_is_meta(rq1) && !rq_is_meta(rq2))
 		return rq1;
-	else if ((rq2->cmd_flags & REQ_META) && !(rq1->cmd_flags & REQ_META))
+	else if (rq_is_meta(rq2) && !rq_is_meta(rq1))
 		return rq2;
 
 	s1 = blk_rq_pos(rq1);
@@ -465,7 +465,7 @@ static void bfq_remove_request(struct request *rq)
 	list_del_init(&rq->queuelist);
 	bfq_del_rq_rb(rq);
 
-	if (rq->cmd_flags & REQ_META) {
+	if (rq_is_meta(rq)) {
 		WARN_ON(bfqq->meta_pending == 0);
 		bfqq->meta_pending--;
 	}
@@ -1662,7 +1662,7 @@ static void bfq_rq_enqueued(struct bfq_data *bfqd, struct bfq_queue *bfqq,
 {
 	struct cfq_io_context *cic = RQ_CIC(rq);
 
-	if (rq->cmd_flags & REQ_META)
+	if (rq_is_meta(rq))
 		bfqq->meta_pending++;
 
 	bfq_update_io_thinktime(bfqd, cic);
@@ -1852,7 +1852,7 @@ static int bfq_may_queue(struct request_queue *q, int rw)
 	if (cic == NULL)
 		return ELV_MQUEUE_MAY;
 
-	bfqq = cic_to_bfqq(cic, rw & REQ_SYNC);
+	bfqq = cic_to_bfqq(cic, rw & REQ_RW_SYNC);
 	if (bfqq != NULL) {
 		bfq_init_prio_data(bfqq, cic->ioc);
 		bfq_prio_boost(bfqq);
