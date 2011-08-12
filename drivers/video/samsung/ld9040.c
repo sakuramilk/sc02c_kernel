@@ -89,7 +89,7 @@ struct ld9040 {
 	struct early_suspend    early_suspend;
 };
 
-static const signed short gamma_adjust_map[] = { 3, 3, 3, 3, 0, 1, 0, -1, 5, 2, 4, 0, 1, 0, -3, 3, 3, 2, 0, -1 };
+static signed short gamma_adjust_map[] = { 3, 3, 3, 3, 0, 1, 0, 1, 5, 2, 4, 0, 1, 0, 3, 3, 3, 2, 0, 1 };
 
 
 static int ld9040_spi_write_byte(struct ld9040 *lcd, int addr, int data)
@@ -868,6 +868,63 @@ static ssize_t ld9040_sysfs_store_user_gamma_adjust(struct device *dev,
 static DEVICE_ATTR(user_gamma_adjust, 0664,
 		ld9040_sysfs_show_user_gamma_adjust, ld9040_sysfs_store_user_gamma_adjust);
 
+static ssize_t ld9040_sysfs_show_user_gamma_adjust_table(struct device *dev,
+				      struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n",
+						gamma_adjust_map[0],
+						gamma_adjust_map[1],
+						gamma_adjust_map[2],
+						gamma_adjust_map[3],
+						gamma_adjust_map[4],
+						gamma_adjust_map[5],
+						gamma_adjust_map[6],
+						gamma_adjust_map[7],
+						gamma_adjust_map[8],
+						gamma_adjust_map[9],
+						gamma_adjust_map[10],
+						gamma_adjust_map[11],
+						gamma_adjust_map[12],
+						gamma_adjust_map[13],
+						gamma_adjust_map[14],
+						gamma_adjust_map[15],
+						gamma_adjust_map[16],
+						gamma_adjust_map[17],
+						gamma_adjust_map[18],
+						gamma_adjust_map[19]);
+}
+
+static ssize_t ld9040_sysfs_store_user_gamma_adjust_table(struct device *dev,
+				       struct device_attribute *attr,
+				       const char *buf, size_t len)
+{
+	struct ld9040 *lcd = dev_get_drvdata(dev);
+	int rc, i, j, k;
+	long v = 0;
+	char temp[50];
+
+	j = k = 0;
+	for (i = 0; i < len; i++) {
+		if (buf[i] != ' ') {
+			temp[j++] = buf[i];
+		} else {
+			temp[j] = '\0';
+			j = 0;
+			strict_strtol(temp, 0, &v);
+			dev_info(lcd->dev, "user_gamma_adjust_table update : gamma_adjust_map[%d] = %d", k, (int)v);
+			gamma_adjust_map[k++] = (int)v;
+		}
+	}
+	temp[j] = '\0';
+	strict_strtol(temp, 0, &v);
+	dev_info(lcd->dev, "user_gamma_adjust_table update : gamma_adjust_map[%d] = %d", k, (int)v);
+	gamma_adjust_map[k++] = (int)v;
+
+	return len;
+}
+
+static DEVICE_ATTR(user_gamma_adjust_table, 0664,
+		ld9040_sysfs_show_user_gamma_adjust_table, ld9040_sysfs_store_user_gamma_adjust_table);
 
 static ssize_t ld9040_sysfs_show_gamma_table(struct device *dev,
 				      struct device_attribute *attr, char *buf)
@@ -1057,6 +1114,10 @@ static int ld9040_probe(struct spi_device *spi)
 		dev_err(&(spi->dev), "failed to add sysfs entries\n");
 
 	ret = device_create_file(&(spi->dev), &dev_attr_user_gamma_adjust);
+	if (ret < 0)
+		dev_err(&(spi->dev), "failed to add sysfs entries\n");
+
+	ret = device_create_file(&(spi->dev), &dev_attr_user_gamma_adjust_table);
 	if (ret < 0)
 		dev_err(&(spi->dev), "failed to add sysfs entries\n");
 
