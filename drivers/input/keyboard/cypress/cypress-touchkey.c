@@ -70,9 +70,6 @@ Melfas touchkey register
 #define TEST_JIG_MODE
 */
 
-#undef KERN_DEBUG
-#define KERN_DEBUG KERN_NOTICE
-
 static int touchkey_keycode[3] = { 0, KEY_MENU, KEY_BACK };
 
 static u8 menu_sensitivity = 0;

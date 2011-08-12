@@ -1,6 +1,7 @@
 #
 # Makefile for the linux kernel.
 #
+subdir-ccflags-y += -O2
 
 obj-y     = sched.o fork.o exec_domain.o panic.o printk.o \
 	    cpu.o exit.o itimer.o time.o softirq.o resource.o \
