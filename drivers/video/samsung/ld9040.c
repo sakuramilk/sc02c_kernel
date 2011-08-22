@@ -431,6 +431,10 @@ static int update_brightness(struct ld9040 *lcd)
 {
 	int ret;
 
+	ret = ld9040_gamma_ctl(lcd);
+	if (ret) {
+		return -1;
+	}
 	ret = ld9040_set_elvss(lcd);
 	if (ret) {
 		return -1;
@@ -441,10 +445,6 @@ static int update_brightness(struct ld9040 *lcd)
 		return -1;
 	}
 
-	ret = ld9040_gamma_ctl(lcd);
-	if (ret) {
-		return -1;
-	}
 
 	return 0;
 }
@@ -601,7 +601,7 @@ static int ld9040_set_brightness(struct backlight_device *bd)
 
 	if ((lcd->ldi_enable) && (lcd->current_brightness != lcd->bl)) {
 		ret = update_brightness(lcd);
-		dev_info(lcd->dev, "(id=%d) brightness=%d, bl=%d\n", lcd->user_lcdtype, bd->props.brightness, lcd->bl);
+		dev_info(lcd->dev, "(id=%d) brightness=%d, bl=%d\n", get_lcdtype, bd->props.brightness, lcd->bl);
 		if (ret < 0) {
 			/*
 			dev_err(&bd->dev, "skip update brightness. because ld9040 is on suspend state...\n");
@@ -746,7 +746,7 @@ static ssize_t ld9040_sysfs_store_gamma_mode(struct device *dev,
 	if (lcd->ldi_enable)
 	{
 		if((lcd->current_brightness == lcd->bl) && (lcd->current_gamma_mode == lcd->gamma_mode))
-			printk("there is no gamma_mode & brightness changed\n");
+			printk("there is no gamma_mode & brightness changed\n");	
 		else	
 			ld9040_gamma_ctl(lcd);
 	}	
