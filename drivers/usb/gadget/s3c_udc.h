@@ -178,8 +178,8 @@ struct s3c_udc {
 #endif
 	struct platform_device *dev;
 	spinlock_t lock;
-	u16 status;
 #ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+	u16 status;
 	struct regulator *udc_vcc_d, *udc_vcc_a;
         int udc_enabled;
 	atomic_t usb_status;
