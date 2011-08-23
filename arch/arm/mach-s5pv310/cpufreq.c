@@ -64,8 +64,6 @@ static int s5pv310_dvs_locking;
 static bool s5pv310_cpufreq_init_done;
 static DEFINE_MUTEX(set_cpu_freq_change);
 static DEFINE_MUTEX(set_cpu_freq_lock);
-static void s5pv310_asv_set_voltage();
-static int s5pv310_update_dvfs_table();
 
 #undef HAVE_DAC
 
@@ -2329,7 +2327,7 @@ static int s5pv310_asv_table_update(void)
 	return 0;
 }
 
-static void s5pv310_asv_set_voltage()
+static inline void s5pv310_asv_set_voltage()
 {
 	unsigned int asv_arm_index, asv_int_index;
 	unsigned int asv_arm_volt, asv_int_volt;
@@ -2399,7 +2397,7 @@ static void s5pv310_asv_set_voltage()
 
 #endif
 
-static int s5pv310_update_dvfs_table()
+static inline int s5pv310_update_dvfs_table()
 {
 	unsigned int i, j;
 	int ret = 0;

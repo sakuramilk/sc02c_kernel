@@ -355,7 +355,7 @@ static unsigned int decideNextStatus(unsigned int utilization)
 
 extern struct s5pv310_asv_info asv_info;
 
-static mali_bool mali_dvfs_table_update()
+static inline mali_bool mali_dvfs_table_update()
 {
 	switch(asv_info.asv_num)
 	{
