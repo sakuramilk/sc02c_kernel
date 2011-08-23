@@ -2115,7 +2115,7 @@ static DEVICE_ATTR(dbg_switch, S_IRUGO | S_IWUSR | S_IWGRP, NULL, mxt224_debug_s
 static struct attribute *qt602240_attrs[] = {
 	&dev_attr_object_show.attr,
 	&dev_attr_object_write.attr,
-	&dev_attr_dbg_switch,
+	&dev_attr_dbg_switch.attr,
 	NULL
 };
 
