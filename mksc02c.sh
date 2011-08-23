@@ -5,15 +5,15 @@ echo "SC-02C KERNEL IMAGE BUILD START!!!"
 read -p "build? [(a)ll/(u)pdate/(z)Image default:update] " ANS
 
 echo "copy initramfs..."
-if [ -e /tmp/sc02c/initramfs ]; then
-  rm -rf /tmp/sc02c/initramfs
+if [ -e /tmp/sc02c_initramfs ]; then
+  rm -rf /tmp/sc02c_initramfs
 fi
-if [ ! -e /tmp/sc02c ]; then
-  mkdir /tmp/sc02c
+if [ ! -e /tmp/sc02c_initramfs ]; then
+  mkdir /tmp/sc02c_initramfs
 fi
-cp -a ../initramfs /tmp/sc02c/
-rm -rf /tmp/sc02c/initramfs/.git
-find /tmp/sc02c/initramfs -name .gitignore | xargs rm
+cp -a ../sc02c_initramfs /tmp/sc02c_initramfs/
+rm -rf /tmp/sc02c_initramfs/.git
+find /tmp/sc02c_initramfs -name .gitignore | xargs rm
 
 # make start
 if [ "$ANS" = 'all' -o "$ANS" = 'a' ]; then
@@ -33,7 +33,7 @@ if [ "$ANS" != 'zImage' -a "$ANS" != 'z' ]; then
     exit
   fi
   # *.ko replace
-  find -name '*.ko' -exec cp -av {} /tmp/sc02c/initramfs/lib/modules/ \;
+  find -name '*.ko' -exec cp -av {} /tmp/sc02c_initramfs/lib/modules/ \;
 fi
 
 # build zImage
