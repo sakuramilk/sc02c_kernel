@@ -605,7 +605,7 @@ static int m5mo_dump_fw(struct v4l2_subdev *sd)
 {
 	struct file *fp;
 	mm_segment_t old_fs;
-	u8 *buf, val;
+	u8 *buf = NULL, val;
 	u32 addr, unit, count, intram_unit = 0x1000;
 	int i, j, err;
 
@@ -1592,7 +1592,7 @@ retry:
 static int m5mo_set_touch_auto_focus(struct v4l2_subdev *sd, int val)
 {
 	struct m5mo_state *state = to_state(sd);
-	int err;
+	int err = 0;
 	cam_info("%s\n", val ? "start" : "stop");
 
 	state->focus.touch = val;

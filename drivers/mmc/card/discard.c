@@ -774,7 +774,7 @@ static int _dbg_proc_read(char *page, char **start, off_t offset, int count, int
         p += sprintf(p, "<Device Info>\n");
         p += sprintf(p, "     (start, length)         : (0x%x, 0x%x)\n", dc->card_start, dc->card_len);
         p += sprintf(p, "     (opti, thres, maxi)     : (0x%x, 0x%x, 0x%x)\n", dc->optimal_size, dc->threshold_size, dc->maximum_size);
-        p += sprintf(p, "     (idle flag)             : (%d)\n", dc->idle_flag);
+        p += sprintf(p, "     (idle flag)             : (%d)\n", atomic_read(&dc->idle_flag));
 
         for (node = dc->hlru.next, hc = 0; node != &dc->hlru; node = node->next, hc++);
         for (node = dc->llru.next, lc = 0; node != &dc->llru; node = node->next, lc++);    

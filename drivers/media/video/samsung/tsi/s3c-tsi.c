@@ -743,7 +743,7 @@ static int s3c_tsi_probe(struct platform_device *pdev)
 	tsi_priv->tsi_buf_size = TSI_BUF_SIZE;
 
 	tsi_priv->tsi_clk = clk_get(NULL, "tsi");
-	printk("Clk Get Result %x\n", tsi_priv->tsi_clk);
+	printk("Clk Get Result %lx\n", (long)tsi_priv->tsi_clk);
 	if (tsi_priv->tsi_clk == NULL)	{
 			printk(KERN_ERR "Failed to get TSI clock\n");
 			return -ENOENT;

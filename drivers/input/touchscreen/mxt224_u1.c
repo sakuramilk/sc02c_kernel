@@ -2349,7 +2349,7 @@ static int __devinit mxt224_probe(struct i2c_client *client, const struct i2c_de
 	u8 **tsp_config;
 	u16 size_one;
 	u8 user_info_value;
-	u16 obj_address;
+	u16 obj_address = 0;
 
 	touch_is_pressed = 0;
 
@@ -2432,10 +2432,10 @@ static int __devinit mxt224_probe(struct i2c_client *client, const struct i2c_de
 	}
 
 	if (data->family_id == 0x80) {	/*  : MXT-224 */
-		tsp_config = pdata->config;
+		tsp_config = (u8 **)pdata->config;
 		printk(KERN_ERR "[TSP] TSP chip is MXT224\n");
 	} else if (data->family_id == 0x81)  {	/* tsp_family_id - 0x81 : MXT-224E */
-		tsp_config = pdata->config_e;
+		tsp_config = (u8 **)pdata->config_e;
 		printk(KERN_ERR "[TSP] TSP chip is MXT224-E\n");
 		atchcalst = 8;/*9*/
 		atchcalsthr = 8;/*35*/

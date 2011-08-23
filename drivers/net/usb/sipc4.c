@@ -298,7 +298,7 @@ static int sipc4_check_hdlc_start(struct sipc4_rx_data *data, char *buf)
 static void print_buf(const char *buf, size_t len, const char* tag)
 {
 	int i;
-	char *b = buf;
+	const char *b = buf;
 
 	for(i=0;i < len/16 + 1; i++) {
 		printk(KERN_DEBUG

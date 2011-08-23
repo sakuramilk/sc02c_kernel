@@ -102,7 +102,7 @@ static int conf_askvalue(struct symbol *sym, const char *def)
 		check_stdin();
 	case ask_all:
 		fflush(stdout);
-		fgets(line, 128, stdin);
+		if (fgets(line, 128, stdin) == NULL) return 0;
 		return 1;
 	default:
 		break;
@@ -304,7 +304,7 @@ static int conf_choice(struct menu *menu)
 			check_stdin();
 		case ask_all:
 			fflush(stdout);
-			fgets(line, 128, stdin);
+			if (fgets(line, 128, stdin)) return 0;
 			strip(line);
 			if (line[0] == '?') {
 				print_help(menu);

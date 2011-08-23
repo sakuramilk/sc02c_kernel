@@ -64,6 +64,8 @@ static int s5pv310_dvs_locking;
 static bool s5pv310_cpufreq_init_done;
 static DEFINE_MUTEX(set_cpu_freq_change);
 static DEFINE_MUTEX(set_cpu_freq_lock);
+static void s5pv310_asv_set_voltage();
+static int s5pv310_update_dvfs_table();
 
 #undef HAVE_DAC
 
@@ -1922,8 +1924,8 @@ static int iem_clock_init(void)
 	struct clk *clk_hpm;
 	struct clk *clk_copy;
 	struct clk *clk_parent;
-	struct clk *clk_iec;
-	struct clk *clk_apc;
+	//struct clk *clk_iec;
+	//struct clk *clk_apc;
 
 	/* PWI clock setting */
 	clk_copy = clk_get(NULL, "sclk_pwi");
@@ -2067,9 +2069,9 @@ static int s5pv310_asv_init(void)
 		printk(KERN_INFO "ASV : hpm[%d] = %d value\n", i, hpm[i]);
 
 	sum_result /= LOOP_CNT;
-	printk(KERN_INFO "ASV : sum average value : %d\n", sum_result);
+	printk(KERN_INFO "ASV : sum average value : %ld\n", sum_result);
 	sum_result -= 1;
-	printk(KERN_INFO "ASV : hpm value %d\n", sum_result);
+	printk(KERN_INFO "ASV : hpm value %ld\n", sum_result);
 
 	/* hpm clock gate disable */
 	clk_disable(clk_hpm);

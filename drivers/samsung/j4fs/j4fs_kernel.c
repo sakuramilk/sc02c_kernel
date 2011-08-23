@@ -234,7 +234,7 @@ int j4fs_write_begin(struct file *filp, struct address_space *mapping,
 	T(J4FS_TRACE_FS, ("start j4fs_write_begin\n"));
 
 	if(to>PAGE_CACHE_SIZE) {
-		T(J4FS_TRACE_ALWAYS,("%s %d: page size overflow(pos,index,offset,len,to)=(%d,%d,%d,%d,%d)\n",__FUNCTION__,__LINE__,pos,index,offset,len,to));
+		T(J4FS_TRACE_ALWAYS,("%s %d: page size overflow(pos,index,offset,len,to)=(%d,%ld,%ld,%d,%d)\n",__FUNCTION__,__LINE__,pos,index,offset,len,to));
 		j4fs_panic("page size overflow");
 		return -ENOSPC;
 	}
@@ -1221,7 +1221,7 @@ int j4fs_fill_super(struct super_block *sb, void *data, int silent)
 	struct j4fs_sb_info * sbi;
 	struct j4fs_super_block * es;
 	struct inode *root;
-	u32 tmp, len,ret;
+	u32 ret;
 
 	T(J4FS_TRACE_FS,("%s %d\n",__FUNCTION__,__LINE__));
 

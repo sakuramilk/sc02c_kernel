@@ -899,7 +899,7 @@ static ssize_t ld9040_sysfs_store_user_gamma_adjust_table(struct device *dev,
 				       const char *buf, size_t len)
 {
 	struct ld9040 *lcd = dev_get_drvdata(dev);
-	int rc, i, j, k;
+	int i, j, k;
 	long v = 0;
 	char temp[50];
 

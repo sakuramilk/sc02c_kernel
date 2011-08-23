@@ -1642,6 +1642,7 @@ int fsd_mark_invalid()
 	BYTE *buf;
 	buf=kmalloc(J4FS_BASIC_UNIT_SIZE,GFP_NOFS);
 #else
+#error EEEEEEEEEEEEEE
 	BYTE buf[J4FS_BASIC_UNIT_SIZE];
 #endif
 
