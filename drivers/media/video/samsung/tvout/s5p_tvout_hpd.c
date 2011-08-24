@@ -430,7 +430,7 @@ static irqreturn_t s5p_hpd_irq_handler(int irq, void *dev_id)
 	return ret;
 }
 
-static int __init s5p_hpd_probe(struct platform_device *pdev)
+static int s5p_hpd_probe(struct platform_device *pdev)
 {
 	struct s5p_platform_hpd *pdata;
 	int ret;

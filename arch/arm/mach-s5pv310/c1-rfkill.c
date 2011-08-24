@@ -284,7 +284,7 @@ static const struct rfkill_ops btsleep_rfkill_ops = {
 };
 #endif
 
-static int __init crespo_rfkill_probe(struct platform_device *pdev)
+static int crespo_rfkill_probe(struct platform_device *pdev)
 {
 	int irq;
 	int ret;

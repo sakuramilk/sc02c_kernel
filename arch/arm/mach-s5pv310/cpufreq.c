@@ -2327,7 +2327,7 @@ static int s5pv310_asv_table_update(void)
 	return 0;
 }
 
-static inline void s5pv310_asv_set_voltage()
+static inline void s5pv310_asv_set_voltage(void)
 {
 	unsigned int asv_arm_index, asv_int_index;
 	unsigned int asv_arm_volt, asv_int_volt;
@@ -2397,7 +2397,7 @@ static inline void s5pv310_asv_set_voltage()
 
 #endif
 
-static inline int s5pv310_update_dvfs_table()
+static inline int s5pv310_update_dvfs_table(void)
 {
 	unsigned int i, j;
 	int ret = 0;
