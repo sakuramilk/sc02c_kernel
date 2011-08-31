@@ -379,6 +379,7 @@ static int product_matches_functions(struct android_usb_product *p)
 	return 1;
 }
 
+#ifndef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 static int get_vendor_id(struct android_dev *dev)
 {
 	struct android_usb_product *p = dev->products;
@@ -394,6 +395,7 @@ static int get_vendor_id(struct android_dev *dev)
 	/* use default vendor ID */
 	return dev->vendor_id;
 }
+#endif /* CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE */
 
 static int get_product_id(struct android_dev *dev)
 {
