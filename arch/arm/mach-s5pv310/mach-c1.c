@@ -3034,7 +3034,7 @@ static u8 t8_config[] = {GEN_ACQUISITIONCONFIG_T8,
 static u8 t9_config[] = {TOUCH_MULTITOUCHSCREEN_T9,
 				131, 0, 0, 19, 11, 0, 32, MXT224_THRESHOLD, 2, 1,
 				0,
-				15,		/* MOVHYSTI */
+				5,		/* MOVHYSTI */
 				1, 11, MXT224_MAX_MT_FINGERS, 5, 40, 10, 31, 3,
 				223, 1, 0, 0, 0, 0, 143, 55, 143, 90, 18};
 
@@ -5691,12 +5691,14 @@ static struct platform_device *smdkc210_devices[] __initdata = {
 #ifdef CONFIG_USB_GADGET
 	&s3c_device_usbgadget,
 #endif
+#ifdef CONFIG_USB_ANDROID
+	&s3c_device_android_usb,
+#ifdef CONFIG_USB_ANDROID_MASS_STORAGE
+	&s3c_device_usb_mass_storage,
+#endif
 #ifdef CONFIG_USB_ANDROID_RNDIS
 	&s3c_device_rndis,
 #endif
-#ifdef CONFIG_USB_ANDROID
-	&s3c_device_android_usb,
-	&s3c_device_usb_mass_storage,
 #endif
 #ifdef CONFIG_USB_S3C_OTG_HOST
 	&s3c_device_usb_otghcd,
@@ -5896,6 +5898,9 @@ static void c1_reboot(char str, const char *cmd)
 			writel(REBOOT_PREFIX | REBOOT_MODE_RECOVERY,
 			       S5P_INFORM3);
 		else if (!strcmp(cmd, "download"))
+			writel(REBOOT_PREFIX | REBOOT_MODE_DOWNLOAD,
+			       S5P_INFORM3);
+		else if (!strcmp(cmd, "bootloader"))
 			writel(REBOOT_PREFIX | REBOOT_MODE_DOWNLOAD,
 			       S5P_INFORM3);
 		else if (!strcmp(cmd, "upload"))
@@ -6234,6 +6239,8 @@ static void __init smdkc210_machine_init(void)
 	s3c_usb_set_serial();
 /* Changes value of nluns in order to use external storage */
 	usb_device_init();
+#else
+    s3c_usb_otg_composite_pdata(&fb_platform_data);
 #endif
 
 /* klaatu: semaphore logging code - for debug  */

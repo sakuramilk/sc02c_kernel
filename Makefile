@@ -190,6 +190,7 @@ SUBARCH := $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
 export KBUILD_BUILDHOST := $(SUBARCH)
 ARCH		?= arm
 CROSS_COMPILE	?= /opt/toolchains/arm-2009q3/bin/arm-none-linux-gnueabi-
+#CROSS_COMPILE  ?= /opt/toolchains/arm-2011.03/bin/arm-none-eabi-
 CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
 
 # Architecture as present in compile.h
@@ -354,9 +355,14 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -Werror-implicit-function-declaration \
 		   -Wno-array-bounds -Wno-format-security \
 		   -fno-delete-null-pointer-checks \
-		   -g -O3 -march=armv7-a -mtune=cortex-a9 \
-		   -mfpu=neon -mfloat-abi=softfp -mvectorize-with-neon-quad \
-		   -fomit-frame-pointer -fstrength-reduce
+		   -g -O3 -march=armv7-a -mtune=cortex-a9 -mfpu=neon -mfloat-abi=softfp \
+		   -mvectorize-with-neon-quad \
+		   -pipe -fomit-frame-pointer -fstrength-reduce \
+		   -funit-at-a-time -fomit-frame-pointer \
+		   -fno-var-tracking -ftree-vectorize -ftracer \
+		   -floop-interchange -floop-strip-mine -floop-block -frename-registers \
+		   -funsafe-loop-optimizations -ffast-math \
+		   -fgcse-sm -fgcse-las -fgcse-after-reload
 #change@wtl.kSingh - enabling FIPS mode - starts
 ifeq ($(USE_SEC_FIPS_MODE),true)
 KBUILD_CFLAGS += -DSEC_FIPS_ENABLED

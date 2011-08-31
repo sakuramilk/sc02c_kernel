@@ -716,7 +716,9 @@ void s3cfb_late_resume(struct early_suspend *h)
 	struct s3cfb_global *fbdev[2];
 	int i, j;
 	struct platform_device *pdev = to_platform_device(info->dev);
+#ifdef CONFIG_FB_S3C_MDNIE
 	u32 reg;
+#endif
 
 	printk("+s3cfb_late_resume()\n");
 	//dev_dbg(info->dev, "wake up from suspend\n");

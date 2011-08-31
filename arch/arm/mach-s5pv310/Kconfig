@@ -545,4 +545,20 @@ config FREQ_STEP_UP_L2_L0
 	 ("Frequecy 3-step up: Other->L2->L1->L0 for CPU Freq")
 endmenu
 
+menu "CPUFreq overclock"
+config FREQ_OVERCLOCK
+	bool "Frequecy overclock 1504MHz"
+	default n
+	help
+	 This option makes to overclock frequecy 1200MHz to 1504MHz.
+endmenu
+
+menu "build target CyanogenMod7"
+config BUILD_TARGET_CM7
+	bool "CM7"
+	default n
+	help
+	 This option makes to select build target CyanogenMod7.
+endmenu
+
 endif

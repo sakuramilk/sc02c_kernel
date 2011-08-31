@@ -76,12 +76,12 @@ static const char longname[] = "Gadget Android";
 
 /* Default vendor and product IDs, overridden by platform data */
 #ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
-#  define VENDOR_ID		0x04e8	/* SAMSUNG */
+#  define VENDOR_ID       0x04e8 /* SAMSUNG */
 /* soonyong.cho : default product id refered as <plat/devs.h> */
-#  define PRODUCT_ID		SAMSUNG_DEBUG_PRODUCT_ID
+#  define PRODUCT_ID      SAMSUNG_DEBUG_PRODUCT_ID
 #else /* Original VID & PID */
-#  define VENDOR_ID		0x18D1
-#  define PRODUCT_ID		0x0001
+#  define VENDOR_ID       0x18D1
+#  define PRODUCT_ID      0x0001
 #endif /* CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE */
 
 
@@ -93,6 +93,7 @@ struct android_dev {
 	int num_functions;
 	char **functions;
 
+	int vendor_id;
 	int product_id;
 	int version;
 #ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
@@ -149,7 +150,11 @@ static struct usb_device_descriptor device_desc = {
 };
 
 static struct list_head _functions = LIST_HEAD_INIT(_functions);
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 static int _registered_function_count = 0;
+#else
+static bool _are_functions_bound;
+#endif
 
 #ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 static void samsung_enable_function(int mode);
@@ -166,18 +171,18 @@ static struct android_usb_function *get_function(const char *name)
 	return 0;
 }
 
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 static void bind_functions(struct android_dev *dev)
 {
 	struct android_usb_function	*f;
 	char **functions = dev->functions;
 	int i;
 
-#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE /* soonyong.cho : Just review bind functions */
+	/* Just review bind functions */
 	list_for_each_entry(f, &_functions, list) {
 		CSY_DBG("functions->name=%s\n", f->name);
 	}
 
-#endif /* CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE */
 	for (i = 0; i < dev->num_functions; i++) {
 		char *name = *functions++;
 		CSY_DBG2("func->name=%s\n",name);
@@ -190,6 +195,69 @@ static void bind_functions(struct android_dev *dev)
 			printk(KERN_ERR "function %s not found in bind_functions\n", name);
 	}
 }
+#else
+static bool are_functions_registered(struct android_dev *dev)
+{
+	char **functions = dev->functions;
+	int i;
+
+    /* Look only for functions required by the board config */
+	for (i = 0; i < dev->num_functions; i++) {
+		char *name = *functions++;
+		bool is_match = false;
+		/* Could reuse get_function() here, but a reverse search
+		 * should yield less comparisons overall */
+		struct android_usb_function *f;
+		list_for_each_entry_reverse(f, &_functions, list) {
+			if (!strcmp(name, f->name)) {
+				is_match = true;
+				break;
+			}
+		}
+		if (is_match)
+			continue;
+		else
+			return false;
+	}
+
+	return true;
+}
+
+static bool should_bind_functions(struct android_dev *dev)
+{
+	/* Don't waste time if the main driver hasn't bound */
+	if (!dev->config)
+		return false;
+
+	/* Don't waste time if we've already bound the functions */
+	if (_are_functions_bound)
+		return false;
+
+	/* This call is the most costly, so call it last */
+	if (!are_functions_registered(dev))
+		return false;
+
+	return true;
+}
+
+static void bind_functions(struct android_dev *dev)
+{
+	struct android_usb_function	*f;
+	char **functions = dev->functions;
+	int i;
+
+	for (i = 0; i < dev->num_functions; i++) {
+		char *name = *functions++;
+		f = get_function(name);
+		if (f)
+			f->bind_config(dev->config);
+		else
+			printk(KERN_ERR "function %s not found in bind_functions\n", name);
+	}
+
+	_are_functions_bound = true;
+}
+#endif /* CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE */
 
 
 
@@ -202,7 +270,11 @@ static int android_bind_config(struct usb_configuration *c)
 	dev->config = c;
 
 	/* bind our functions if they have all registered */
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 	if (_registered_function_count == dev->num_functions)
+#else
+	if (should_bind_functions(dev))
+#endif
 		bind_functions(dev);
 
 	return 0;
@@ -211,9 +283,6 @@ static int android_bind_config(struct usb_configuration *c)
 #ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 /* soonyong.cho : It is default config string. It'll be changed to real config string when last function driver is registered. */
 #  define       ANDROID_DEFAULT_CONFIG_STRING "Samsung Android Shared Config"	/* android default config string */
-#else /* original */
-#  define	ANDROID_DEBUG_CONFIG_STRING "UMS + ADB (Debugging mode)"
-#  define	ANDROID_NO_DEBUG_CONFIG_STRING "UMS Only (Not debugging mode)"
 #endif /* CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE */
 
 static int android_setup_config(struct usb_configuration *c,
@@ -224,13 +293,16 @@ static struct usb_configuration android_config_driver = {
 /* soonyong.cho : usb default config string */
 	.label		= ANDROID_DEFAULT_CONFIG_STRING,
 #else /* original */
-	.label		= ANDROID_NO_DEBUG_CONFIG_STRING,
+	.label		= "android",
 #endif /* CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE */
 	.bind		= android_bind_config,
 	.setup		= android_setup_config,
 	.bConfigurationValue = 1,
 	.bmAttributes	= USB_CONFIG_ATT_ONE | USB_CONFIG_ATT_SELFPOWER,
 #ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+/* soonyong.cho : This value of max power is referred from S1 */
+	.bMaxPower	= 0x30, /* 96ma */
+#elif CONFIG_MACH_C1
 /* soonyong.cho : This value of max power is referred from S1 */
 	.bMaxPower	= 0x30, /* 96ma */
 #else /* original */
@@ -283,8 +355,14 @@ static int product_has_function(struct android_usb_product *p,
 
 	CSY_DBG2("find name=%s\n",name);
 	for (i = 0; i < count; i++) {
+         /* For functions with multiple instances, usb_function.name
+		 * will have an index appended to the core name (ex: acm0),
+		 * while android_usb_product.functions[i] will only have the
+		 * core name (ex: acm). So, only compare up to the length of
+		 * android_usb_product.functions[i].
+		 */
 		CSY_DBG2("product func[%d]=%s\n",i, *functions);
-		if (!strcmp(name, *functions++))
+		if (!strncmp(name, functions[i], strlen(functions[i])))
 			return 1;
 	}
 	return 0;
@@ -299,6 +377,22 @@ static int product_matches_functions(struct android_usb_product *p)
 			return 0;
 	}
 	return 1;
+}
+
+static int get_vendor_id(struct android_dev *dev)
+{
+	struct android_usb_product *p = dev->products;
+	int count = dev->num_products;
+	int i;
+
+	if (p) {
+		for (i = 0; i < count; i++, p++) {
+			if (p->vendor_id && product_matches_functions(p))
+				return p->vendor_id;
+		}
+	}
+	/* use default vendor ID */
+	return dev->vendor_id;
 }
 
 static int get_product_id(struct android_dev *dev)
@@ -322,7 +416,10 @@ static int android_bind(struct usb_composite_dev *cdev)
 {
 	struct android_dev *dev = _android_dev;
 	struct usb_gadget	*gadget = cdev->gadget;
-	int			gcnum, id, product_id, ret;
+	int			gcnum, id, ret;
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+	int			product_id;
+#endif
 	
 	CSY_DBG2("++\n");
 	printk(KERN_INFO "android_bind\n");
@@ -381,8 +478,14 @@ static int android_bind(struct usb_composite_dev *cdev)
 
 	usb_gadget_set_selfpowered(gadget);
 	dev->cdev = cdev;
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 	product_id = get_product_id(dev);
 	device_desc.idProduct = __constant_cpu_to_le16(product_id);
+#else
+	device_desc.idVendor = __constant_cpu_to_le16(get_vendor_id(dev));
+	device_desc.idProduct = __constant_cpu_to_le16(get_product_id(dev));
+	cdev->desc.idVendor = device_desc.idVendor;
+#endif
 	cdev->desc.idProduct = device_desc.idProduct;
 
 	CSY_DBG_ESS("bind pid=0x%x,vid=0x%x,bcdDevice=0x%x,serial=%s\n", 
@@ -405,13 +508,20 @@ void android_register_function(struct android_usb_function *f)
 
 	printk(KERN_INFO "android_register_function %s\n", f->name);
 	list_add_tail(&f->list, &_functions);
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 	_registered_function_count++;
+#endif
 
 	/* bind our functions if they have all registered
 	 * and the main driver has bound.
 	 */
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 	CSY_DBG("name=%s, registered_function_count=%d, dev->num_functions=%d\n",f->name, _registered_function_count, dev->num_functions);
 	if (dev && dev->config && _registered_function_count == dev->num_functions) {
+#else
+	CSY_DBG("name=%s, dev->num_functions=%d\n",f->name, dev->num_functions);
+	if (dev && should_bind_functions(dev))
+#endif
 		bind_functions(dev);
 #ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 /* Change usb mode when device register last function driver */
@@ -422,7 +532,7 @@ void android_register_function(struct android_usb_function *f)
  *		  Do not enable udc. USB switch must call usb cable handler when cable status is changed.
  */
 		CSY_DBG_ESS("Don't enable udc.\n");
-#  else
+#  else /* CSY_USE_SAFE_USB_SWITCH */
 		if(dev->cdev) {
 			CSY_DBG("dev->cdev=0x%p\n", dev->cdev);
 			if(dev->cdev->gadget) {
@@ -439,9 +549,9 @@ void android_register_function(struct android_usb_function *f)
 				}
 			}
 		}
-#  endif
-#endif
+#  endif /* CSY_USE_SAFE_USB_SWITCH */
 	}
+#endif /* CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE */
 }
 
 #ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
@@ -608,17 +718,12 @@ void android_enable_function(struct usb_function *f, int enable)
 {
 	struct android_dev *dev = _android_dev;
 	int disable = !enable;
-	int product_id;
+
+    CSY_DBG_ESS("++ f->name=%s enable=%d\n", f->name, enable);
 
 	if (!!f->disabled != disable) {
 		usb_function_set_enabled(f, !disable);
-		if (!strcmp(f->name, "adb"))
-		{
-			if (enable)
-				android_config_driver.label = ANDROID_DEBUG_CONFIG_STRING;
-			else
-				android_config_driver.label = ANDROID_NO_DEBUG_CONFIG_STRING;
-		}
+
 #ifdef CONFIG_USB_ANDROID_RNDIS
 		if (!strcmp(f->name, "rndis")) {
 			struct usb_function		*func;
@@ -646,19 +751,28 @@ void android_enable_function(struct usb_function *f, int enable)
 			}
 		}
 #endif
+#ifdef CONFIG_USB_ANDROID_ACCESSORY
+		if (!strcmp(f->name, "accessory") && enable) {
+			struct usb_function		*func;
 
-		product_id = get_product_id(dev);
-		device_desc.idProduct = __constant_cpu_to_le16(product_id);
-		if (dev->cdev)
+		    /* disable everything else (and keep adb for now) */
+			list_for_each_entry(func, &android_config_driver.functions, list) {
+				if (strcmp(func->name, "accessory")
+					&& strcmp(func->name, "adb")) {
+					usb_function_set_enabled(func, 0);
+				}
+			}
+        }
+#endif
+
+		device_desc.idVendor = __constant_cpu_to_le16(get_vendor_id(dev));
+		device_desc.idProduct = __constant_cpu_to_le16(get_product_id(dev));
+		if (dev->cdev) {
+			dev->cdev->desc.idVendor = device_desc.idVendor;
 			dev->cdev->desc.idProduct = device_desc.idProduct;
-	//	usb_composite_force_reset(dev->cdev);
-	/* force reenumeration */
-		if (dev->cdev && dev->cdev->gadget &&
-				dev->cdev->gadget->speed != USB_SPEED_UNKNOWN) {
-			usb_gadget_disconnect(dev->cdev->gadget);
-			msleep(10);
-			usb_gadget_connect(dev->cdev->gadget);
 		}
+
+		usb_composite_force_reset(dev->cdev);
 	}
 }
 #endif /* CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE */
@@ -872,9 +986,13 @@ static int android_probe(struct platform_device *pdev)
 		dev->num_products = pdata->num_products;
 		dev->functions = pdata->functions;
 		dev->num_functions = pdata->num_functions;
-		if (pdata->vendor_id)
+		if (pdata->vendor_id) {
+#ifndef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+			dev->vendor_id = pdata->vendor_id;
+#endif
 			device_desc.idVendor =
 				__constant_cpu_to_le16(pdata->vendor_id);
+		}
 		if (pdata->product_id) {
 			dev->product_id = pdata->product_id;
 			device_desc.idProduct =
