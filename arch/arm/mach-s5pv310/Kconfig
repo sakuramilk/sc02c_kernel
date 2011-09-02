@@ -547,10 +547,10 @@ endmenu
 
 menu "CPUFreq overclock"
 config FREQ_OVERCLOCK
-	bool "Frequecy overclock 1504MHz"
+	bool "Frequecy overclock 1600MHz"
 	default n
 	help
-	 This option makes to overclock frequecy 1200MHz to 1504MHz.
+	 This option makes to overclock frequecy 1200MHz to 1600MHz.
 endmenu
 
 menu "build target CyanogenMod7"

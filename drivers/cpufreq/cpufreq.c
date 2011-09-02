@@ -28,6 +28,8 @@
 #include <linux/cpu.h>
 #include <linux/completion.h>
 #include <linux/mutex.h>
+#include <linux/cpucust.h>
+
 
 #define dprintk(msg...) cpufreq_debug_printk(CPUFREQ_DEBUG_CORE, \
 						"cpufreq-core", msg)
@@ -662,6 +664,89 @@ static ssize_t show_bios_limit(struct cpufreq_policy *policy, char *buf)
 	return sprintf(buf, "%u\n", policy->cpuinfo.max_freq);
 }
 
+/* UV control table */
+int exp_UV_mV[CUST_ARM_CLK_L_MAX] = {
+                                       CUST_ARM_V_L0,
+                                       CUST_ARM_V_L1,
+                                       CUST_ARM_V_L2,
+                                       CUST_ARM_V_L3,
+                                       CUST_ARM_V_L4,
+#ifdef CUST_ARM_CLK_L5
+                                       CUST_ARM_V_L5,
+#endif
+#ifdef CUST_ARM_CLK_L6
+                                       CUST_ARM_V_L6,
+#endif
+                                     };
+
+/* sysfs interface for UV control */
+static ssize_t show_UV_mV_table(struct cpufreq_policy *policy, char *buf) {
+	return sprintf(buf,
+					"%dmhz: %d mV\n"
+					"%dmhz: %d mV\n"
+					"%dmhz: %d mV\n"
+					"%dmhz: %d mV\n"
+					"%dmhz: %d mV\n"
+#ifdef CUST_ARM_CLK_L5
+					"%dmhz: %d mV\n"
+#endif
+#ifdef CUST_ARM_CLK_L6
+					"%dmhz: %d mV\n"
+#endif
+					,CUST_ARM_CLK_L0/1000, exp_UV_mV[0]/1000
+					,CUST_ARM_CLK_L1/1000, exp_UV_mV[1]/1000
+					,CUST_ARM_CLK_L2/1000, exp_UV_mV[2]/1000
+					,CUST_ARM_CLK_L3/1000, exp_UV_mV[3]/1000
+					,CUST_ARM_CLK_L4/1000, exp_UV_mV[4]/1000
+#ifdef CUST_ARM_CLK_L5
+					,CUST_ARM_CLK_L5/1000, exp_UV_mV[5]/1000
+#endif
+#ifdef CUST_ARM_CLK_L6
+					,CUST_ARM_CLK_L6/1000, exp_UV_mV[6]/1000
+#endif
+					);
+}
+
+static ssize_t store_UV_mV_table(struct cpufreq_policy *policy,
+									const char *buf, size_t count) {
+	unsigned int ret = -EINVAL;
+	int i;
+
+	ret = sscanf(buf,
+					"%d"
+					" %d"
+					" %d"
+					" %d"
+					" %d"
+#ifdef CUST_ARM_CLK_L5
+					" %d"
+#endif
+#ifdef CUST_ARM_CLK_L6
+					" %d"
+#endif
+					,&exp_UV_mV[0]
+					,&exp_UV_mV[1]
+					,&exp_UV_mV[2]
+					,&exp_UV_mV[3]
+					,&exp_UV_mV[4]
+#ifdef CUST_ARM_CLK_L5
+					,&exp_UV_mV[5]
+#endif
+#ifdef CUST_ARM_CLK_L6
+					,&exp_UV_mV[6]
+#endif
+					);
+	if(ret != CUST_ARM_CLK_L_MAX) {
+		return -EINVAL;
+	}
+
+	for (i = 0; i < CUST_ARM_CLK_L_MAX; i++) {
+		exp_UV_mV[i] *= 1000;
+	}
+
+	return count;
+}
+
 cpufreq_freq_attr_ro_perm(cpuinfo_cur_freq, 0400);
 cpufreq_freq_attr_ro(cpuinfo_min_freq);
 cpufreq_freq_attr_ro(cpuinfo_max_freq);
@@ -676,6 +761,7 @@ cpufreq_freq_attr_rw(scaling_min_freq);
 cpufreq_freq_attr_rw(scaling_max_freq);
 cpufreq_freq_attr_rw(scaling_governor);
 cpufreq_freq_attr_rw(scaling_setspeed);
+cpufreq_freq_attr_rw(UV_mV_table);
 
 static struct attribute *default_attrs[] = {
 	&cpuinfo_min_freq.attr,
@@ -689,6 +775,7 @@ static struct attribute *default_attrs[] = {
 	&scaling_driver.attr,
 	&scaling_available_governors.attr,
 	&scaling_setspeed.attr,
+	&UV_mV_table.attr,
 	NULL
 };
 
