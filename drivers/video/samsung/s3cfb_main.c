@@ -56,6 +56,10 @@
 #define LOGO_MEM_BASE		        (LPDDR1_BASE_ADDR + 0x0EC00000)	/* 0x5EC00000 from Bootloader */
 #endif
 
+#ifdef CONFIG_FB_S3C_MDNIE
+bool s3cfb_mdnie_force_disable = false;
+#endif
+
 struct s3cfb_fimd_desc		*fbfimd;
 
 inline struct s3cfb_global *get_fimd_global(int id)
@@ -267,7 +271,7 @@ static int s3cfb_sysfs_store_mdnie_power(struct device *dev,
 
 	sscanf(buf, "%d", &enable);
 
-	if (enable) {
+	if (enable && (s3cfb_mdnie_force_disable == false)) {
 		for (i = 0; i < FIMD_MAX; i++) {
 			fbdev[i] = fbfimd->fbdev[i];
 			reg = readl(S3C_VA_SYS + 0x0210);
@@ -301,6 +305,28 @@ static int s3cfb_sysfs_store_mdnie_power(struct device *dev,
 }
 
 static DEVICE_ATTR(mdnie_power, 0664, NULL, s3cfb_sysfs_store_mdnie_power);
+
+
+static int s3cfb_sysfs_show_mdnie_force_disable(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", s3cfb_mdnie_force_disable);
+}
+
+static int s3cfb_sysfs_store_mdnie_force_disable(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t len)
+{
+	int value;
+
+	sscanf(buf, "%d", &value);
+	s3cfb_mdnie_force_disable = value ? true : false;
+
+	return len;
+}
+static DEVICE_ATTR(mdnie_force_disable, 0664,
+	s3cfb_sysfs_show_mdnie_force_disable, s3cfb_sysfs_store_mdnie_force_disable);
+
 #endif
 
 #ifdef DISPLAY_BOOT_PROGRESS
@@ -580,6 +606,10 @@ static int s3cfb_probe(struct platform_device *pdev)
 	if (ret < 0)
 		dev_err(fbdev[0]->dev, "failed to add sysfs entries : mdnie_power\n");
 
+	ret = device_create_file(&(pdev->dev), &dev_attr_mdnie_force_disable);
+	if (ret < 0)
+		dev_err(fbdev[0]->dev, "failed to add sysfs entries : mdnie_force_disable\n");
+
 	init_mdnie_class();
 #endif
 
@@ -770,6 +800,19 @@ void s3cfb_late_resume(struct early_suspend *h)
 		s3c_mdnie_init_global(fbdev[i]);
 		s3c_mdnie_start(fbdev[i]);
 		mDNIe_Init_Set_Mode();
+		if (s3cfb_mdnie_force_disable) {
+			int i;
+			for (i = 0; i < FIMD_MAX; i++) {
+				fbdev[i] = fbfimd->fbdev[i];
+				writel(0, fbdev[i]->regs + 0x27c);
+				msleep(20);
+				reg = readl(S3C_VA_SYS + 0x0210);
+				reg |= (1<<1);
+				writel(reg, S3C_VA_SYS + 0x0210);
+				s3c_mdnie_stop();
+				s3c_mdnie_off();
+			}
+		}
 #endif
 		/* Set Alpha value width to 8-bit alpha value
 		 * 1 : 8bit mode
@@ -809,12 +852,13 @@ int s3cfb_suspend(struct platform_device *pdev, pm_message_t state)
 		fbdev[i] = fbfimd->fbdev[i];
 
 #ifdef CONFIG_FB_S3C_MDNIE
-		writel(0, fbdev[i]->regs + 0x27c);
-		msleep(20);
-		reg = readl(S3C_VA_SYS + 0x0210);
-		reg |= (1<<1);
-		writel(reg, S3C_VA_SYS + 0x0210);
-		s3c_mdnie_stop();
+			writel(0, fbdev[i]->regs + 0x27c);
+			msleep(20);
+			reg = readl(S3C_VA_SYS + 0x0210);
+			reg |= (1<<1);
+			writel(reg, S3C_VA_SYS + 0x0210);
+			s3c_mdnie_stop();
+		}
 #endif
 		if (atomic_read(&fbdev[i]->enabled_win) > 0) {
 			/* lcd_off and backlight_off isn't needed. */
