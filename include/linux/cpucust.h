@@ -14,18 +14,28 @@
 #define CUST_ARM_CLK_DEFAULT_MIN    ( 200000)
 
 #ifdef CONFIG_FREQ_OVERCLOCK
-/* Overclock max 1600MHz */
+/* Overclock */
 #define CUST_ARM_V_MAX              (1400000)
-#define CUST_ARM_V_MIN              ( 800000)
+#define CUST_ARM_V_MIN              ( 700000)
 
 #define CUST_ARM_CLK_L_MAX          (7)
 #define CUST_FREQ_LEVEL_INDEX       L0, L1, L2, L3, L4, L5, L6, CPUFREQ_LEVEL_END,
 
+#if 1
+/* max 1504MHz */
 #define CUST_ARM_CLK_L0             (1504000)
 #define CUST_ARM_V_L0               (1400000)
 #define CUST_CLKDIV_CPU0_L0         { 0, 3, 7, 3, 4, 1, 7 }
 #define CUST_CLKDIV_CPU1_L0         { 5, 0 }
 #define CUST_APLL_PMS_L0            ( ((188<<16)|(3<<8)|(0x1)) ) // 8000
+#else
+/* max 1600MHz */
+#define CUST_ARM_CLK_L0             (1600000)
+#define CUST_ARM_V_L0               (1450000)
+#define CUST_CLKDIV_CPU0_L0         { 0, 3, 7, 3, 4, 1, 7 }
+#define CUST_CLKDIV_CPU1_L0         { 5, 0 }
+#define CUST_APLL_PMS_L0            ( ((200<<16)|(3<<8)|(0x1)) ) // 8000
+#endif
 
 #define CUST_ARM_CLK_L1             (1200000)
 #define CUST_ARM_V_L1               (1275000)
@@ -74,7 +84,7 @@
 
 /* Default clock max 1200MHz */
 #define CUST_ARM_V_MAX              (1200000)
-#define CUST_ARM_V_MIN              ( 800000)
+#define CUST_ARM_V_MIN              ( 700000)
 
 #define CUST_ARM_CLK_L_MAX          (5)
 #define CUST_FREQ_LEVEL_INDEX       L0, L1, L2, L3, L4, CPUFREQ_LEVEL_END,
