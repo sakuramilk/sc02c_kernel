@@ -53,13 +53,13 @@
 
 #define CUST_ARM_CLK_L5             ( 200000)
 #define CUST_ARM_V_L5               ( 950000)
-#define CUST_CLKDIV_CPU0_L5         { 0, 3, 7, 1, 3, 1, 7 }
+#define CUST_CLKDIV_CPU0_L5         { 0, 1, 3, 1, 3, 1, 7 }
 #define CUST_CLKDIV_CPU1_L5         { 3, 0 }
 #define CUST_APLL_PMS_L5            ( ((200<<16)|(6<<8)|(0x3)) ) // 1000
 
 #define CUST_ARM_CLK_L6             ( 100000)
 #define CUST_ARM_V_L6               ( 950000)
-#define CUST_CLKDIV_CPU0_L6         { 0, 3, 7, 1, 3, 1, 7 }
+#define CUST_CLKDIV_CPU0_L6         { 0, 1, 3, 1, 3, 1, 7 }
 #define CUST_CLKDIV_CPU1_L6         { 3, 0 }
 #define CUST_APLL_PMS_L6            ( ((100<<16)|(6<<8)|(0x3)) ) // 1000
 
@@ -67,8 +67,8 @@
 #define ARMCLOCK_HIGH               CUST_ARM_CLK_L1
 #define ARMCLOCK_MID                CUST_ARM_CLK_L2
 #define ARMCLOCK_LOW                CUST_ARM_CLK_L4
-#define CUST_SUSPEND_LV             L3
-#define CUST_REBOOT_LV              L1
+#define CUST_SUSPEND_CLK_L          L2
+#define CUST_REBOOT_CLK_L           L1
 
 #else
 
@@ -112,8 +112,8 @@
 #define ARMCLOCK_HIGH               CUST_ARM_CLK_L0
 #define ARMCLOCK_MID                CUST_ARM_CLK_L1
 #define ARMCLOCK_LOW                CUST_ARM_CLK_L3
-#define CUST_SUSPEND_LV             L2
-#define CUST_REBOOT_LV              L0
+#define CUST_SUSPEND_CLK_L          L1
+#define CUST_REBOOT_CLK_L           L0
 
 #endif
 
