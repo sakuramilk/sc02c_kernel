@@ -463,26 +463,16 @@ static int s5k5bafx_write_regs(struct v4l2_subdev *sd,
 	u16 addr, value;
 
 	int len = 0;
-	//u8 buf[SZ_2K] = {0,};
-    u8 *buf;
+	u8 buf[SZ_2K] = {0,};
 #else
 	u8 buf[4] = {0,};
 #endif
-	struct i2c_msg msg;
-
-#ifdef S5K5BAFX_BURST_MODE
-	buf = kmalloc(SZ_2K, GFP_KERNEL);
-	if (!buf) {
-		cam_dbg("s5k5bafx_write_regs to allocate memory\n");
-		return -ENOMEM;
-	}
-	memset(buf, 0, sizeof(SZ_2K));
-#endif
-
-	msg.addr = client->addr;
-	msg.flags = 0;
-	msg.len = 4;
-	msg.buf = buf;
+	struct i2c_msg msg = {
+		msg.addr = client->addr,
+		msg.flags = 0,
+		msg.len = 4,
+		msg.buf = buf,
+	};
 
 	while (num--) {
 		temp = *packet++;
@@ -555,15 +545,9 @@ s5k5bafx_burst_write:
 
 	if (unlikely(ret < 0)) {
 		cam_err("fail to write registers!!\n");
-#ifdef S5K5BAFX_BURST_MODE
-		kfree(buf);
-#endif
 		return -EIO;
 	}
 
-#ifdef S5K5BAFX_BURST_MODE
-	kfree(buf);
-#endif
 	return 0;
 }
 
