@@ -30,7 +30,6 @@
 #include <linux/mutex.h>
 #include <linux/cpucust.h>
 
-
 #define dprintk(msg...) cpufreq_debug_printk(CPUFREQ_DEBUG_CORE, \
 						"cpufreq-core", msg)
 
@@ -742,6 +741,14 @@ static ssize_t store_UV_mV_table(struct cpufreq_policy *policy,
 
 	for (i = 0; i < CUST_ARM_CLK_L_MAX; i++) {
 		exp_UV_mV[i] *= 1000;
+
+		/* Maximum Voltage */
+		if (exp_UV_mV[i] > CUST_ARM_V_MAX)
+			exp_UV_mV[i] = CUST_ARM_V_MAX;
+
+		/* Minimum Voltage */
+		if (exp_UV_mV[i] < CUST_ARM_V_MIN)
+			exp_UV_mV[i] = CUST_ARM_V_MIN;
 	}
 
 	return count;
