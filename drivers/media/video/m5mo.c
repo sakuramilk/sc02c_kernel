@@ -1019,9 +1019,9 @@ retry:
 		break;
 
 	case WHITE_BALANCE_SUNNY:
-		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,	M5MO_WB_AWB_MODE, 0x00);
+		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,	M5MO_WB_AWB_MODE, 0x02);
 		CHECK_ERR(err);
-		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,	M5MO_WB_AWB_MANUAL, 0x00);
+		err = m5mo_writeb(sd, M5MO_CATEGORY_WB,	M5MO_WB_AWB_MANUAL, 0x04);
 		CHECK_ERR(err);
 		break;
 
