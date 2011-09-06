@@ -1065,6 +1065,24 @@ static ssize_t set_touchkey_firm_status_show(struct device *dev, struct device_a
 	return count;
 }
 
+static ssize_t touchkey_bln_control(struct device *dev,
+				 struct device_attribute *attr, const char *buf,
+				 size_t size)
+{
+	int data;
+
+	if (sscanf(buf, "%d\n", &data) == 1) {
+		printk(KERN_ERR "[TouchKey] touchkey_bln_control: %d \n", data);
+		if (data == 1)
+			melfas_enable_touchkey_backlights();
+		else
+			melfas_disable_touchkey_backlights();
+	} else {
+		printk(KERN_ERR "[TouchKey] touchkey_bln_control Error\n");
+	}
+
+	return size;
+}
 
 static DEVICE_ATTR(touch_version, S_IRUGO | S_IWUSR | S_IWGRP,
 		   touch_version_read, touch_version_write);
@@ -1090,7 +1108,7 @@ static DEVICE_ATTR(touchkey_firm_version_panel, S_IRUGO | S_IWUSR | S_IWGRP, set
 /*end N1 firmware sync*/
 
 static DEVICE_ATTR(touchkey_brightness, S_IRUGO | S_IWUSR | S_IWGRP, NULL, brightness_control);
-
+static DEVICE_ATTR(touchkey_bln_control, S_IRUGO | S_IWUSR | S_IWGRP, NULL, touchkey_bln_control);
 
 static int __init touchkey_init(void)
 {
@@ -1215,6 +1233,14 @@ static int __init touchkey_init(void)
 		printk(KERN_ERR "Failed to create device file(%s)!\n",
 			dev_attr_touch_sensitivity.attr.name);
 	}
+
+	if (device_create_file
+		(touchkey_update_device.this_device, &dev_attr_touchkey_bln_control) < 0) {
+		printk(KERN_ERR "%s device_create_file fail dev_attr_touchkey_bln_control\n", __func__);
+		printk(KERN_ERR "Failed to create device file(%s)!\n",
+			dev_attr_touchkey_bln_control.attr.name);
+	}
+
 
 	touchkey_wq = create_singlethread_workqueue("melfas_touchkey_wq");
 	if (!touchkey_wq) {
