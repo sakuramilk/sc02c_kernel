@@ -19,7 +19,6 @@
 #include <linux/gpio.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
-#include <linux/slab.h>
 #include <linux/host_notify.h>
 
 #include <asm/mach/arch.h>
@@ -920,15 +919,9 @@ EXPORT_SYMBOL(s3c_device_usb_otghcd);
 
 /* Android USB OTG Gadget */
 #include <linux/usb/android_composite.h>
-#include <linux/usb/f_accessory.h>
-#define S3C_VENDOR_ID                 0x18d1
-#define S3C_PRODUCT_ID                0x0001
-#define S3C_ADB_PRODUCT_ID            0x0005
-#define S3C_UMS_PRODUCT_ID	            0x4E21
-#define S3C_UMS_ADB_PRODUCT_ID        0x4E22
-#define S3C_RNDIS_PRODUCT_ID          0x4E23
-#define S3C_RNDIS_ADB_PRODUCT_ID      0x4E24
-#define S3C_RNDIS_UMS_ADB_PRODUCT_ID  0x4E25
+#define S3C_VENDOR_ID		0x18d1
+#define S3C_PRODUCT_ID		0x0001
+#define S3C_ADB_PRODUCT_ID	0x0005
 #define MAX_USB_SERIAL_NUM	17
 
 static char *usb_functions_ums[] = {
@@ -937,10 +930,6 @@ static char *usb_functions_ums[] = {
 #ifdef CONFIG_USB_ANDROID_RNDIS
 static char *usb_functions_rndis[] = {
 	"rndis",
-};
-static char *usb_functions_rndis_adb[] = {
-	"rndis",
-	"adb",
 };
 #endif
 #ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
@@ -965,7 +954,7 @@ static char *usb_functions_mtp_acm[] = {
 	"mtp",
 	"acm",
 };
-#    endif /* CONFIG_USB_ANDROID_SAMSUNG_KIES_UMS */
+#    endif
 /* debug mode : using MS Composite*/
 static char *usb_functions_ums_acm_adb[] = {
 	"usb_mass_storage",
@@ -984,20 +973,12 @@ static char *usb_functions_acm_ums_adb[] = {
 	"usb_mass_storage",
 	"adb",
 };
-#  endif /* CONFIG_USB_ANDROID_SAMSUNG_ESCAPE */
+#  endif
 /* mtp only mode */
 static char *usb_functions_mtp[] = {
 	"mtp",
 };
-#else /* CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE */
-static char *usb_functions_accessory[] = {
-	"accessory",
-};
-static char *usb_functions_accessory_adb[] = {
-	"accessory",
-	"adb",
-};
-#endif /* CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE */
+#endif
 
 static char *usb_functions_all[] = {
 #ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
@@ -1020,24 +1001,14 @@ static char *usb_functions_all[] = {
 #    endif
 	"mtp",
 #  endif
-#else /* original */ /* CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE */
+#else /* original */
 #  ifdef CONFIG_USB_ANDROID_RNDIS
 	"rndis",
 #  endif
-#  ifdef CONFIG_USB_ACCESSORY
-	"accessory",
-#  endif
-#  ifdef CONFIG_USB_ANDROID_MASS_STORAGE
 	"usb_mass_storage",
-#  endif
-#  ifdef CONFIG_USB_ANDROID_ADB
 	"adb",
-#  endif
-#  ifdef CONFIG_USB_ANDROID_MTP
-    "mtp",
-#  endif
 #  ifdef CONFIG_USB_ANDROID_ACM
-    "acm",
+	"acm",
 #  endif
 #endif /* CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE */
 };
@@ -1224,42 +1195,19 @@ static struct android_usb_product usb_products[] = {
 		.mode		= USBSTATUS_MTPONLY,
 	},
 #  endif
-#else /* original */ /* CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE */
+#else /* original */
 	{
-		.product_id	= S3C_UMS_PRODUCT_ID,
+		.product_id	= S3C_PRODUCT_ID,
 		.num_functions	= ARRAY_SIZE(usb_functions_ums),
 		.functions	= usb_functions_ums,
 	},
 	{
-		.product_id	= S3C_UMS_ADB_PRODUCT_ID,
+		.product_id	= S3C_ADB_PRODUCT_ID,
 		.num_functions	= ARRAY_SIZE(usb_functions_ums_adb),
 		.functions	= usb_functions_ums_adb,
 	},
-	{
-		.product_id	= S3C_RNDIS_PRODUCT_ID,
-		.num_functions	= ARRAY_SIZE(usb_functions_rndis),
-		.functions	= usb_functions_rndis,
-	},
-	{
-		.product_id	= S3C_RNDIS_ADB_PRODUCT_ID,
-		.num_functions	= ARRAY_SIZE(usb_functions_rndis_adb),
-		.functions	= usb_functions_rndis_adb,
-	},
-	{
-		.vendor_id	= USB_ACCESSORY_VENDOR_ID,
-		.product_id	= USB_ACCESSORY_PRODUCT_ID,
-		.num_functions	= ARRAY_SIZE(usb_functions_accessory),
-		.functions	= usb_functions_accessory,
-	},
-	{
-		.vendor_id	= USB_ACCESSORY_VENDOR_ID,
-		.product_id	= USB_ACCESSORY_ADB_PRODUCT_ID,
-		.num_functions	= ARRAY_SIZE(usb_functions_accessory_adb),
-		.functions	= usb_functions_accessory_adb,
-	},
-#endif /* CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE */
+#endif
 };
-
 // serial number should be changed as real device for commercial release
 static char device_serial[MAX_USB_SERIAL_NUM]="0123456789ABCDEF";
 /* standard android USB platform data */
@@ -1273,9 +1221,9 @@ static struct android_usb_platform_data android_usb_pdata = {
 	.product_name		= "SAMSUNG_Android",
 #else
 	.vendor_id		= S3C_VENDOR_ID,
-	.product_id		= S3C_UMS_PRODUCT_ID,
-	.manufacturer_name	= "Samsung",
-	.product_name		= "Galaxy S2",
+	.product_id		= S3C_PRODUCT_ID,
+	.manufacturer_name	= "Android",//"Samsung",
+	.product_name		= "Android",//"Samsung SMDKV210",
 #endif
 	.serial_number		= device_serial,
 	.num_products		= ARRAY_SIZE(usb_products),
@@ -1302,11 +1250,7 @@ static struct usb_mass_storage_platform_data ums_pdata = {
 	.product		= "UMS Composite",//"SMDKV210",
 #endif
 	.release		= 1,
-#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 	.nluns			= 1,
-#else
-	.nluns			= 2,
-#endif
 };
 struct platform_device s3c_device_usb_mass_storage= {
 	.name	= "usb_mass_storage",
@@ -1362,7 +1306,6 @@ void __init s3c_usb_otg_composite_pdata(struct s3c_platform_fb *pd)
 #ifdef CONFIG_USB_ANDROID_RNDIS
 	int i;
 	char *src;
-	sprintf(device_serial, "%08X%08X", system_serial_high, system_serial_low);
 	/* create a fake MAC address from our serial number.
 	 * first byte is 0x02 to signify locally administered.
 	 */

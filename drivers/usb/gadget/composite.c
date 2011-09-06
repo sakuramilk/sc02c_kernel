@@ -179,10 +179,8 @@ void usb_composite_force_reset(struct usb_composite_dev *cdev)
 	/* force reenumeration */
 	if (cdev && cdev->gadget &&
 			cdev->gadget->speed != USB_SPEED_UNKNOWN) {
-#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 		/* avoid sending a disconnect switch event until after we disconnect */
 		cdev->mute_switch = 1;
-#endif
 		spin_unlock_irqrestore(&cdev->lock, flags);
 		CSY_DBG_ESS("disconnect usb\n");
 		usb_gadget_disconnect(cdev->gadget);
@@ -1081,17 +1079,7 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 	 0x4D, 0x54, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 #  endif
-#else
-	unsigned long			flags;
-
-	spin_lock_irqsave(&cdev->lock, flags);
-	if (!cdev->connected) {
-		cdev->connected = 1;
-		schedule_work(&cdev->switch_work);
-	}
-	spin_unlock_irqrestore(&cdev->lock, flags);
-
-#endif /* CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE */
+#endif
 	/* partial re-init of the response message; the function or the
 	 * gadget might need to intercept e.g. a control-OUT completion
 	 * when we delegate to it.
@@ -1140,6 +1128,10 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 			cdev->desc.bNumConfigurations =
 				count_configs(cdev, USB_DT_DEVICE);
 			value = min(w_length, (u16) sizeof cdev->desc);
+			CSY_DBG(
+			"cdev->desc.nNumConfigurations=%d,w_l=%d,v=%d\n",
+				cdev->desc.bNumConfigurations,
+				w_length, value);
 			memcpy(req->buf, &cdev->desc, value);
 			break;
 		case USB_DT_DEVICE_QUALIFIER:
@@ -1156,8 +1148,10 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 				break;
 			/* FALLTHROUGH */
 		case USB_DT_CONFIG:
-			CSY_DBG_ESS("GET_DES-CON\n");
 			value = config_desc(cdev, w_value);
+			CSY_DBG(
+			"GET_DES-CON w_value=%d, value=%d, w_length=%d\n",
+				w_value, value, w_length);
 			if (value >= 0)
 				value = min(w_length, (u16) value);
 			break;
@@ -1372,7 +1366,7 @@ static void composite_disconnect(struct usb_gadget *gadget)
 		reset_config(cdev);
 	}
 
-
+	if (cdev->mute_switch) {
 #ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 /* Problem  : Re-enumeration when select tethering mode
  * Cause    : Some disconnect intend happen
@@ -1381,18 +1375,16 @@ static void composite_disconnect(struct usb_gadget *gadget)
  * Replace below sequence (mute_switch value set 0),
  * Sometimes, disconnect is called more then one time.
  */
-	if (cdev->mute_switch) { 	
+ 	
+#else
 		cdev->mute_switch = 0;
+#endif
 		CSY_DBG_ESS("composite_disconnect -> mute_switch\n");
 	}
 	else {
 		schedule_work(&cdev->switch_work);
 		CSY_DBG_ESS("composite_disconnect -> switch_work\n");
 	}
-#else
-	cdev->connected = 0;
-	schedule_work(&cdev->switch_work);
-#endif /* CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE */
 	spin_unlock_irqrestore(&cdev->lock, flags);
 }
 
@@ -1457,12 +1449,7 @@ composite_unbind(struct usb_gadget *gadget)
 		usb_ep_free_request(gadget->ep0, cdev->req);
 	}
 
-#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 	switch_dev_unregister(&cdev->sdev);
-#else
-	switch_dev_unregister(&cdev->sw_connected);
-	switch_dev_unregister(&cdev->sw_config);
-#endif
 	kfree(cdev);
 	set_gadget_data(gadget, NULL);
 	device_remove_file(&gadget->dev, &dev_attr_suspended);
@@ -1497,33 +1484,13 @@ composite_switch_work(struct work_struct *data)
 	struct usb_composite_dev	*cdev =
 		container_of(data, struct usb_composite_dev, switch_work);
 	struct usb_configuration *config = cdev->config;
-#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+
 	CSY_DBG_ESS("[composite_switch_work]config=0x%p\n",(void*)config);
-#else
-	int connected;
-	unsigned long flags;
 
-	spin_lock_irqsave(&cdev->lock, flags);
-	if (cdev->connected != cdev->sw_connected.state) {
-		connected = cdev->connected;
-		spin_unlock_irqrestore(&cdev->lock, flags);
-		switch_set_state(&cdev->sw_connected, connected);
-	} else {
-		spin_unlock_irqrestore(&cdev->lock, flags);
-	}
-#endif /* CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE */
-
-#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 	if (config)
 		switch_set_state(&cdev->sdev, config->bConfigurationValue);
 	else
 		switch_set_state(&cdev->sdev, 0);
-#else
-	if (config)
-		switch_set_state(&cdev->sw_config, config->bConfigurationValue);
-	else
-		switch_set_state(&cdev->sw_config, 0);
-#endif /* CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE */
 }
 
 static int composite_bind(struct usb_gadget *gadget)
@@ -1577,17 +1544,9 @@ static int composite_bind(struct usb_gadget *gadget)
 	status = composite->bind(cdev);
 	if (status < 0)
 		goto fail;
-#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+
 	cdev->sdev.name = "usb_configuration";
 	status = switch_dev_register(&cdev->sdev);
-#else
-	cdev->sw_connected.name = "usb_connected";
-	status = switch_dev_register(&cdev->sw_connected);
-	if (status < 0)
-		goto fail;
-	cdev->sw_config.name = "usb_configuration";
-	status = switch_dev_register(&cdev->sw_config);
-#endif
 	if (status < 0)
 		goto fail;
 	INIT_WORK(&cdev->switch_work, composite_switch_work);

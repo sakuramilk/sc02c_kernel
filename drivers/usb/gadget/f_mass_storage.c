@@ -600,9 +600,7 @@ static int fsg_setup(struct usb_function *f,
 	struct fsg_dev		*fsg = fsg_from_func(f);
 	struct usb_request	*req = fsg->common->ep0req;
 	u16			w_index = le16_to_cpu(ctrl->wIndex);
-#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 	u16			w_value = le16_to_cpu(ctrl->wValue);
-#endif
 	u16			w_length = le16_to_cpu(ctrl->wLength);
 
 	if (!fsg_is_set(fsg->common))
@@ -614,10 +612,8 @@ static int fsg_setup(struct usb_function *f,
 		if (ctrl->bRequestType !=
 		    (USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE))
 			break;
-#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 		if (w_index != fsg->interface_number || w_value != 0)
 			return -EDOM;
-#endif
 
 		/* Raise an exception to stop the current operation
 		 * and reinitialize our state. */
@@ -629,10 +625,8 @@ static int fsg_setup(struct usb_function *f,
 		if (ctrl->bRequestType !=
 		    (USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE))
 			break;
-#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 		if (w_index != fsg->interface_number || w_value != 0)
 			return -EDOM;
-#endif
 		VDBG(fsg, "get max LUN\n");
 		*(u8 *) req->buf = fsg->common->nluns - 1;
 
