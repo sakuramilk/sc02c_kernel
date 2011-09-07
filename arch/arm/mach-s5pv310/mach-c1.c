@@ -5696,7 +5696,9 @@ static struct platform_device *smdkc210_devices[] __initdata = {
 #endif
 #ifdef CONFIG_USB_ANDROID
 	&s3c_device_android_usb,
+#ifdef CONFIG_USB_ANDROID_MASS_STORAGE
 	&s3c_device_usb_mass_storage,
+#endif
 #endif
 #ifdef CONFIG_USB_S3C_OTG_HOST
 	&s3c_device_usb_otghcd,

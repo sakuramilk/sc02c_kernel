@@ -66,7 +66,11 @@ obj-$(CONFIG_USB_G_MULTI)	+= g_multi.o
 obj-$(CONFIG_USB_G_NOKIA)	+= g_nokia.o
 obj-$(CONFIG_USB_G_WEBCAM)	+= g_webcam.o
 
+ifeq ($(CONFIG_BUILD_TARGET_CM7),y)
+obj-$(CONFIG_USB_ANDROID)	+= android-cm7.o
+else
 obj-$(CONFIG_USB_ANDROID)	+= android.o
+endif
 obj-$(CONFIG_USB_ANDROID_ACM)	+= f_acm.o u_serial.o
 obj-$(CONFIG_USB_DUN_SUPPORT)  += serial_acm.o
 obj-$(CONFIG_USB_ANDROID_ADB)	+= f_adb.o

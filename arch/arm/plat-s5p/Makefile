@@ -15,7 +15,11 @@ obj-				:=
 obj-y				+= dev-uart.o
 obj-y				+= cpu.o
 obj-y				+= clock.o
+ifeq ($(CONFIG_BUILD_TARGET_CM7),y)
+obj-y				+= devs-cm7.o
+else
 obj-y				+= devs.o
+endif
 obj-y				+= irq.o
 obj-$(CONFIG_S5P_MEM_BOOTMEM)	+= bootmem.o
 obj-$(CONFIG_S5P_EXT_INT)	+= irq-eint.o
