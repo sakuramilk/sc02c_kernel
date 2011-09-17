@@ -189,8 +189,8 @@ SUBARCH := $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
 # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
 export KBUILD_BUILDHOST := $(SUBARCH)
 ARCH		?= arm
-CROSS_COMPILE	?= /opt/toolchains/arm-2009q3/bin/arm-none-linux-gnueabi-
-#CROSS_COMPILE  ?= /opt/toolchains/arm-2011.03/bin/arm-none-eabi-
+#CROSS_COMPILE	?= /opt/toolchains/arm-2009q3/bin/arm-none-linux-gnueabi-
+CROSS_COMPILE  ?= /opt/toolchains/arm-2011.03/bin/arm-none-eabi-
 #CROSS_COMPILE  ?= /opt/toolchains/android-toolchain-eabi/bin/arm-eabi-
 CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
 
@@ -339,9 +339,13 @@ MODFLAGS	= -DMODULE -fgcse -fsingle-precision-constant -mtune=cortex-a9 -march=a
 CFLAGS_MODULE   = $(MODFLAGS)
 AFLAGS_MODULE   = $(MODFLAGS)
 LDFLAGS_MODULE  = -T $(srctree)/scripts/module-common.lds
-CFLAGS_KERNEL	= -fgcse -fsingle-precision-constant -mtune=cortex-a9 -march=armv7-a -mfpu=neon \
+CFLAGS_KERNEL	= -fgcse -fsingle-precision-constant -mtune=cortex-a9 -march=armv7-a -mfpu=vfpv3 \
+							-fsingle-precision-constant -ftree-loop-distribution -fvect-cost-model \
+							-funsafe-math-optimizations -ftree-loop-im -funswitch-loops \
 							-ftree-vectorize -mvectorize-with-neon-quad
-AFLAGS_KERNEL	= -fgcse -fsingle-precision-constant -mtune=cortex-a9 -march=armv7-a -mfpu=neon \
+AFLAGS_KERNEL	= -fgcse -fsingle-precision-constant -mtune=cortex-a9 -march=armv7-a -mfpu=vfpv3 \
+							-fsingle-precision-constant -ftree-loop-distribution -fvect-cost-model \
+							-funsafe-math-optimizations -ftree-loop-im -funswitch-loops \
 							-ftree-vectorize -mvectorize-with-neon-quad
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
@@ -356,17 +360,13 @@ KBUILD_CPPFLAGS := -D__KERNEL__
 
 KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common \
-		   -Werror-implicit-function-declaration -Wno-array-bounds -Wno-format-security \
-		   -Wno-switch \
+		   -Werror-implicit-function-declaration \
+		   -Wno-format-security -mno-unaligned-access \
 		   -fno-delete-null-pointer-checks \
-		   -g -O3 -march=armv7-a -mtune=cortex-a9 -mfpu=neon -mfloat-abi=softfp \
-		   -mvectorize-with-neon-quad \
-		   -pipe -fomit-frame-pointer -fstrength-reduce \
-		   -funit-at-a-time -fomit-frame-pointer \
-		   -fno-var-tracking -ftree-vectorize -ftracer \
+		   -march=armv7-a -mtune=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard \
+		   -mvectorize-with-neon-quad -ftree-vectorize -fomit-frame-pointer \
 		   -floop-interchange -floop-strip-mine -floop-block -frename-registers \
-		   -funsafe-loop-optimizations -ffast-math \
-		   -fgcse-sm -fgcse-las -fgcse-after-reload
+		   -ffast-math
 #change@wtl.kSingh - enabling FIPS mode - starts
 ifeq ($(USE_SEC_FIPS_MODE),true)
 KBUILD_CFLAGS += -DSEC_FIPS_ENABLED
