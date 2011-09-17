@@ -339,9 +339,13 @@ MODFLAGS	= -DMODULE -fgcse -fsingle-precision-constant -mtune=cortex-a9 -march=a
 CFLAGS_MODULE   = $(MODFLAGS)
 AFLAGS_MODULE   = $(MODFLAGS)
 LDFLAGS_MODULE  = -T $(srctree)/scripts/module-common.lds
-CFLAGS_KERNEL	= -fgcse -fsingle-precision-constant -mtune=cortex-a9 -march=armv7-a -mfpu=neon \
+CFLAGS_KERNEL	= -fgcse -fsingle-precision-constant -mtune=cortex-a9 -march=armv7-a -mfpu=vfpv3 \
+							-fsingle-precision-constant -ftree-loop-distribution -fvect-cost-model \
+							-funsafe-math-optimizations -ftree-loop-im -funswitch-loops \
 							-ftree-vectorize -mvectorize-with-neon-quad
-AFLAGS_KERNEL	= -fgcse -fsingle-precision-constant -mtune=cortex-a9 -march=armv7-a -mfpu=neon \
+AFLAGS_KERNEL	= -fgcse -fsingle-precision-constant -mtune=cortex-a9 -march=armv7-a -mfpu=vfpv3 \
+							-fsingle-precision-constant -ftree-loop-distribution -fvect-cost-model \
+							-funsafe-math-optimizations -ftree-loop-im -funswitch-loops \
 							-ftree-vectorize -mvectorize-with-neon-quad
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
@@ -359,7 +363,7 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -Werror-implicit-function-declaration -Wno-array-bounds -Wno-format-security \
 		   -Wno-switch \
 		   -fno-delete-null-pointer-checks \
-		   -g -O3 -march=armv7-a -mtune=cortex-a9 -mfpu=neon -mfloat-abi=softfp \
+		   -g -O3 -march=armv7-a -mtune=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard \
 		   -mvectorize-with-neon-quad \
 		   -pipe -fomit-frame-pointer -fstrength-reduce \
 		   -funit-at-a-time -fomit-frame-pointer \
