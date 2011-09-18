@@ -6400,7 +6400,13 @@ static void __init s5pv310_reserve(void)
 }
 #endif
 
-MACHINE_START(C1, "SMDKC210")
+#ifdef CONFIG_BUILD_TARGET_CM7
+#define CUST_MACHINE_NAME	"SMDKV310"
+#else
+#define CUST_MACHINE_NAME	"SMDKC210"
+#endif
+
+MACHINE_START(C1, CUST_MACHINE_NAME)
 	/* Maintainer: Kukjin Kim <kgene.kim@samsung.com> */
 	.phys_io	= S3C_PA_UART & 0xfff00000,
 	.io_pg_offst	= (((u32)S3C_VA_UART) >> 18) & 0xfffc,
@@ -6411,7 +6417,7 @@ MACHINE_START(C1, "SMDKC210")
 	.timer		= &s5pv310_timer,
 MACHINE_END
 
-MACHINE_START(SMDKC210, "SMDKC210")
+MACHINE_START(SMDKC210, CUST_MACHINE_NAME)
 	/* Maintainer: Kukjin Kim <kgene.kim@samsung.com> */
 	.phys_io	= S3C_PA_UART & 0xfff00000,
 	.io_pg_offst	= (((u32)S3C_VA_UART) >> 18) & 0xfffc,
