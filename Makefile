@@ -361,9 +361,12 @@ KBUILD_CPPFLAGS := -D__KERNEL__
 KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common \
 		   -Werror-implicit-function-declaration \
+		   -Wno-format-security -mno-unaligned-access \
 		   -fno-delete-null-pointer-checks \
-			-Wno-format-security -mno-unaligned-access \
-		   -march=armv7-a -mtune=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard
+		   -march=armv7-a -mtune=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard \
+		   -mvectorize-with-neon-quad -ftree-vectorize -fomit-frame-pointer \
+		   -floop-interchange -floop-strip-mine -floop-block -frename-registers \
+		   -ffast-math
 #change@wtl.kSingh - enabling FIPS mode - starts
 ifeq ($(USE_SEC_FIPS_MODE),true)
 KBUILD_CFLAGS += -DSEC_FIPS_ENABLED
