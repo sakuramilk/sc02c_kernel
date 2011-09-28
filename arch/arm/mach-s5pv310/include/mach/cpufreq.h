@@ -14,11 +14,26 @@
  * This should be same with cpufreq_frequency_table
 */
 enum cpufreq_level_request{
-	CPU_L0,		/* 1.2GHz */
-	CPU_L1, 	/* 1GHz */
-	CPU_L2, 	/* 800MHz */
-	CPU_L3, 	/* 500MHz */
-	CPU_L4, 	/* 200MHz */
+#if 1
+	CPU_L0, /* 1.2GHz */
+	CPU_L1, /* 1GHz */
+	CPU_L2, /* 800MHz */
+	CPU_L3, /* 500MHz */
+	CPU_L4, /* 200MHz */
+#else
+	CPU_L0,
+	CPU_L1,
+	CPU_L2,
+	CPU_L3,
+	CPU_L4,
+#ifdef CONFIG_FREQ_OVERCLOCK
+	CPU_L5,
+	CPU_L6,
+	CPU_L7,
+	CPU_L8,
+	CPU_L9,
+#endif
+#endif
 	CPU_LEVEL_END,
 };
 

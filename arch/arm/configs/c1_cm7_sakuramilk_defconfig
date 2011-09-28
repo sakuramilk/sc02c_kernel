@@ -450,7 +450,7 @@ CONFIG_FREQ_STEP_UP_L2_L0=y
 #
 # CPUFreq overclock
 #
-CONFIG_FREQ_OVERCLOCK=y
+#CONFIG_FREQ_OVERCLOCK is not set
 
 #
 # build target CyanogenMod7
