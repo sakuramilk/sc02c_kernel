@@ -33,6 +33,7 @@ modules.builtin
 *.gcno
 *.log
 out
+build
 
 #
 # Top-level generic files

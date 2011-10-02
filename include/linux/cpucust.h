@@ -21,18 +21,6 @@
 #define CUST_ARM_CLK_L_MAX          (10)
 #define CUST_FREQ_LEVEL_INDEX       L0, L1, L2, L3, L4, L5, L6, L7, L8, L9, CPUFREQ_LEVEL_END,
 
-#define CUST_LOCKOP_FREQ_TABLE      {L0, CUST_ARM_CLK_L0},\
-                                    {L1, CUST_ARM_CLK_L1},\
-                                    {L2, CUST_ARM_CLK_L2},\
-                                    {L3, CUST_ARM_CLK_L3},\
-                                    {L4, CUST_ARM_CLK_L4},\
-                                    {L5, CUST_ARM_CLK_L5},\
-                                    {L6, CUST_ARM_CLK_L6},\
-                                    {L7, CUST_ARM_CLK_L7},\
-                                    {L8, CUST_ARM_CLK_L8},\
-                                    {L9, CUST_ARM_CLK_L9},\
-                                    {0, CPUFREQ_TABLE_END},
-
 #define CUST_ARM_CLK_L0             (1600000)
 #define CUST_ARM_V_L0               (1450000)
 #define CUST_INT_V_L0               (1100000)
@@ -41,14 +29,14 @@
 #define CUST_APLL_PMS_L0            ( ((200<<16)|(3<<8)|(0x1)) ) // 8000
 
 #define CUST_ARM_CLK_L1             (1504000)
-#define CUST_ARM_V_L1               (1425000)
+#define CUST_ARM_V_L1               (1400000)
 #define CUST_INT_V_L1               (1100000)
 #define CUST_CLKDIV_CPU0_L1         { 0, 3, 7, 3, 4, 1, 7 }
 #define CUST_CLKDIV_CPU1_L1         { 5, 0 }
 #define CUST_APLL_PMS_L1            ( ((188<<16)|(3<<8)|(0x1)) ) // 8000
 
 #define CUST_ARM_CLK_L2             (1400000)
-#define CUST_ARM_V_L2               (1400000)
+#define CUST_ARM_V_L2               (1350000)
 #define CUST_INT_V_L2               (1100000)
 #define CUST_CLKDIV_CPU0_L2         { 0, 3, 7, 3, 4, 1, 7 }
 #define CUST_CLKDIV_CPU1_L2         { 5, 0 }
@@ -90,24 +78,29 @@
 #define CUST_APLL_PMS_L7            ( ((200<<16)|(6<<8)|(0x3)) ) // 1000
 
 #define CUST_ARM_CLK_L8             ( 100000)
-#define CUST_ARM_V_L8               ( 950000)
+#define CUST_ARM_V_L8               ( 900000)
 #define CUST_INT_V_L8               (1000000)
 #define CUST_CLKDIV_CPU0_L8         { 0, 1, 3, 1, 3, 1, 7 }
 #define CUST_CLKDIV_CPU1_L8         { 3, 0 }
-#define CUST_APLL_PMS_L8            ( ((200<<16)|(6<<8)|(0x4)) ) // 500
+#define CUST_APLL_PMS_L8            ( ((100<<16)|(6<<8)|(0x3)) ) // 1000
 
 #define CUST_ARM_CLK_L9             (  50000)
-#define CUST_ARM_V_L9               ( 950000)
+#define CUST_ARM_V_L9               ( 850000)
 #define CUST_INT_V_L9               (1000000)
 #define CUST_CLKDIV_CPU0_L9         { 0, 1, 3, 1, 3, 1, 7 }
 #define CUST_CLKDIV_CPU1_L9         { 3, 0 }
-#define CUST_APLL_PMS_L9            ( ((100<<16)|(6<<8)|(0x4)) ) // 500
+#define CUST_APLL_PMS_L9            ( (( 50<<16)|(6<<8)|(0x3)) ) // 1000
 
-#define ARMCLOCK_HIGH               CUST_ARM_CLK_L3 // set to 1200MHz
-#define ARMCLOCK_MID                CUST_ARM_CLK_L4 // set to 1000MHz
-#define ARMCLOCK_LOW                CUST_ARM_CLK_L7 // set to 200MHz
-#define CUST_SUSPEND_CLK_L          L5 // set to 800MHz
-#define CUST_REBOOT_CLK_L           L3 // set to 1200MHz
+#define CUST_SUSPEND_CLK_L          L5 // set 800MHz
+#define CUST_REBOOT_CLK_L           L3 // set 1200MHz
+#define CUST_1000MHZ_CLK_L          L4 // set 1000MHz
+#define CUST_DEFAULT_CLK_L_MAX      L3 // set default max freq levex
+#define CUST_DEFAULT_CLK_L_MIN      L7 // set default min freq levex
+
+#define CUST_ARM_CLK_1000MHZ        CUST_ARM_CLK_L4
+#define CUST_ARM_CLK_MAX            CUST_ARM_CLK_L0
+
+#define CPUFREQ_LEVEL_DEFAULT_OFFSET	3
 
 #else
 
@@ -117,13 +110,6 @@
 
 #define CUST_ARM_CLK_L_MAX          (5)
 #define CUST_FREQ_LEVEL_INDEX       L0, L1, L2, L3, L4, CPUFREQ_LEVEL_END,
-
-#define CUST_LOCKOP_FREQ_TABLE      {L0, CUST_ARM_CLK_L0},\
-                                    {L1, CUST_ARM_CLK_L1},\
-                                    {L2, CUST_ARM_CLK_L2},\
-                                    {L3, CUST_ARM_CLK_L3},\
-                                    {L4, CUST_ARM_CLK_L4},\
-                                    {0, CPUFREQ_TABLE_END},
 
 #define CUST_ARM_CLK_L0             (1200000)
 #define CUST_ARM_V_L0               (1300000)
@@ -155,11 +141,15 @@
 #define CUST_CLKDIV_CPU1_L4         { 3, 0 }
 #define CUST_APLL_PMS_L4            ( ((200<<16)|(6<<8)|(0x3)) )
 
-#define ARMCLOCK_HIGH               CUST_ARM_CLK_L0
-#define ARMCLOCK_MID                CUST_ARM_CLK_L1
-#define ARMCLOCK_LOW                CUST_ARM_CLK_L4
-#define CUST_SUSPEND_CLK_L          L1
-#define CUST_REBOOT_CLK_L           L0
+#define CUST_SUSPEND_CLK_L          L1 // set 1000MHz
+#define CUST_REBOOT_CLK_L           L0 // set 1200MHz
+#define CUST_DEFAULT_CLK_L_MAX      L0 // set default max freq levex
+#define CUST_DEFAULT_CLK_L_MIN      L4 // set default min freq levex
+
+#define CUST_ARM_CLK_1000MHZ        CUST_ARM_CLK_L1
+#define CUST_ARM_CLK_MAX            CUST_ARM_CLK_L0
+
+#define CPUFREQ_LEVEL_DEFAULT_OFFSET	0
 
 #endif
 
