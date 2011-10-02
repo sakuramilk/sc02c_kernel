@@ -381,7 +381,7 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 
 	printk(KERN_INFO "Registered gadget driver '%s'\n",
 			driver->driver.name);
-#ifndef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 	udc_enable(dev);
 	CSY_DBG("after udc_enable(dev)");
 #else
