@@ -824,11 +824,63 @@ static int s5pv310_target(struct cpufreq_policy *policy,
 		index = g_cpufreq_limit_level;
 
 	if (s5pv310_max_armclk == CUST_ARM_CLK_MAX) {
+#if 0
 		/* change L2 -> L0 */
 		if ((index == L0) && (old_index > L5)) {
 			printk(KERN_ERR "index= %d, old_index= %d\n", index, old_index);
 			index = L5;
 		}
+#endif
+		switch (index) {
+			case L0: {
+				if (old_index > L7) index = L7;
+				else if (old_index > L6) index = L6;
+				else if (old_index > L5) index = L5;
+				else if (old_index > L4) index = L4;
+				else if (old_index > L3) index = L3;
+				else if (old_index > L2) index = L2;
+				else if (old_index > L1) index = L1;
+			} break;
+
+			case L1: {
+				if (old_index > L7) index = L7;
+				else if (old_index > L6) index = L6;
+				else if (old_index > L5) index = L5;
+				else if (old_index > L4) index = L4;
+				else if (old_index > L3) index = L3;
+				else if (old_index > L2) index = L2;
+			} break;
+
+			case L2: {
+				if (old_index > L7) index = L7;
+				else if (old_index > L6) index = L6;
+				else if (old_index > L5) index = L5;
+				else if (old_index > L4) index = L4;
+				else if (old_index > L3) index = L3;
+			} break;
+
+			case L3: {
+				if (old_index > L7) index = L7;
+				else if (old_index > L6) index = L6;
+				else if (old_index > L5) index = L5;
+				else if (old_index > L4) index = L4;
+			} break;
+
+			case L4: {
+				if (old_index > L7) index = L7;
+				else if (old_index > L6) index = L6;
+				else if (old_index > L5) index = L5;
+			} break;
+
+			case L5: {
+				if (old_index > L7) index = L7;
+				else if (old_index > L6) index = L6;
+			} break;
+
+			case L6: {
+				if (old_index > L7) index = L7;
+			} break;
+ 		}
 	} else {
 		/* Prevent from jumping to 1GHz directly */
 		if ((index == L0) && (old_index > L1))
