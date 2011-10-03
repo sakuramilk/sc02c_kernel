@@ -9,9 +9,16 @@ ifeq ($(CONFIG_VIDEO_TVOUT_DEBUG), y)
 EXTRA_CFLAGS += -DDEBUG
 endif
 ifeq ($(CONFIG_VIDEO_UMP),y)
+ifeq ($(CONFIG_SAKURAMOD),y)
+    EXTRA_CFLAGS += -I$(KBUILD_SRC)/drivers/media/video/samsung/ump/include
+else
     EXTRA_CFLAGS += -Idrivers/media/video/samsung/ump/include
 endif
+endif
 
+ifeq ($(CONFIG_SAKURAMOD),y)
+override obj-dirs = $(dir $(obj)) $(obj)/hw_if/
+endif
 obj-$(CONFIG_VIDEO_TVOUT) :=	s5p_tvout.o		\
 				s5p_tvout_v4l2.o	\
 				s5p_tvout_fb.o		\

@@ -10,7 +10,7 @@ setup ()
 
     KERNEL_DIR="$(dirname "$(readlink -f "$0")")"
     BUILD_DIR="$KERNEL_DIR/build"
-    MODULES=("drivers/bluetooth/bthid/bthid.ko" "drivers/samsung/fm_si4709/Si4709_driver.ko" "drivers/samsung/j4fs/j4fs.ko" "drivers/media/video/gspca/gspca_main.ko" "drivers/scsi/scsi_wait_scan.ko" "drivers/net/wireless/bcm4330/dhd.ko" "drivers/samsung/vibetonz/vibrator.ko" "fs/cifs/cifs.ko")
+    MODULES=("drivers/bluetooth/bthid/bthid.ko" "drivers/samsung/j4fs/j4fs.ko" "drivers/media/video/gspca/gspca_main.ko" "drivers/scsi/scsi_wait_scan.ko" "drivers/net/wireless/bcm4330/dhd.ko" "drivers/samsung/vibetonz/vibrator.ko" "fs/cifs/cifs.ko" "drivers/staging/android/logger.ko")
 
     if [ x = "x$NO_CCACHE" ] && ccache -V &>/dev/null ; then
         CCACHE=ccache
@@ -22,7 +22,7 @@ setup ()
         CCACHE=""
     fi
 
-    CROSS_PREFIX="$ANDROID_BUILD_TOP/prebuilt/linux-x86/toolchain/arm-2011.03/bin/arm-none-eabi-"
+    CROSS_PREFIX="/opt/toolchains/arm-2011.03/bin/arm-none-eabi-"
 }
 
 build ()
