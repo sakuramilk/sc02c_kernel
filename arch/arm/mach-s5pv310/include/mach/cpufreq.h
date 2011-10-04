@@ -22,8 +22,8 @@ enum cpufreq_level_request{
 	CPU_L5, /*  800MHz */
 	CPU_L6, /*  500MHz */
 	CPU_L7, /*  200MHz */
-	CPU_L8, /*  100MHz */
-	CPU_L9, /*   50MHz */
+	CPU_L8, /*  160MHz */
+	CPU_L9, /*  100MHz */
 	CPU_LEVEL_END,
 };
 

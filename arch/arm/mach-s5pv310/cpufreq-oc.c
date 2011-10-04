@@ -782,8 +782,13 @@ static int s5pv310_target(struct cpufreq_policy *policy,
 	}
 
 	if (!strncmp(policy->governor->name, "ondemand", CPUFREQ_NAME_LEN)
+	||  !strncmp(policy->governor->name, "ondemandx", CPUFREQ_NAME_LEN)
 	||  !strncmp(policy->governor->name, "conservative", CPUFREQ_NAME_LEN)
 	||  !strncmp(policy->governor->name, "interactive", CPUFREQ_NAME_LEN)
+	||  !strncmp(policy->governor->name, "interactiveX", CPUFREQ_NAME_LEN)
+	||  !strncmp(policy->governor->name, "smartass", CPUFREQ_NAME_LEN)
+	||  !strncmp(policy->governor->name, "smartassV2", CPUFREQ_NAME_LEN)
+	||  !strncmp(policy->governor->name, "lagfree", CPUFREQ_NAME_LEN)
 	) {
 		check_gov = 1;
 		if (relation & ENABLE_FURTHER_CPUFREQ)
@@ -833,7 +838,8 @@ static int s5pv310_target(struct cpufreq_policy *policy,
 #endif
 		switch (index) {
 			case L0: {
-				if (old_index > L7) index = L7;
+				if (old_index > L8) index = L8;
+				else if (old_index > L7) index = L7;
 				else if (old_index > L6) index = L6;
 				else if (old_index > L5) index = L5;
 				else if (old_index > L4) index = L4;
@@ -843,7 +849,8 @@ static int s5pv310_target(struct cpufreq_policy *policy,
 			} break;
 
 			case L1: {
-				if (old_index > L7) index = L7;
+				if (old_index > L8) index = L8;
+				else if (old_index > L7) index = L7;
 				else if (old_index > L6) index = L6;
 				else if (old_index > L5) index = L5;
 				else if (old_index > L4) index = L4;
@@ -852,7 +859,8 @@ static int s5pv310_target(struct cpufreq_policy *policy,
 			} break;
 
 			case L2: {
-				if (old_index > L7) index = L7;
+				if (old_index > L8) index = L8;
+				else if (old_index > L7) index = L7;
 				else if (old_index > L6) index = L6;
 				else if (old_index > L5) index = L5;
 				else if (old_index > L4) index = L4;
@@ -860,25 +868,33 @@ static int s5pv310_target(struct cpufreq_policy *policy,
 			} break;
 
 			case L3: {
-				if (old_index > L7) index = L7;
+				if (old_index > L8) index = L8;
+				else if (old_index > L7) index = L7;
 				else if (old_index > L6) index = L6;
 				else if (old_index > L5) index = L5;
 				else if (old_index > L4) index = L4;
 			} break;
 
 			case L4: {
-				if (old_index > L7) index = L7;
+				if (old_index > L8) index = L8;
+				else if (old_index > L7) index = L7;
 				else if (old_index > L6) index = L6;
 				else if (old_index > L5) index = L5;
 			} break;
 
 			case L5: {
-				if (old_index > L7) index = L7;
+				if (old_index > L8) index = L8;
+				else if (old_index > L7) index = L7;
 				else if (old_index > L6) index = L6;
 			} break;
 
 			case L6: {
-				if (old_index > L7) index = L7;
+				if (old_index > L8) index = L8;
+				else if (old_index > L7) index = L7;
+			} break;
+
+			case L7: {
+				if (old_index > L8) index = L8;
 			} break;
  		}
 	} else {
@@ -1485,6 +1501,7 @@ static int s5pv310_cpufreq_cpu_init(struct cpufreq_policy *policy)
 	/* set safe default min and max speeds - netarchy */
 	policy->max = CUST_ARM_CLK_DEFAULT_MAX;
 	policy->min =  CUST_ARM_CLK_DEFAULT_MIN;
+
 	return ret;
 }
 

@@ -77,19 +77,19 @@
 #define CUST_CLKDIV_CPU1_L7         { 3, 0 }
 #define CUST_APLL_PMS_L7            ( ((200<<16)|(6<<8)|(0x3)) ) // 1000
 
-#define CUST_ARM_CLK_L8             ( 100000)
-#define CUST_ARM_V_L8               ( 900000)
+#define CUST_ARM_CLK_L8             ( 160000)
+#define CUST_ARM_V_L8               ( 950000)
 #define CUST_INT_V_L8               (1000000)
 #define CUST_CLKDIV_CPU0_L8         { 0, 1, 3, 1, 3, 1, 7 }
 #define CUST_CLKDIV_CPU1_L8         { 3, 0 }
-#define CUST_APLL_PMS_L8            ( ((100<<16)|(6<<8)|(0x3)) ) // 1000
+#define CUST_APLL_PMS_L8            ( ((160<<16)|(6<<8)|(0x3)) ) // 1000
 
-#define CUST_ARM_CLK_L9             (  50000)
-#define CUST_ARM_V_L9               ( 850000)
+#define CUST_ARM_CLK_L9             ( 100000)
+#define CUST_ARM_V_L9               ( 900000)
 #define CUST_INT_V_L9               (1000000)
 #define CUST_CLKDIV_CPU0_L9         { 0, 1, 3, 1, 3, 1, 7 }
 #define CUST_CLKDIV_CPU1_L9         { 3, 0 }
-#define CUST_APLL_PMS_L9            ( (( 50<<16)|(6<<8)|(0x3)) ) // 1000
+#define CUST_APLL_PMS_L9            ( ((100<<16)|(6<<8)|(0x3)) ) // 1000
 
 #define CUST_SUSPEND_CLK_L          L5 // set 800MHz
 #define CUST_REBOOT_CLK_L           L3 // set 1200MHz
