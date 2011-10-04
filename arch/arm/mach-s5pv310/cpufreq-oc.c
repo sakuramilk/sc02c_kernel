@@ -2007,6 +2007,10 @@ static inline void s5pv310_asv_set_voltage(void)
 	case CUST_ARM_CLK_L9:
 		asv_arm_index = 9;
 		break;
+	default:
+		printk(KERN_ERR "Invalid cpufreq.");
+		asv_arm_index = 3;
+		break;
 	}
 
 	if (s5pv310_max_armclk != CUST_ARM_CLK_MAX)
@@ -2033,6 +2037,9 @@ static inline void s5pv310_asv_set_voltage(void)
 	case 133333:
 		asv_int_index = 2;
 		break;
+	default:
+		printk(KERN_ERR "Invalid busfreq.");
+		asv_int_index = 0;
 	}
 	asv_int_volt = s5pv310_busfreq_table[asv_int_index].volt;
 	regulator_set_voltage(int_regulator, asv_int_volt, asv_int_volt);
