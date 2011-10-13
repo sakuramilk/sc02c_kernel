@@ -676,6 +676,15 @@ int exp_UV_mV[CUST_ARM_CLK_L_MAX] = {
 #ifdef CUST_ARM_CLK_L6
                                        CUST_ARM_V_L6,
 #endif
+#ifdef CUST_ARM_CLK_L7
+                                       CUST_ARM_V_L7,
+#endif
+#ifdef CUST_ARM_CLK_L8
+                                       CUST_ARM_V_L8,
+#endif
+#ifdef CUST_ARM_CLK_L9
+                                       CUST_ARM_V_L9,
+#endif
                                      };
 
 /* sysfs interface for UV control */
@@ -692,6 +701,15 @@ static ssize_t show_UV_mV_table(struct cpufreq_policy *policy, char *buf) {
 #ifdef CUST_ARM_CLK_L6
 					"%dmhz: %d mV\n"
 #endif
+#ifdef CUST_ARM_CLK_L7
+					"%dmhz: %d mV\n"
+#endif
+#ifdef CUST_ARM_CLK_L8
+					"%dmhz: %d mV\n"
+#endif
+#ifdef CUST_ARM_CLK_L9
+					"%dmhz: %d mV\n"
+#endif
 					,CUST_ARM_CLK_L0/1000, exp_UV_mV[0]/1000
 					,CUST_ARM_CLK_L1/1000, exp_UV_mV[1]/1000
 					,CUST_ARM_CLK_L2/1000, exp_UV_mV[2]/1000
@@ -702,6 +720,15 @@ static ssize_t show_UV_mV_table(struct cpufreq_policy *policy, char *buf) {
 #endif
 #ifdef CUST_ARM_CLK_L6
 					,CUST_ARM_CLK_L6/1000, exp_UV_mV[6]/1000
+#endif
+#ifdef CUST_ARM_CLK_L7
+					,CUST_ARM_CLK_L7/1000, exp_UV_mV[7]/1000
+#endif
+#ifdef CUST_ARM_CLK_L8
+					,CUST_ARM_CLK_L8/1000, exp_UV_mV[8]/1000
+#endif
+#ifdef CUST_ARM_CLK_L9
+					,CUST_ARM_CLK_L9/1000, exp_UV_mV[9]/1000
 #endif
 					);
 }
@@ -723,6 +750,15 @@ static ssize_t store_UV_mV_table(struct cpufreq_policy *policy,
 #ifdef CUST_ARM_CLK_L6
 					" %d"
 #endif
+#ifdef CUST_ARM_CLK_L7
+					" %d"
+#endif
+#ifdef CUST_ARM_CLK_L8
+					" %d"
+#endif
+#ifdef CUST_ARM_CLK_L9
+					" %d"
+#endif
 					,&exp_UV_mV[0]
 					,&exp_UV_mV[1]
 					,&exp_UV_mV[2]
@@ -734,6 +770,15 @@ static ssize_t store_UV_mV_table(struct cpufreq_policy *policy,
 #ifdef CUST_ARM_CLK_L6
 					,&exp_UV_mV[6]
 #endif
+#ifdef CUST_ARM_CLK_L7
+					,&exp_UV_mV[7]
+#endif
+#ifdef CUST_ARM_CLK_L8
+					,&exp_UV_mV[8]
+#endif
+#ifdef CUST_ARM_CLK_L9
+					,&exp_UV_mV[9]
+#endif
 					);
 	if(ret != CUST_ARM_CLK_L_MAX) {
 		return -EINVAL;
@@ -742,11 +787,10 @@ static ssize_t store_UV_mV_table(struct cpufreq_policy *policy,
 	for (i = 0; i < CUST_ARM_CLK_L_MAX; i++) {
 		exp_UV_mV[i] *= 1000;
 
-		/* Maximum Voltage */
+		/* Maximum/Minimum Voltage */
 		if (exp_UV_mV[i] > CUST_ARM_V_MAX)
 			exp_UV_mV[i] = CUST_ARM_V_MAX;
-
-		/* Minimum Voltage */
+		else
 		if (exp_UV_mV[i] < CUST_ARM_V_MIN)
 			exp_UV_mV[i] = CUST_ARM_V_MIN;
 	}

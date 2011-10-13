@@ -140,6 +140,7 @@ extern int touch_is_pressed;
 #ifdef CONFIG_GENERIC_BLN
 static struct wake_lock touchkey_wake_lock;
 static bool touchkey_is_suspended = false;
+static spinlock_t touchkey_lock;
 #endif
 
 static void touch_forced_release(void)
@@ -149,6 +150,8 @@ static void touch_forced_release(void)
 int touchkey_led_ldo_on(bool on)
 {
 	struct regulator *regulator;
+
+	printk(KERN_ERR "[TouchKey:D] %s(on=%d)\n", __func__, on);
 
 	if (on) {
 		regulator = regulator_get(NULL, "touch_led");
@@ -172,6 +175,8 @@ int touchkey_led_ldo_on(bool on)
 int touchkey_ldo_on(bool on)
 {
 	struct regulator *regulator;
+
+	printk(KERN_ERR "[TouchKey:D] %s(on=%d)\n", __func__, on);
 
 	if (on) {
 		regulator = regulator_get(NULL, "touch");
@@ -277,7 +282,7 @@ static int i2c_touchkey_write(u8 *val, unsigned int len)
 		msg->len = len;
 		msg->buf = data;
 		err = i2c_transfer(touchkey_driver->client->adapter, msg, 1);
-		/*printk(KERN_DEBUG "[TouchKey] write value %d to address %d err=%d\n",*val, msg->addr, err);*/
+		printk(KERN_DEBUG "[TouchKey:D] write value %d to address %d err=%d\n",*val, msg->addr, err);
 		if (err >= 0) {
 
 			return 0;
@@ -512,6 +517,8 @@ static irqreturn_t touchkey_interrupt(int irq, void *dummy)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static int melfas_touchkey_early_suspend(struct early_suspend *h)
 {
+	spin_lock(&touchkey_lock);
+
 	touchkey_enable = 0;
 	touchkey_is_suspended = true;
 	set_touchkey_debug('S');
@@ -519,6 +526,7 @@ static int melfas_touchkey_early_suspend(struct early_suspend *h)
 	if (touchkey_enable < 0) {
 		printk(KERN_DEBUG "[TouchKey] ---%s---touchkey_enable: %d\n",
 		       __func__, touchkey_enable);
+		spin_unlock(&touchkey_lock);
 		return 0;
 	}
 
@@ -538,6 +546,7 @@ static int melfas_touchkey_early_suspend(struct early_suspend *h)
 	/* disable ldo11 */
 	touchkey_ldo_on(0);
 
+	spin_unlock(&touchkey_lock);
 
 	return 0;
 }
@@ -566,23 +575,28 @@ static void melfas_enable_touchkey_backlights(void) {
 	uint8_t val = 1;
 
 	printk(KERN_DEBUG "[TouchKey] %s\n", __func__);
+	spin_lock(&touchkey_lock);	
 	if (touchkey_is_suspended)
 	{
 		if (touchkey_enable == 0) {
 			touchkey_bln_wakeup();
 		}
+		printk(KERN_DEBUG "[TouchKey:D] line=%d : call i2c_touchkey_write(value=%d)\n", __LINE__, val);
 		i2c_touchkey_write(&val, sizeof(val));
 		touchkey_led_status = 2;
 		touchled_cmd_reversed = 1;
 	}
+	spin_unlock(&touchkey_lock);
 }
 
 static void melfas_disable_touchkey_backlights(void) {
 	uint8_t val = 2;
 
 	printk(KERN_DEBUG "[TouchKey] %s\n", __func__);
+	spin_lock(&touchkey_lock);
 	if (touchkey_is_suspended)
 	{
+		printk(KERN_DEBUG "[TouchKey:D] line=%d : call i2c_touchkey_write(value=%d)\n", __LINE__, val);
 		i2c_touchkey_write(&val, sizeof(val));
 		if (touchkey_enable == 1) {
 			touchkey_bln_sleep();
@@ -590,6 +604,7 @@ static void melfas_disable_touchkey_backlights(void) {
 		touchkey_led_status = 1;
 		touchled_cmd_reversed = 0;
 	}
+	spin_unlock(&touchkey_lock);
 }
 
 static struct bln_implementation cypress_touchkey_bln = {
@@ -605,7 +620,9 @@ static int melfas_touchkey_late_resume(struct early_suspend *h)
 #endif
 
 	set_touchkey_debug('R');
-	printk(KERN_DEBUG "[TouchKey] melfas_touchkey_late_resume\n");
+	printk(KERN_DEBUG "[TouchKey:D] melfas_touchkey_late_resume enter\n");
+
+	spin_lock(&touchkey_lock);
 
 #ifdef CONFIG_GENERIC_BLN
 	printk(KERN_DEBUG "[TouchKey] wake_unlock!!!\n");
@@ -618,6 +635,7 @@ static int melfas_touchkey_late_resume(struct early_suspend *h)
 	if (touchkey_enable < 0) {
 		printk(KERN_DEBUG "[TouchKey] ---%s---touchkey_enable: %d\n",
 		       __func__, touchkey_enable);
+		spin_unlock(&touchkey_lock);
 		return 0;
 	}
 	gpio_direction_output(_3_GPIO_TOUCH_EN, 1);
@@ -646,6 +664,7 @@ static int melfas_touchkey_late_resume(struct early_suspend *h)
 
 	if (touchled_cmd_reversed) {
 		touchled_cmd_reversed = 0;
+		printk(KERN_DEBUG "[TouchKey:D] line=%d : call i2c_touchkey_write(value=%d)\n", __LINE__, touchkey_led_status);
 		i2c_touchkey_write((u8*)&touchkey_led_status, 1);
 		printk(KERN_DEBUG "LED returned on\n");
 	}
@@ -653,6 +672,10 @@ static int melfas_touchkey_late_resume(struct early_suspend *h)
 #ifdef TEST_JIG_MODE
 	i2c_touchkey_write(&get_touch, 1);
 #endif
+
+	spin_unlock(&touchkey_lock);
+
+    printk(KERN_DEBUG "[TouchKey:D] melfas_touchkey_late_resume leave\n");
 
 	return 0;
 }
@@ -893,6 +916,7 @@ static ssize_t touch_led_control(struct device *dev,
 	int data;
 	int errnum;
 	if (sscanf(buf, "%d\n", &data) == 1) {
+		printk(KERN_DEBUG "[TouchKey:D] line=%d : call i2c_touchkey_write(value=%d)\n", __LINE__, data);
 		errnum = i2c_touchkey_write((u8 *)&data, 1);
 		if (errnum == -ENODEV) {
 			touchled_cmd_reversed = 1;
@@ -977,6 +1001,7 @@ static ssize_t touch_sensitivity_control(struct device *dev,
 				 size_t size)
 {
 	unsigned char data = 0x40;
+	printk(KERN_DEBUG "[TouchKey:D] line=%d : call i2c_touchkey_write(value=%d)\n", __LINE__, data);
 	i2c_touchkey_write(&data, 1);
 	return size;
 }
@@ -1241,6 +1266,7 @@ static int __init touchkey_init(void)
 			dev_attr_touchkey_bln_control.attr.name);
 	}
 
+	spin_lock_init(&touchkey_lock);
 
 	touchkey_wq = create_singlethread_workqueue("melfas_touchkey_wq");
 	if (!touchkey_wq) {
