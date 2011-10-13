@@ -197,7 +197,6 @@ static int sdio_disable_cd(struct mmc_card *card)
  * Devices that remain active during a system suspend are
  * put back into 1-bit mode.
  */
-#ifndef BRCM_PATCH
 static int sdio_disable_wide(struct mmc_card *card)
 {
 	int ret;
@@ -227,7 +226,6 @@ static int sdio_disable_wide(struct mmc_card *card)
 
 	return 0;
 }
-#endif /* BRCM_PATCH */
 
 /*
  * Test if the card supports high-speed mode and, if so, switch to it.
@@ -316,6 +314,14 @@ static int mmc_sdio_init_card(struct mmc_host *host, u32 ocr,
 		err = mmc_send_relative_addr(host, &card->rca);
 		if (err)
 			goto remove;
+
+		/*
+		 * Update oldcard with the new RCA received from the SDIO
+		 * device -- we're doing this so that it's updated in the
+		 * "card" struct when oldcard overwrites that later.
+		 */
+		if (oldcard)
+			oldcard->rca = card->rca;
 
 		mmc_set_bus_mode(host, MMC_BUSMODE_PUSHPULL);
 	}
@@ -469,9 +475,8 @@ static void mmc_sdio_detect(struct mmc_host *host)
  */
 static int mmc_sdio_suspend(struct mmc_host *host)
 {
-	int err = 0;
+	int i, err = 0;
 #ifndef BRCM_PATCH
-	int i
 	for (i = 0; i < host->card->sdio_funcs; i++) {
 		struct sdio_func *func = host->card->sdio_func[i];
 		if (func && sdio_func_present(func) && func->dev.driver) {
@@ -505,9 +510,8 @@ static int mmc_sdio_suspend(struct mmc_host *host)
 
 static int mmc_sdio_resume(struct mmc_host *host)
 {
-	int err = 0;
+	int i, err = 0;
 #ifndef BRCM_PATCH
-	int i;
 	BUG_ON(!host);
 	BUG_ON(!host->card);
 

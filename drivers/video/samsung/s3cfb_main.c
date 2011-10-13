@@ -852,13 +852,12 @@ int s3cfb_suspend(struct platform_device *pdev, pm_message_t state)
 		fbdev[i] = fbfimd->fbdev[i];
 
 #ifdef CONFIG_FB_S3C_MDNIE
-			writel(0, fbdev[i]->regs + 0x27c);
-			msleep(20);
-			reg = readl(S3C_VA_SYS + 0x0210);
-			reg |= (1<<1);
-			writel(reg, S3C_VA_SYS + 0x0210);
-			s3c_mdnie_stop();
-		}
+		writel(0, fbdev[i]->regs + 0x27c);
+		msleep(20);
+		reg = readl(S3C_VA_SYS + 0x0210);
+		reg |= (1<<1);
+		writel(reg, S3C_VA_SYS + 0x0210);
+		s3c_mdnie_stop();
 #endif
 		if (atomic_read(&fbdev[i]->enabled_win) > 0) {
 			/* lcd_off and backlight_off isn't needed. */

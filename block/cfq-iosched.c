@@ -2615,8 +2615,14 @@ static void __cfq_exit_single_io_context(struct cfq_data *cfqd,
 	smp_wmb();
 	cic->key = cfqd_dead_key(cfqd);
 
-	if (ioc->ioc_data == cic)
+	rcu_read_lock();
+	if (rcu_dereference(ioc->ioc_data) == cic) {
+		rcu_read_unlock();
+		spin_lock(&ioc->lock);
 		rcu_assign_pointer(ioc->ioc_data, NULL);
+		spin_unlock(&ioc->lock);
+	} else
+		rcu_read_unlock();
 
 	if (cic->cfqq[BLK_RW_ASYNC]) {
 		cfq_exit_cfqq(cfqd, cic->cfqq[BLK_RW_ASYNC]);
@@ -2755,6 +2761,7 @@ static void changed_ioprio(struct io_context *ioc, struct cfq_io_context *cic)
 static void cfq_ioc_set_ioprio(struct io_context *ioc)
 {
 	call_for_each_cic(ioc, changed_ioprio);
+	ioc->ioprio_changed = 0;
 }
 
 static void cfq_init_cfqq(struct cfq_data *cfqd, struct cfq_queue *cfqq,
@@ -3038,13 +3045,8 @@ cfq_get_io_context(struct cfq_data *cfqd, gfp_t gfp_mask)
 		goto err_free;
 
 out:
-	/*
-	 * test_and_clear_bit() implies a memory barrier, paired with
-	 * the wmb() in fs/ioprio.c, so the value seen for ioprio is the
-	 * new one.
-	 */
-	if (unlikely(test_and_clear_bit(IOC_CFQ_IOPRIO_CHANGED,
-					ioc->ioprio_changed)))
+	smp_read_barrier_depends();
+	if (unlikely(ioc->ioprio_changed))
 		cfq_ioc_set_ioprio(ioc);
 
 #ifdef CONFIG_CFQ_GROUP_IOSCHED

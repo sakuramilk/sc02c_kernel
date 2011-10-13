@@ -95,7 +95,7 @@ void __iomem *dac_base;
 #define DISABLE_FURTHER_CPUFREQ         0x10
 #define ENABLE_FURTHER_CPUFREQ          0x20
 #define MASK_FURTHER_CPUFREQ            0x30
-#define MASK_ONLY_SET_CPUFREQ	        0x40
+#define MASK_ONLY_SET_CPUFREQ           0x40
 #define SET_CPU_FREQ_SAMPLING_RATE      100000
 
 static int s5pv310_max_armclk;
@@ -1418,7 +1418,7 @@ static int s5pv310_cpufreq_notifier_event(struct notifier_block *this,
 	case PM_SUSPEND_PREPARE:
 		max = policy->max;
 		min = policy->min;
-		policy->max = policy->min = s5pv310_freq_table[CUST_SUSPEND_CLK_L-1].frequency;
+		policy->max = policy->min = s5pv310_freq_table[CUST_SUSPEND_CLK_L].frequency;
 		ret = cpufreq_driver_target(policy,
 		s5pv310_freq_table[CUST_SUSPEND_CLK_L].frequency, DISABLE_FURTHER_CPUFREQ);
 		if (WARN_ON(ret < 0))

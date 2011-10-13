@@ -541,13 +541,12 @@ static int mshci_s3c_resume(struct platform_device *dev)
 	return 0;
 }
 
-static void mshci_s3c_shutdown(struct platform_device *dev)
+static void mshci_s3c_shutdown(struct platform_device *dev, pm_message_t pm)
 {
 	struct mshci_host *host = platform_get_drvdata(dev);
 	struct s3c_mshci_platdata *pdata = dev->dev.platform_data;
-	pm_message_t dummy = {0}; // mshci_suspend_host func is pm not used.
 
-	mshci_suspend_host(host, dummy);
+	mshci_suspend_host(host, pm);
 
 	if (pdata->shutdown)
 		pdata->shutdown();

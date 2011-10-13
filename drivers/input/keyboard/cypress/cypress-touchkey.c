@@ -35,6 +35,7 @@
 #ifdef CONFIG_GENERIC_BLN
 #include <linux/bln.h>
 #include <linux/wakelock.h>
+#include <linux/spinlock.h>
 #endif
 
 #include <linux/regulator/consumer.h>
@@ -141,6 +142,11 @@ extern int touch_is_pressed;
 static struct wake_lock touchkey_wake_lock;
 static bool touchkey_is_suspended = false;
 static spinlock_t touchkey_lock;
+#define BLN_SPIN_LOCK()     spin_lock(&touchkey_lock)
+#define BLN_SPIN_UNLOCK()   spin_unlock(&touchkey_lock)
+#else
+#define BLN_SPIN_LOCK()
+#define BLN_SPIN_UNLOCK()
 #endif
 
 static void touch_forced_release(void)
@@ -517,16 +523,19 @@ static irqreturn_t touchkey_interrupt(int irq, void *dummy)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static int melfas_touchkey_early_suspend(struct early_suspend *h)
 {
-	spin_lock(&touchkey_lock);
+	BLN_SPIN_LOCK();
 
 	touchkey_enable = 0;
+#ifdef CONFIG_GENERIC_BLN
 	touchkey_is_suspended = true;
+#endif
+
 	set_touchkey_debug('S');
 	printk(KERN_DEBUG "[TouchKey] melfas_touchkey_early_suspend\n");
 	if (touchkey_enable < 0) {
 		printk(KERN_DEBUG "[TouchKey] ---%s---touchkey_enable: %d\n",
 		       __func__, touchkey_enable);
-		spin_unlock(&touchkey_lock);
+		BLN_SPIN_UNLOCK();
 		return 0;
 	}
 
@@ -546,7 +555,7 @@ static int melfas_touchkey_early_suspend(struct early_suspend *h)
 	/* disable ldo11 */
 	touchkey_ldo_on(0);
 
-	spin_unlock(&touchkey_lock);
+	BLN_SPIN_UNLOCK();
 
 	return 0;
 }
@@ -575,7 +584,7 @@ static void melfas_enable_touchkey_backlights(void) {
 	uint8_t val = 1;
 
 	printk(KERN_DEBUG "[TouchKey] %s\n", __func__);
-	spin_lock(&touchkey_lock);	
+	BLN_SPIN_LOCK();
 	if (touchkey_is_suspended)
 	{
 		if (touchkey_enable == 0) {
@@ -586,14 +595,14 @@ static void melfas_enable_touchkey_backlights(void) {
 		touchkey_led_status = 2;
 		touchled_cmd_reversed = 1;
 	}
-	spin_unlock(&touchkey_lock);
+	BLN_SPIN_UNLOCK();
 }
 
 static void melfas_disable_touchkey_backlights(void) {
 	uint8_t val = 2;
 
 	printk(KERN_DEBUG "[TouchKey] %s\n", __func__);
-	spin_lock(&touchkey_lock);
+	BLN_SPIN_LOCK();
 	if (touchkey_is_suspended)
 	{
 		printk(KERN_DEBUG "[TouchKey:D] line=%d : call i2c_touchkey_write(value=%d)\n", __LINE__, val);
@@ -604,7 +613,7 @@ static void melfas_disable_touchkey_backlights(void) {
 		touchkey_led_status = 1;
 		touchled_cmd_reversed = 0;
 	}
-	spin_unlock(&touchkey_lock);
+	BLN_SPIN_UNLOCK();
 }
 
 static struct bln_implementation cypress_touchkey_bln = {
@@ -622,7 +631,7 @@ static int melfas_touchkey_late_resume(struct early_suspend *h)
 	set_touchkey_debug('R');
 	printk(KERN_DEBUG "[TouchKey:D] melfas_touchkey_late_resume enter\n");
 
-	spin_lock(&touchkey_lock);
+	BLN_SPIN_LOCK();
 
 #ifdef CONFIG_GENERIC_BLN
 	printk(KERN_DEBUG "[TouchKey] wake_unlock!!!\n");
@@ -635,7 +644,7 @@ static int melfas_touchkey_late_resume(struct early_suspend *h)
 	if (touchkey_enable < 0) {
 		printk(KERN_DEBUG "[TouchKey] ---%s---touchkey_enable: %d\n",
 		       __func__, touchkey_enable);
-		spin_unlock(&touchkey_lock);
+		BLN_SPIN_UNLOCK();
 		return 0;
 	}
 	gpio_direction_output(_3_GPIO_TOUCH_EN, 1);
@@ -660,7 +669,9 @@ static int melfas_touchkey_late_resume(struct early_suspend *h)
 
 	enable_irq(IRQ_TOUCH_INT);
 	touchkey_enable = 1;
+#ifdef CONFIG_GENERIC_BLN
 	touchkey_is_suspended = false;
+#endif
 
 	if (touchled_cmd_reversed) {
 		touchled_cmd_reversed = 0;
@@ -673,7 +684,7 @@ static int melfas_touchkey_late_resume(struct early_suspend *h)
 	i2c_touchkey_write(&get_touch, 1);
 #endif
 
-	spin_unlock(&touchkey_lock);
+	BLN_SPIN_UNLOCK();
 
     printk(KERN_DEBUG "[TouchKey:D] melfas_touchkey_late_resume leave\n");
 
@@ -1090,6 +1101,7 @@ static ssize_t set_touchkey_firm_status_show(struct device *dev, struct device_a
 	return count;
 }
 
+#ifdef CONFIG_GENERIC_BLN
 static ssize_t touchkey_bln_control(struct device *dev,
 				 struct device_attribute *attr, const char *buf,
 				 size_t size)
@@ -1108,6 +1120,7 @@ static ssize_t touchkey_bln_control(struct device *dev,
 
 	return size;
 }
+#endif
 
 static DEVICE_ATTR(touch_version, S_IRUGO | S_IWUSR | S_IWGRP,
 		   touch_version_read, touch_version_write);
@@ -1133,7 +1146,9 @@ static DEVICE_ATTR(touchkey_firm_version_panel, S_IRUGO | S_IWUSR | S_IWGRP, set
 /*end N1 firmware sync*/
 
 static DEVICE_ATTR(touchkey_brightness, S_IRUGO | S_IWUSR | S_IWGRP, NULL, brightness_control);
+#ifdef CONFIG_GENERIC_BLN
 static DEVICE_ATTR(touchkey_bln_control, S_IRUGO | S_IWUSR | S_IWGRP, NULL, touchkey_bln_control);
+#endif
 
 static int __init touchkey_init(void)
 {
@@ -1259,14 +1274,14 @@ static int __init touchkey_init(void)
 			dev_attr_touch_sensitivity.attr.name);
 	}
 
+#ifdef CONFIG_GENERIC_BLN
 	if (device_create_file
 		(touchkey_update_device.this_device, &dev_attr_touchkey_bln_control) < 0) {
 		printk(KERN_ERR "%s device_create_file fail dev_attr_touchkey_bln_control\n", __func__);
 		printk(KERN_ERR "Failed to create device file(%s)!\n",
 			dev_attr_touchkey_bln_control.attr.name);
 	}
-
-	spin_lock_init(&touchkey_lock);
+#endif
 
 	touchkey_wq = create_singlethread_workqueue("melfas_touchkey_wq");
 	if (!touchkey_wq) {
@@ -1325,6 +1340,7 @@ static int __init touchkey_init(void)
 	 <<<<<<<<<<<<<< Cypress Firmware Update */
 
 #ifdef CONFIG_GENERIC_BLN
+	spin_lock_init(&touchkey_lock);
 	wake_lock_init(&touchkey_wake_lock, WAKE_LOCK_SUSPEND, "touchkey_bln");
 	register_bln_implementation(&cypress_touchkey_bln);
 #endif

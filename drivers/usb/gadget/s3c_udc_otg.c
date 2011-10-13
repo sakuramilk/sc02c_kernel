@@ -427,7 +427,7 @@ EXPORT_SYMBOL(usb_gadget_unregister_driver);
 
 static int s3c_udc_power(struct s3c_udc *dev, char en)
 {
-    	int ret;
+	int ret;
 	pr_debug("%s : %s\n", __func__, en ? "ON" : "OFF");
 #ifdef USE_USB_LDO_CONTROL
 	if (en) {
