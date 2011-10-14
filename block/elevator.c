@@ -154,10 +154,7 @@ static struct elevator_type *elevator_get(const char *name)
 
 		spin_unlock(&elv_list_lock);
 
-		if (!strcmp(name, "anticipatory"))
-			sprintf(elv, "as-iosched");
-		else
-			snprintf(elv, sizeof(elv), "%s-iosched", name);
+		snprintf(elv, sizeof(elv), "%s-iosched", name);
 
 		request_module("%s", elv);
 		spin_lock(&elv_list_lock);
@@ -193,11 +190,7 @@ static int __init elevator_setup(char *str)
 	 * Be backwards-compatible with previous kernels, so users
 	 * won't get the wrong elevator.
 	 */
-	if (!strcmp(str, "as"))
-		strncpy(chosen_elevator, "anticipatory", sizeof(chosen_elevator) - 1);
-	else
-		strncpy(chosen_elevator, str, sizeof(chosen_elevator) - 1);
-
+	strncpy(chosen_elevator, str, sizeof(chosen_elevator) - 1);
 	return 1;
 }
 

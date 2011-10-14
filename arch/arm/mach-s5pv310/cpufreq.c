@@ -38,7 +38,7 @@
 #endif
 
 #include <plat/pm.h>
-
+#include <plat/s5p-tmu.h>
 #include <plat/s5pv310.h>
 
 #include <mach/cpufreq.h>
@@ -1186,9 +1186,7 @@ static int s5pv310_target(struct cpufreq_policy *policy,
 	}
 
 	if (!strncmp(policy->governor->name, "ondemand", CPUFREQ_NAME_LEN)
-	||  !strncmp(policy->governor->name, "conservative", CPUFREQ_NAME_LEN)
-	||  !strncmp(policy->governor->name, "interactive", CPUFREQ_NAME_LEN)
-	) {
+	|| !strncmp(policy->governor->name, "conservative", CPUFREQ_NAME_LEN)) {
 		check_gov = 1;
 		if (relation & ENABLE_FURTHER_CPUFREQ)
 			s5pv310_dvs_locking = 0;
@@ -1595,13 +1593,6 @@ int s5pv310_cpufreq_lock(unsigned int nId,
 		}
 	}
 	
-	/* touch screen lock the minimum freq at 500MHz */
-	if (s5pv310_max_armclk == ARMCLOCK_1200MHZ) {
-		if (cpufreq_level != CPU_L0) {
-			cpufreq_level += 2;
-		}
-	}
-
 	if (g_cpufreq_lock_id & (1 << nId)) {
 		printk(KERN_ERR
 		"[CPUFREQ]This device [%d] already locked cpufreq\n", nId);
@@ -1669,12 +1660,6 @@ int s5pv310_cpufreq_upper_limit(unsigned int nId, enum cpufreq_level_request cpu
 	if (g_cpufreq_limit_id & (1 << nId)) {
 		printk(KERN_ERR "[CPUFREQ]This device [%d] already limited cpufreq\n", nId);
 		return 0;
-	}
-
-	if (s5pv310_max_armclk == ARMCLOCK_1200MHZ) {
-		if (cpufreq_level != CPU_L0) {
-			cpufreq_level += 2;
-		}
 	}
 
 	mutex_lock(&set_cpu_freq_lock);
@@ -1792,7 +1777,7 @@ static int s5pv310_cpufreq_notifier_event(struct notifier_block *this,
 	case PM_SUSPEND_PREPARE:
 		max = policy->max;
 		min = policy->min;
-		policy->max = policy->min = s5pv310_freq_table[L2].frequency;
+		policy->max = policy->min = s5pv310_freq_table[CUST_SUSPEND_CLK_L].frequency;
 		ret = cpufreq_driver_target(policy,
 		s5pv310_freq_table[CUST_SUSPEND_CLK_L].frequency, DISABLE_FURTHER_CPUFREQ);
 		if (WARN_ON(ret < 0))
