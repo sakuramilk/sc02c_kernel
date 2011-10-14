@@ -686,6 +686,8 @@ void s5pv310_set_frequency(unsigned int old_index, unsigned int new_index)
 	unsigned int is_curfreq_table = 0;
 	unsigned int change_s_value = 0;
 
+	//printk(KERN_ERR "[CPUFREQ] %s, before old_index= %d, new_index= %d\n", __func__, old_index, new_index);
+
 	if (freqs.old == s5pv310_freq_table[old_index].frequency)
 		is_curfreq_table = 1;
 
@@ -721,6 +723,11 @@ void s5pv310_set_frequency(unsigned int old_index, unsigned int new_index)
 			s5pv310_set_clkdiv(new_index);
 
 			/* 2. Change the apll m,p,s value */
+			if (freqs.new == CUST_ARM_CLK_500MHZ) {
+				regulator_set_voltage(arm_regulator,
+					s5pv310_volt_table[new_index - 1].arm_volt,
+					s5pv310_volt_table[new_index - 1].arm_volt);
+			}
 			s5pv310_set_apll(new_index);
 		}
 	} else if (freqs.old > freqs.new) {
@@ -782,13 +789,7 @@ static int s5pv310_target(struct cpufreq_policy *policy,
 	}
 
 	if (!strncmp(policy->governor->name, "ondemand", CPUFREQ_NAME_LEN)
-	||  !strncmp(policy->governor->name, "ondemandx", CPUFREQ_NAME_LEN)
 	||  !strncmp(policy->governor->name, "conservative", CPUFREQ_NAME_LEN)
-	||  !strncmp(policy->governor->name, "interactive", CPUFREQ_NAME_LEN)
-	||  !strncmp(policy->governor->name, "interactiveX", CPUFREQ_NAME_LEN)
-	||  !strncmp(policy->governor->name, "smartass", CPUFREQ_NAME_LEN)
-	||  !strncmp(policy->governor->name, "smartassV2", CPUFREQ_NAME_LEN)
-	||  !strncmp(policy->governor->name, "lagfree", CPUFREQ_NAME_LEN)
 	) {
 		check_gov = 1;
 		if (relation & ENABLE_FURTHER_CPUFREQ)
@@ -822,6 +823,8 @@ static int s5pv310_target(struct cpufreq_policy *policy,
 		goto cpufreq_out;
 	}
 
+	//printk(KERN_ERR "[CPUFREQ] %s before index= %d, old_index= %d\n", __func__, index, old_index);
+
 	if ((index > g_cpufreq_lock_level) && check_gov)
 		index = g_cpufreq_lock_level;
 
@@ -838,54 +841,54 @@ static int s5pv310_target(struct cpufreq_policy *policy,
 #endif
 		switch (index) {
 			case L0: {
-				if (old_index > L8) index = L8;
+				/*if (old_index > L8) index = L8;
 				else if (old_index > L7) index = L7;
 				else if (old_index > L6) index = L6;
 				else if (old_index > L5) index = L5;
-				else if (old_index > L4) index = L4;
+				else */if (old_index > L4) index = L4;
 				else if (old_index > L3) index = L3;
 				else if (old_index > L2) index = L2;
 				else if (old_index > L1) index = L1;
 			} break;
 
 			case L1: {
-				if (old_index > L8) index = L8;
+				/*if (old_index > L8) index = L8;
 				else if (old_index > L7) index = L7;
 				else if (old_index > L6) index = L6;
 				else if (old_index > L5) index = L5;
-				else if (old_index > L4) index = L4;
+				else */if (old_index > L4) index = L4;
 				else if (old_index > L3) index = L3;
 				else if (old_index > L2) index = L2;
 			} break;
 
 			case L2: {
-				if (old_index > L8) index = L8;
+				/*if (old_index > L8) index = L8;
 				else if (old_index > L7) index = L7;
 				else if (old_index > L6) index = L6;
 				else if (old_index > L5) index = L5;
-				else if (old_index > L4) index = L4;
+				else */if (old_index > L4) index = L4;
 				else if (old_index > L3) index = L3;
 			} break;
 
 			case L3: {
-				if (old_index > L8) index = L8;
+				/*if (old_index > L8) index = L8;
 				else if (old_index > L7) index = L7;
 				else if (old_index > L6) index = L6;
 				else if (old_index > L5) index = L5;
-				else if (old_index > L4) index = L4;
+				else */if (old_index > L4) index = L4;
 			} break;
-
+#if 0
 			case L4: {
-				if (old_index > L8) index = L8;
+				/*if (old_index > L8) index = L8;
 				else if (old_index > L7) index = L7;
-				else if (old_index > L6) index = L6;
+				else */if (old_index > L6) index = L6;
 				else if (old_index > L5) index = L5;
 			} break;
 
 			case L5: {
-				if (old_index > L8) index = L8;
+				/*if (old_index > L8) index = L8;
 				else if (old_index > L7) index = L7;
-				else if (old_index > L6) index = L6;
+				else */if (old_index > L6) index = L6;
 			} break;
 
 			case L6: {
@@ -896,12 +899,20 @@ static int s5pv310_target(struct cpufreq_policy *policy,
 			case L7: {
 				if (old_index > L8) index = L8;
 			} break;
+#endif
  		}
 	} else {
 		/* Prevent from jumping to 1GHz directly */
 		if ((index == L0) && (old_index > L1))
 			index = L1;
+
+		if (index > L3)
+			index = L3;
+
+		if (old_index > L3)
+			old_index = L3;
 	}
+
 	/* prevent freqs going above max policy - netarchy */
 	if (s5pv310_freq_table[index].frequency > policy->max) {
 		while (s5pv310_freq_table[index].frequency > policy->max) {
@@ -916,7 +927,7 @@ static int s5pv310_target(struct cpufreq_policy *policy,
 	if (freqs.new == freqs.old)
 		goto bus_freq;
 
-#if CPUMON
+#if 1
 	printk(KERN_ERR "CPUMON F %d\n", freqs.new);
 #endif
 
@@ -1220,13 +1231,6 @@ int s5pv310_cpufreq_lock(unsigned int nId,
 				"[CPUFREQ]cpufreq lock to 1GHz in place of 1.2GHz\n");
 		}
 	}
-	
-	/* touch screen lock the minimum freq at 500MHz */
-	if (s5pv310_max_armclk == CUST_ARM_CLK_MAX) {
-		if (cpufreq_level != CPU_L0) {
-			cpufreq_level += 2;
-		}
-	}
 
 	if (g_cpufreq_lock_id & (1 << nId)) {
 		printk(KERN_ERR
@@ -1299,12 +1303,6 @@ int s5pv310_cpufreq_upper_limit(unsigned int nId, enum cpufreq_level_request cpu
 		return 0;
 	}
 	
-	if (s5pv310_max_armclk == CUST_ARM_CLK_MAX) {
-		if (cpufreq_level != CPU_L0) {
-			cpufreq_level += 2;
-		}
-	}
-
 	mutex_lock(&set_cpu_freq_lock);
 	g_cpufreq_limit_id |= (1 << nId);
 	g_cpufreq_limit_val[nId] = cpufreq_level;
@@ -1424,11 +1422,11 @@ static int s5pv310_cpufreq_notifier_event(struct notifier_block *this,
 		if (WARN_ON(ret < 0))
 			return NOTIFY_BAD;
 		s5pv310_busfreq_lock(DVFS_LOCK_ID_PM, BUS_L0);
-		printk(KERN_DEBUG "PM_SUSPEND_PREPARE for CPUFREQ\n");
+		printk(KERN_INFO "[CPUFREQ] PM_SUSPEND_PREPARE for CPUFREQ\n");
 		return NOTIFY_OK;
 	case PM_POST_RESTORE:
 	case PM_POST_SUSPEND:
-		printk(KERN_DEBUG "PM_POST_SUSPEND for CPUFREQ: %d\n", ret);
+		printk(KERN_INFO "[CPUFREQ] PM_POST_SUSPEND for CPUFREQ: %d\n", ret);
 		ret = cpufreq_driver_target(policy,
 		s5pv310_freq_table[CUST_SUSPEND_CLK_L].frequency, ENABLE_FURTHER_CPUFREQ);
 		policy->max = max;

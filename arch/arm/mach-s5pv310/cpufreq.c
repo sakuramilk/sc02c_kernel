@@ -38,7 +38,7 @@
 #endif
 
 #include <plat/pm.h>
-#include <plat/s5p-tmu.h>
+
 #include <plat/s5pv310.h>
 
 #include <mach/cpufreq.h>
