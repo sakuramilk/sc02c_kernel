@@ -35,7 +35,11 @@ obj-$(CONFIG_CPU_IDLE)		+= cpuidle.o
 obj-$(CONFIG_S5P_MEM_BOOTMEM)	+= bootmem-smdkv310.o
 obj-$(CONFIG_S5PV310_PM_HOTPLUG)	+= pm-hotplug.o
 # machine support
+ifeq ($(CONFIG_BUILD_TARGET_CM7),y)
+obj-$(CONFIG_BT)		+= c1-rfkill.o c1-btlpm.o
+else
 obj-$(CONFIG_BT)		+= c1-rfkill.o
+endif
 obj-$(CONFIG_MACH_SMDKC210)	+= mach-smdkc210.o button-smdkc210.o
 obj-$(CONFIG_MACH_SMDKV310)	+= mach-smdkv310.o button-smdkv310.o
 obj-$(CONFIG_MACH_C1)		+= mach-c1.o

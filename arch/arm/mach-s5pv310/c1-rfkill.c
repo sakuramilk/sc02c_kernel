@@ -35,7 +35,9 @@
 #include <plat/gpio-cfg.h>
 #include <plat/irqs.h>
 
+#if !defined(CONFIG_BUILD_TARGET_CM7)
 #define BT_SLEEP_ENABLE
+#endif
 
 #define IRQ_BT_HOST_WAKE      IRQ_EINT(22)
 
