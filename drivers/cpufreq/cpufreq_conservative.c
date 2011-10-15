@@ -30,7 +30,7 @@
  */
 
 #define DEF_FREQUENCY_UP_THRESHOLD		(80)
-#define DEF_FREQUENCY_DOWN_THRESHOLD		(20)
+#define DEF_FREQUENCY_DOWN_THRESHOLD		(32)
 
 /*
  * The polling frequency of this governor depends on the capability of

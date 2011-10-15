@@ -177,6 +177,24 @@ config CPU_FREQ_GOV_ONDEMAND
 
 	  If in doubt, say N.
 
+config CPU_FREQ_GOV_ONDEMANDX
+	tristate "'ondemandx' cpufreq policy governor"
+	select CPU_FREQ_TABLE
+	help
+	  'ondemand' - This driver adds a dynamic cpufreq policy governor.
+	  The governor does a periodic polling and 
+	  changes frequency based on the CPU utilization.
+	  The support for this governor depends on CPU capability to
+	  do fast frequency switching (i.e, very low latency frequency
+	  transitions). 
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called cpufreq_ondemand.
+
+	  For details, take a look at linux/Documentation/cpu-freq.
+
+	  If in doubt, say N.
+
 config CPU_FREQ_GOV_INTERACTIVE
 	tristate "'interactive' cpufreq policy governor"
 	help
@@ -205,5 +223,11 @@ config CPU_FREQ_GOV_CONSERVATIVE
 	  For details, take a look at linux/Documentation/cpu-freq.
 
 	  If in doubt, say N.
+
+config CPU_FREQ_GOV_SMARTASS2
+	tristate "'smartassV2' cpufreq governor"
+	depends on CPU_FREQ
+	help
+	  'smartassV2' - a "smart" optimized governor for the pyra!
 
 endif	# CPU_FREQ

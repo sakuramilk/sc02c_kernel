@@ -790,6 +790,8 @@ static int s5pv310_target(struct cpufreq_policy *policy,
 
 	if (!strncmp(policy->governor->name, "ondemand", CPUFREQ_NAME_LEN)
 	||  !strncmp(policy->governor->name, "conservative", CPUFREQ_NAME_LEN)
+	||  !strncmp(policy->governor->name, "smartassV2", CPUFREQ_NAME_LEN)
+	||  !strncmp(policy->governor->name, "ondemandx", CPUFREQ_NAME_LEN)
 	) {
 		check_gov = 1;
 		if (relation & ENABLE_FURTHER_CPUFREQ)
@@ -844,8 +846,8 @@ static int s5pv310_target(struct cpufreq_policy *policy,
 				/*if (old_index > L8) index = L8;
 				else if (old_index > L7) index = L7;
 				else if (old_index > L6) index = L6;
-				else if (old_index > L5) index = L5;
-				else */if (old_index > L4) index = L4;
+				else */if (old_index > L5) index = L5;
+				else if (old_index > L4) index = L4;
 				else if (old_index > L3) index = L3;
 				else if (old_index > L2) index = L2;
 				else if (old_index > L1) index = L1;
@@ -855,8 +857,8 @@ static int s5pv310_target(struct cpufreq_policy *policy,
 				/*if (old_index > L8) index = L8;
 				else if (old_index > L7) index = L7;
 				else if (old_index > L6) index = L6;
-				else if (old_index > L5) index = L5;
-				else */if (old_index > L4) index = L4;
+				else */if (old_index > L5) index = L5;
+				else if (old_index > L4) index = L4;
 				else if (old_index > L3) index = L3;
 				else if (old_index > L2) index = L2;
 			} break;
@@ -865,8 +867,8 @@ static int s5pv310_target(struct cpufreq_policy *policy,
 				/*if (old_index > L8) index = L8;
 				else if (old_index > L7) index = L7;
 				else if (old_index > L6) index = L6;
-				else if (old_index > L5) index = L5;
-				else */if (old_index > L4) index = L4;
+				else */if (old_index > L5) index = L5;
+				else if (old_index > L4) index = L4;
 				else if (old_index > L3) index = L3;
 			} break;
 
@@ -874,17 +876,17 @@ static int s5pv310_target(struct cpufreq_policy *policy,
 				/*if (old_index > L8) index = L8;
 				else if (old_index > L7) index = L7;
 				else if (old_index > L6) index = L6;
-				else if (old_index > L5) index = L5;
-				else */if (old_index > L4) index = L4;
+				else */if (old_index > L5) index = L5;
+				else if (old_index > L4) index = L4;
 			} break;
-#if 0
+
 			case L4: {
 				/*if (old_index > L8) index = L8;
 				else if (old_index > L7) index = L7;
-				else */if (old_index > L6) index = L6;
-				else if (old_index > L5) index = L5;
+				else if (old_index > L6) index = L6;
+				else */if (old_index > L5) index = L5;
 			} break;
-
+#if 0
 			case L5: {
 				/*if (old_index > L8) index = L8;
 				else if (old_index > L7) index = L7;
