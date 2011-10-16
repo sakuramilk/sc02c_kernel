@@ -104,6 +104,7 @@ static int g_nMajor;
 #endif
 
 /* timed_output */
+#if !defined(CONFIG_BUILD_TARGET_CM7)
 #ifndef CONFIG_TARGET_LOCALE_NA
 #define VIBRATOR_PERIOD	38022	/* 128 * 205 = 26.240 */
 #else
@@ -115,6 +116,10 @@ static int g_nMajor;
 #else
 #define VIBRATOR_DUTY	34220
 #endif /* CONFIG_TARGET_LOCALE_NA */
+#else
+#define VIBRATOR_PERIOD		44138
+#define VIBRATOR_DUTY		43788
+#endif /* !defined(CONFIG_BUILD_TARGET_CM7) */
 
 static void _set_vibetonz_work(struct work_struct *unused);
 
