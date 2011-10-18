@@ -40,8 +40,10 @@ void c1_bt_uart_wake_peer(struct uart_port *port)
 		return;
 
 	hrtimer_try_to_cancel(&bt_lpm.bt_lpm_timer);
-	gpio_set_value(GPIO_BT_WAKE, 1);
-    pr_debug("[BT] GPIO_BT_WAKE = %d\n", gpio_get_value(GPIO_BT_WAKE) );
+	if (!gpio_get_value(GPIO_BT_WAKE)) {
+		gpio_set_value(GPIO_BT_WAKE, 1);
+		pr_debug("[BT] GPIO_BT_WAKE = %d\n", gpio_get_value(GPIO_BT_WAKE) );
+	}
 	hrtimer_start(&bt_lpm.bt_lpm_timer, bt_lpm.bt_lpm_delay, HRTIMER_MODE_REL);
 }
 
