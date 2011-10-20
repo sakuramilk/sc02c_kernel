@@ -346,6 +346,8 @@ static ssize_t store_freq_step(struct kobject *a, struct attribute *b,
 
 	if (input > 100)
 		input = 100;
+	else if (input < 5) // If input value is 0, the frequency is fixed
+		input = 5;
 
 	/* no need to test here if freq_step is zero as the user might actually
 	 * want this, they would be crazy though :) */
