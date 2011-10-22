@@ -1222,7 +1222,7 @@ static int mem_cgroup_hierarchical_reclaim(struct mem_cgroup *root_mem,
 	unsigned long excess = mem_cgroup_get_excess(root_mem);
 
 	/* If memsw_is_minimum==1, swap-out is of-no-use. */
-	if (root_mem->memsw_is_minimum)
+	if (!check_soft && root_mem->memsw_is_minimum)
 		noswap = true;
 
 	while (1) {
