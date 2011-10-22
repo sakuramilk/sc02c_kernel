@@ -122,6 +122,7 @@ static struct cpufreq_frequency_table s5pv310_lookup_freq_table[]= {
 	{L7, CUST_ARM_CLK_L7},
 	{L8, CUST_ARM_CLK_L8},
 	{L9, CUST_ARM_CLK_L9},
+	{L10, CUST_ARM_CLK_L10},
 	{0, CPUFREQ_TABLE_END},
 };
 
@@ -141,6 +142,7 @@ static unsigned int clkdiv_cpu0_lookup[][7] = {
 	CUST_CLKDIV_CPU0_L7,
 	CUST_CLKDIV_CPU0_L8,
 	CUST_CLKDIV_CPU0_L9,
+	CUST_CLKDIV_CPU0_L10,
 };
 
 static unsigned int clkdiv_cpu1_lookup[][2] = {
@@ -157,6 +159,7 @@ static unsigned int clkdiv_cpu1_lookup[][2] = {
 	CUST_CLKDIV_CPU1_L7,
 	CUST_CLKDIV_CPU1_L8,
 	CUST_CLKDIV_CPU1_L9,
+	CUST_CLKDIV_CPU1_L10,
 };
 
 static struct cpufreq_frequency_table s5pv310_freq_table[] = {
@@ -170,6 +173,7 @@ static struct cpufreq_frequency_table s5pv310_freq_table[] = {
 	{L7, CUST_ARM_CLK_L7},
 	{L8, CUST_ARM_CLK_L8},
 	{L9, CUST_ARM_CLK_L9},
+	{L10, CUST_ARM_CLK_L10},
 	{0, CPUFREQ_TABLE_END},
 };
 
@@ -256,6 +260,7 @@ static unsigned int clkdiv_cpu0[CPUFREQ_LEVEL_END][7] = {
 	CUST_CLKDIV_CPU0_L7,
 	CUST_CLKDIV_CPU0_L8,
 	CUST_CLKDIV_CPU0_L9,
+	CUST_CLKDIV_CPU0_L10,
 };
 
 static unsigned int clkdiv_cpu1[CPUFREQ_LEVEL_END][2] = {
@@ -272,6 +277,7 @@ static unsigned int clkdiv_cpu1[CPUFREQ_LEVEL_END][2] = {
 	CUST_CLKDIV_CPU1_L7,
 	CUST_CLKDIV_CPU1_L8,
 	CUST_CLKDIV_CPU1_L9,
+	CUST_CLKDIV_CPU1_L10,
 };
 
 static unsigned int clkdiv_dmc0[LV_END][8] = {
@@ -381,6 +387,9 @@ static struct cpufreq_voltage_table s5pv310_lookup_volt_table[] = {
 	{	.index		= L9,
 		.arm_volt	= CUST_ARM_V_L9,
 		.int_volt	= CUST_INT_V_L9,	},
+	{	.index		= L10,
+		.arm_volt	= CUST_ARM_V_L10,
+		.int_volt	= CUST_INT_V_L10,	},
 };
 
 static unsigned int s5pv310_lookup_apll_pms_table[CPUFREQ_LEVEL_END] = {
@@ -394,6 +403,7 @@ static unsigned int s5pv310_lookup_apll_pms_table[CPUFREQ_LEVEL_END] = {
 	(CUST_APLL_PMS_L7),
 	(CUST_APLL_PMS_L8),
 	(CUST_APLL_PMS_L9),
+	(CUST_APLL_PMS_L10),
 };
 
 static struct cpufreq_voltage_table s5pv310_volt_table[CPUFREQ_LEVEL_END] = {
@@ -427,6 +437,9 @@ static struct cpufreq_voltage_table s5pv310_volt_table[CPUFREQ_LEVEL_END] = {
 	{	.index		= L9,
 		.arm_volt	= CUST_ARM_V_L9,
 		.int_volt	= CUST_INT_V_L9,	},
+	{	.index		= L10,
+		.arm_volt	= CUST_ARM_V_L10,
+		.int_volt	= CUST_INT_V_L10,	},
 };
 
 static unsigned int s5pv310_apll_pms_table[CPUFREQ_LEVEL_END] = {
@@ -440,6 +453,7 @@ static unsigned int s5pv310_apll_pms_table[CPUFREQ_LEVEL_END] = {
 	(CUST_APLL_PMS_L7),
 	(CUST_APLL_PMS_L8),
 	(CUST_APLL_PMS_L9),
+	(CUST_APLL_PMS_L10),
 };
 
 int s5pv310_verify_policy(struct cpufreq_policy *policy)
@@ -2023,6 +2037,9 @@ static inline void s5pv310_asv_set_voltage(void)
 		break;
 	case CUST_ARM_CLK_L9:
 		asv_arm_index = 9;
+		break;
+	case CUST_ARM_CLK_L10:
+		asv_arm_index = 10;
 		break;
 	default:
 		printk(KERN_ERR "Invalid cpufreq.");

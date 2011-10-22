@@ -16,13 +16,13 @@
 #ifdef CONFIG_FREQ_OVERCLOCK
 /* Overclock */
 #define CUST_ARM_V_MAX              (1500000)
-#define CUST_ARM_V_MIN              ( 700000)
+#define CUST_ARM_V_MIN              ( 800000)
 
-#define CUST_ARM_CLK_L_MAX          (10)
-#define CUST_FREQ_LEVEL_INDEX       L0, L1, L2, L3, L4, L5, L6, L7, L8, L9, CPUFREQ_LEVEL_END,
+#define CUST_ARM_CLK_L_MAX          (11)
+#define CUST_FREQ_LEVEL_INDEX       L0, L1, L2, L3, L4, L5, L6, L7, L8, L9, L10, CPUFREQ_LEVEL_END,
 
 #define CUST_ARM_CLK_L0             (1600000)
-#define CUST_ARM_V_L0               (1450000)
+#define CUST_ARM_V_L0               (1425000)
 #define CUST_INT_V_L0               (1100000)
 #define CUST_CLKDIV_CPU0_L0         { 0, 3, 7, 3, 4, 1, 7 }
 #define CUST_CLKDIV_CPU1_L0         { 5, 0 }
@@ -40,7 +40,7 @@
 #define CUST_INT_V_L2               (1100000)
 #define CUST_CLKDIV_CPU0_L2         { 0, 3, 7, 3, 4, 1, 7 }
 #define CUST_CLKDIV_CPU1_L2         { 5, 0 }
-#define CUST_APLL_PMS_L2            ( ((175<<16)|(3<<8)|(0x1)) ) // 8000
+#define CUST_APLL_PMS_L2            ( ((350<<16)|(6<<8)|(0x1)) ) // 4000
 
 #define CUST_ARM_CLK_L3             (1200000)
 #define CUST_ARM_V_L3               (1300000)
@@ -77,19 +77,26 @@
 #define CUST_CLKDIV_CPU1_L7         { 3, 0 }
 #define CUST_APLL_PMS_L7            ( ((200<<16)|(6<<8)|(0x3)) ) // 1000
 
-#define CUST_ARM_CLK_L8             ( 160000)
-#define CUST_ARM_V_L8               ( 950000)
+#define CUST_ARM_CLK_L8             ( 100000)
+#define CUST_ARM_V_L8               ( 925000)
 #define CUST_INT_V_L8               (1000000)
 #define CUST_CLKDIV_CPU0_L8         { 0, 1, 3, 1, 3, 1, 7 }
 #define CUST_CLKDIV_CPU1_L8         { 3, 0 }
-#define CUST_APLL_PMS_L8            ( ((160<<16)|(6<<8)|(0x3)) ) // 1000
+#define CUST_APLL_PMS_L8            ( ((100<<16)|(6<<8)|(0x3)) ) // 1000
 
-#define CUST_ARM_CLK_L9             ( 100000)
+#define CUST_ARM_CLK_L9             (  50000)
 #define CUST_ARM_V_L9               ( 900000)
 #define CUST_INT_V_L9               (1000000)
 #define CUST_CLKDIV_CPU0_L9         { 0, 1, 3, 1, 3, 1, 7 }
 #define CUST_CLKDIV_CPU1_L9         { 3, 0 }
-#define CUST_APLL_PMS_L9            ( ((100<<16)|(6<<8)|(0x3)) ) // 1000
+#define CUST_APLL_PMS_L9            ( ((100<<16)|(6<<8)|(0x4)) ) // 500
+
+#define CUST_ARM_CLK_L10            (  25000)
+#define CUST_ARM_V_L10              ( 875000)
+#define CUST_INT_V_L10              (1000000)
+#define CUST_CLKDIV_CPU0_L10        { 0, 1, 3, 1, 3, 1, 7 }
+#define CUST_CLKDIV_CPU1_L10        { 3, 0 }
+#define CUST_APLL_PMS_L10           ( (( 50<<16)|(6<<8)|(0x4)) ) // 500
 
 #define CUST_SUSPEND_CLK_L          L5 // set  800MHz
 #define CUST_REBOOT_CLK_L           L3 // set 1200MHz
