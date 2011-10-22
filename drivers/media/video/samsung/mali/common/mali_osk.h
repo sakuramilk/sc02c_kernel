@@ -21,6 +21,10 @@ extern "C"
 {
 #endif
 
+#ifndef MALI_STATE_TRACKING
+#define MALI_STATE_TRACKING 0
+#endif
+
 /**
  * @addtogroup uddapi Unified Device Driver (UDD) APIs
  *
