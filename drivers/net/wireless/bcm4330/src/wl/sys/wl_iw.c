@@ -70,6 +70,11 @@ typedef const struct si_pub  si_t;
 
 #include <linux/sched.h>
 
+#ifdef CONFIG_BUILD_TARGET_CM7
+#include <linux/wakelock.h>
+static struct wake_lock bt_playback_wake_lock;
+#endif
+
 #define WL_IW_USE_ISCAN  1
 #define ENABLE_ACTIVE_PASSIVE_SCAN_SUPPRESS  1
 
@@ -8449,6 +8454,16 @@ wl_iw_set_priv(
 #endif
 	    else {
 			WL_TRACE(("Unknown PRIVATE command %s\n", extra));
+#ifdef CONFIG_BUILD_TARGET_CM7
+			if (strncmp(extra, "BTCOEXSCAN-START", strlen("BTCOEXSCAN-START")) == 0) {
+				printk(KERN_DEBUG "[BT] %s get wakelock\n", __func__);
+				wake_lock(&bt_playback_wake_lock);
+			}
+			else if (strncmp(extra, "BTCOEXSCAN-STOP", strlen("BTCOEXSCAN-STOP")) == 0) {
+				printk(KERN_DEBUG "[BT] %s free wakelock\n", __func__);
+				wake_unlock(&bt_playback_wake_lock);
+			}
+#endif
 			snprintf(extra, MAX_WX_STRING, "OK");
 			dwrq->length = strlen("OK") + 1;
 		}
@@ -9608,6 +9623,10 @@ wl_iw_attach(struct net_device *dev, void * dhdp)
 	DHD_OS_MUTEX_INIT(&wl_start_lock);
 	DHD_OS_MUTEX_INIT(&wl_softap_lock);
 
+#ifdef CONFIG_BUILD_TARGET_CM7
+	wake_lock_init(&bt_playback_wake_lock, WAKE_LOCK_SUSPEND, "bt_playback");
+#endif
+
 #if defined(WL_IW_USE_ISCAN)
 	if (!dev)
 		return 0;
@@ -9727,4 +9746,7 @@ wl_iw_detach(void)
 	}
 #endif
 
+#ifdef CONFIG_BUILD_TARGET_CM7
+	wake_lock_destroy(&bt_playback_wake_lock);
+#endif
 }
