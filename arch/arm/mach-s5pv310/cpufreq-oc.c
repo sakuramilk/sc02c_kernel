@@ -765,7 +765,7 @@ void s5pv310_set_frequency(unsigned int old_index, unsigned int new_index)
 			s5pv310_set_clkdiv(new_index);
 		} else {
 			/* Clock Configuration Procedure */
-			if (freqs.old == ARMCLOCK_500MHZ) {
+			if (freqs.old == CUST_ARM_CLK_500MHZ) {
 				regulator_set_voltage(arm_regulator,
 					s5pv310_volt_table[new_index - 2].arm_volt,
 					s5pv310_volt_table[new_index - 2].arm_volt);
