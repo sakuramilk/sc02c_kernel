@@ -47,8 +47,6 @@
 #include <mach/regs-clock.h>
 #include <mach/pm-core.h>
 
-#include <mach/regs-tmu.h>
-
 static struct clk *arm_clk;
 static struct clk *moutcore;
 static struct clk *mout_mpll;
@@ -159,7 +157,7 @@ static struct cpufreq_frequency_table s5pv310_freq_table[] = {
 	{L1, CUST_ARM_CLK_L1},
 	{L2, CUST_ARM_CLK_L2},
 	{L3, CUST_ARM_CLK_L3},
-#ifndef CONFIG_MACH_P6_REV02
+#if !defined(CONFIG_MACH_Q1_REV00) && !defined(CONFIG_MACH_Q1_REV02)
 	{L4, CUST_ARM_CLK_L4},
 #endif
 	{0, CPUFREQ_TABLE_END},
@@ -198,7 +196,7 @@ static DEFINE_MUTEX(set_bus_freq_lock);
 enum busfreq_level_idx {
 	LV_0,
 	LV_1,
-#ifndef CONFIG_MACH_P6_REV02
+#if !defined(CONFIG_MACH_Q1_REV00) && !defined(CONFIG_MACH_Q1_REV02)
 	LV_2,
 #endif
 	LV_END
@@ -220,7 +218,7 @@ struct busfreq_table {
 static struct busfreq_table s5pv310_busfreq_table[] = {
 	{LV_0, 400000, 1100000},
 	{LV_1, 267000, 1000000},
-#ifndef CONFIG_MACH_P6_REV02
+#if !defined(CONFIG_MACH_Q1_REV00) && !defined(CONFIG_MACH_Q1_REV02)
 	{LV_2, 133000, 1000000},
 #endif
 	{0, 0, 0},
@@ -1123,6 +1121,11 @@ void s5pv310_set_frequency(unsigned int old_index, unsigned int new_index)
 			s5pv310_set_clkdiv(new_index);
 		} else {
 			/* Clock Configuration Procedure */
+			if (freqs.old == ARMCLOCK_500MHZ) {
+				regulator_set_voltage(arm_regulator,
+					s5pv310_volt_table[new_index - 2].arm_volt,
+					s5pv310_volt_table[new_index - 2].arm_volt);
+			}
 
 			/* 1. Change the apll m,p,s value */
 			s5pv310_set_apll(new_index);
@@ -1137,11 +1140,6 @@ void s5pv310_set_frequency(unsigned int old_index, unsigned int new_index)
 			/* Clock Configuration Procedure */
 
 			/* 1. Change the apll m,p,s value */
-			if (freqs.old == ARMCLOCK_500MHZ) {
-				regulator_set_voltage(arm_regulator,
-					exp_UV_mV[new_index - 2],
-					exp_UV_mV[new_index - 2]);
-			}
 			s5pv310_set_apll(new_index);
 
 			/* 2. Change the system clock divider values */
@@ -1228,9 +1226,8 @@ static int s5pv310_target(struct cpufreq_policy *policy,
 	if (s5pv310_max_armclk == ARMCLOCK_1200MHZ) {
 #ifdef CONFIG_FREQ_STEP_UP_L2_L0
 		/* change L2 -> L0 */
-		if ((index == L0) && (old_index > L2)) {
+		if ((index == L0) && (old_index > L2))
 			index = L2;
-		}
 #else
 		/* change L2 -> L1 and change L1 -> L0 */
 		if (index == L0) {
@@ -2031,7 +2028,7 @@ static int s5pv310_asv_init(void)
 	unsigned long sum_result = 0;
 	unsigned int tmp;
 	unsigned int hpm[LOOP_CNT];
-	static void __iomem * iem_base;
+	static void __iomem *iem_base;
 	struct clk *clk_iec;
 	struct clk *clk_apc;
 	struct clk *clk_hpm;
@@ -2227,11 +2224,10 @@ static int s5pv310_asv_table_update(void)
 	printk(KERN_INFO "ASV ids_group = %d hpm_group = %d asv_group = %d\n",
 		ids_group, hpm_group, asv_group);
 
-	if (s5pv310_max_armclk == ARMCLOCK_1200MHZ) {
+	if (s5pv310_max_armclk == ARMCLOCK_1200MHZ)
 		last_level = CPUFREQ_LEVEL_END - 1;
-	} else {
+	else
 		last_level = CPUFREQ_LEVEL_END - 2;
-	}
 
 	/* VDD_ARM level except the last level  */
 	for (i = 0; i < last_level; i++) {
