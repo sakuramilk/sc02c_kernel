@@ -16,7 +16,11 @@
 
 #include "gpu_clock_control.h"
 
+#if defined(CONFIG_GPU_UNDERVOLTING)
+int gpu_clock_control[2] = { 100, 267 };
+#else
 int gpu_clock_control[2] = { 160, 267 };
+#endif
 static ssize_t gpu_clock_show(struct device *dev, struct device_attribute *attr, char *buf) {
 	return sprintf(buf, "Step0: %d\nStep1: %d\n", gpu_clock_control[0], gpu_clock_control[1]);
 }
@@ -59,7 +63,7 @@ static struct miscdevice gpu_clock_control_device = {
 	.name = "gpu_clock_control",
 };
 
-void gpu_control_start()
+void gpu_clock_control_start()
 {
 	printk("Initializing gpu clock control interface\n");
 	

@@ -46,7 +46,10 @@
 #include "mali_device_pause_resume.h"
 #include "mali_linux_pm.h"
 
+#ifdef CONFIG_GPU_CLOCK_CONTROL
 #include <../common/gpu_clock_control.h>
+#include <../common/gpu_voltage_control.h>
+#endif
 
 #if MALI_POWER_MGMT_TEST_SUITE
 #ifdef CONFIG_PM
@@ -754,7 +757,8 @@ int _mali_dev_platform_register(void)
 #endif
 
 #ifdef CONFIG_GPU_CLOCK_CONTROL
-	gpu_control_start();
+	gpu_clock_control_start();
+	gpu_voltage_control_start();
 #endif
 	
 #ifdef CONFIG_PM_RUNTIME
