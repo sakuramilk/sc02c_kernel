@@ -1183,8 +1183,7 @@ static int s5pv310_target(struct cpufreq_policy *policy,
 				__FILE__, __LINE__);
 	}
 
-	if (!strncmp(policy->governor->name, "ondemand", CPUFREQ_NAME_LEN)
-	|| !strncmp(policy->governor->name, "conservative", CPUFREQ_NAME_LEN)) {
+	if(policy->governor->disableScalingDuringSuspend) {
 		check_gov = 1;
 		if (relation & ENABLE_FURTHER_CPUFREQ)
 			s5pv310_dvs_locking = 0;
@@ -1251,10 +1250,8 @@ static int s5pv310_target(struct cpufreq_policy *policy,
 	}
 
 	/* prevent freqs going above max policy - netarchy */
-	if (s5pv310_freq_table[index].frequency > policy->max) {
-		while (s5pv310_freq_table[index].frequency > policy->max) {
-			index += 1;
-		}
+	while (s5pv310_freq_table[index].frequency > policy->max) {
+		index += 1;
 	}
 
 	freqs.new = s5pv310_freq_table[index].frequency;

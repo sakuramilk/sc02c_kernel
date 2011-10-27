@@ -28,6 +28,7 @@
 #include <linux/cpu.h>
 #include <linux/completion.h>
 #include <linux/mutex.h>
+#include <linux/earlysuspend.h>
 #include <linux/cpucust.h>
 
 #define dprintk(msg...) cpufreq_debug_printk(CPUFREQ_DEBUG_CORE, \
@@ -1176,22 +1177,14 @@ static int cpufreq_add_dev(struct sys_device *sys_dev)
 		cp = per_cpu(cpufreq_cpu_data, sibling);
 		if (cp && cp->governor &&
 		    (cpumask_test_cpu(cpu, cp->related_cpus))) {
-			dprintk("found sibling CPU, copying policy\n");
 			policy->governor = cp->governor;
-			policy->min = cp->min;
-			policy->max = cp->max;
-			policy->user_policy.min = cp->user_policy.min;
-			policy->user_policy.max = cp->user_policy.max;
 			found = 1;
 			break;
 		}
 	}
 #endif
-	if (!found) {
-		dprintk("failed to find sibling CPU, falling back to defaults\n");
+	if (!found)
 		policy->governor = CPUFREQ_DEFAULT_GOVERNOR;
-	}
-	
 	/* call driver. From then on the cpufreq must be able
 	 * to accept all calls to ->verify and ->setpolicy for this CPU
 	 */
@@ -1200,17 +1193,19 @@ static int cpufreq_add_dev(struct sys_device *sys_dev)
 		dprintk("initialization failed\n");
 		goto err_unlock_policy;
 	}
+#ifdef CONFIG_HOTPLUG_CPU
+	for_each_online_cpu(sibling) {
+		struct cpufreq_policy *cp = per_cpu(cpufreq_cpu_data, sibling);
+		if (cp && cp->governor &&
+		    (cpumask_test_cpu(cpu, cp->related_cpus))) {
+			policy->min = cp->min;
+			policy->max = cp->max;
+			break;
+		}
+	}
+#endif
 	policy->user_policy.min = policy->min;
 	policy->user_policy.max = policy->max;
-
-	if (found) {
-		/* Calling the driver can overwrite policy frequencies again */
-		dprintk("Overriding policy max and min with sibling settings\n");
-		policy->min = cp->min;
-		policy->max = cp->max;
-		policy->user_policy.min = cp->user_policy.min;
-		policy->user_policy.max = cp->user_policy.max;
-	}
 
 	blocking_notifier_call_chain(&cpufreq_policy_notifier_list,
 				     CPUFREQ_START, policy);
@@ -1824,6 +1819,18 @@ int cpufreq_register_governor(struct cpufreq_governor *governor)
 	err = -EBUSY;
 	if (__find_governor(governor->name) == NULL) {
 		err = 0;
+		if (!strncmp(governor->name, "smartassV2", CPUFREQ_NAME_LEN)
+		|| !strncmp(governor->name, "ondemand", CPUFREQ_NAME_LEN)
+		|| !strncmp(governor->name, "interactive", CPUFREQ_NAME_LEN)
+		|| !strncmp(governor->name, "interactiveX", CPUFREQ_NAME_LEN)
+		|| !strncmp(governor->name, "ondemandx", CPUFREQ_NAME_LEN)
+		|| !strncmp(governor->name, "lagfree", CPUFREQ_NAME_LEN)
+		|| !strncmp(governor->name, "brazilianwax", CPUFREQ_NAME_LEN)
+		|| !strncmp(governor->name, "SavagedZen", CPUFREQ_NAME_LEN)
+		|| !strncmp(governor->name, "conservative", CPUFREQ_NAME_LEN))
+			governor->disableScalingDuringSuspend = 1;
+		else
+			governor->disableScalingDuringSuspend = 0;
 		list_add(&governor->governor_list, &cpufreq_governor_list);
 	}
 
