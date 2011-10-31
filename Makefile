@@ -339,11 +339,11 @@ MODFLAGS	= -DMODULE -fgcse -fsingle-precision-constant -mtune=cortex-a9 -march=a
 CFLAGS_MODULE   = $(MODFLAGS)
 AFLAGS_MODULE   = $(MODFLAGS)
 LDFLAGS_MODULE  = -T $(srctree)/scripts/module-common.lds
-CFLAGS_KERNEL	= -fgcse -fsingle-precision-constant -mtune=cortex-a9 -march=armv7-a -mfpu=vfpv3 \
+CFLAGS_KERNEL	= -fgcse -fsingle-precision-constant -mtune=cortex-a9 -march=armv7-a -mfpu=neon \
 							-fsingle-precision-constant -ftree-loop-distribution -fvect-cost-model \
 							-funsafe-math-optimizations -ftree-loop-im -funswitch-loops \
 							-ftree-vectorize -mvectorize-with-neon-quad
-AFLAGS_KERNEL	= -fgcse -fsingle-precision-constant -mtune=cortex-a9 -march=armv7-a -mfpu=vfpv3 \
+AFLAGS_KERNEL	= -fgcse -fsingle-precision-constant -mtune=cortex-a9 -march=armv7-a -mfpu=neon \
 							-fsingle-precision-constant -ftree-loop-distribution -fvect-cost-model \
 							-funsafe-math-optimizations -ftree-loop-im -funswitch-loops \
 							-ftree-vectorize -mvectorize-with-neon-quad
@@ -363,7 +363,7 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security -mno-unaligned-access \
 		   -fno-delete-null-pointer-checks \
-		   -march=armv7-a -mtune=cortex-a9 -mfpu=vfpv3 -mfloat-abi=hard \
+		   -march=armv7-a -mtune=cortex-a9 -mfpu=neon -mfloat-abi=hard \
 		   -mvectorize-with-neon-quad -ftree-vectorize -fomit-frame-pointer \
 		   -floop-interchange -floop-strip-mine -floop-block -frename-registers \
 		   -ffast-math
