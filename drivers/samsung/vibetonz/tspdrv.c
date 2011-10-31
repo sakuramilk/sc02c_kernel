@@ -118,7 +118,8 @@ static int g_nMajor;
 #endif /* CONFIG_TARGET_LOCALE_NA */
 #else
 #define VIBRATOR_PERIOD		44138
-#define VIBRATOR_DUTY		43788
+static const int vibrator_duty_levels[] = { 26000, 28000, 30000, 32000, 34000, 36000, 38000, 40000, 42000, 44000 };
+static int vibrator_level = 7;
 #endif /* !defined(CONFIG_BUILD_TARGET_CM7) */
 
 static void _set_vibetonz_work(struct work_struct *unused);
@@ -166,8 +167,11 @@ static int set_vibetonz(int timeout)
 		}
 	} else {
 		wake_lock(&vib_wake_lock);
-
+#if defined(CONFIG_BUILD_TARGET_CM7)
+		_pwm_config(Immvib_pwm, vibrator_duty_levels[vibrator_level], VIBRATOR_PERIOD);
+#else
 		_pwm_config(Immvib_pwm, VIBRATOR_DUTY, VIBRATOR_PERIOD);
+#endif
 		vibe_control_max8997(Immvib_pwm, 1);
 
 		regulator = regulator_get(NULL, "vmotor");
@@ -277,6 +281,42 @@ static const struct file_operations fops = {
 	.open =     open,
 	.release =  release
 };
+
+#if defined(CONFIG_BUILD_TARGET_CM7)
+/* sysfs */
+static ssize_t show_vibrator_level_max(struct device *dev,
+				      struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf,"%d\n", (ARRAY_SIZE(vibrator_duty_levels) - 1));
+}
+
+static ssize_t show_vibrator_level(struct device *dev,
+				      struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf,"%d\n", vibrator_level);
+}
+
+static ssize_t store_vibrator_level(struct device *dev,
+				       struct device_attribute *attr,
+				       const char *buf, size_t len)
+{
+	int data = 0;
+	if (sscanf(buf, "%u\n", &data) == 1) {
+		if (data >= ARRAY_SIZE(vibrator_duty_levels))
+			data = ARRAY_SIZE(vibrator_duty_levels) - 1;
+		else if (data < 0)
+			data = 0;
+		vibrator_level = data;
+	} else {
+		printk(KERN_ERR "tspdrv: invalid vibrator level\n");
+	}
+	return len;
+}
+
+static DEVICE_ATTR(vibrator_level_max, S_IRUGO | S_IWUGO, show_vibrator_level_max, NULL);
+static DEVICE_ATTR(vibrator_level, S_IRUGO | S_IWUGO, show_vibrator_level, store_vibrator_level);
+#endif /* CONFIG_BUILD_TARGET_CM7 */
+
 
 #ifndef IMPLEMENT_AS_CHAR_DRIVER
 static struct miscdevice miscdev = {
@@ -460,6 +500,15 @@ int init_module(void)
 	}
 
 	wake_lock_init(&vib_wake_lock, WAKE_LOCK_SUSPEND, "vib_present");
+
+#if defined(CONFIG_BUILD_TARGET_CM7)
+	if (device_create_file(&platdev.dev, &dev_attr_vibrator_level_max) < 0) {
+		printk(KERN_ERR "Failed to create device file(%s)!\n", dev_attr_vibrator_level_max.attr.name);
+	}
+	if (device_create_file(&platdev.dev, &dev_attr_vibrator_level) < 0) {
+		printk(KERN_ERR "Failed to create device file(%s)!\n", dev_attr_vibrator_level.attr.name);
+	}
+#endif
 
 	vibetonz_start();
 

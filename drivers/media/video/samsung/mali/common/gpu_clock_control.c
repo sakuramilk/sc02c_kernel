@@ -16,6 +16,9 @@
 
 #include "gpu_clock_control.h"
 
+#define MIN_CLOCK_GPU  10
+#define MAX_CLOCK_GPU 450
+
 #if defined(CONFIG_GPU_UNDERVOLTING)
 int gpu_clock_control[2] = { 100, 267 };
 #else
@@ -36,11 +39,11 @@ static ssize_t gpu_clock_store(struct device *dev, struct device_attribute *attr
 	else {
 		/* safety floor and ceiling - netarchy */
 		for( i = 0; i < 2; i++ ) {
-			if (gpu_clock_control[i] < 10) {
-				gpu_clock_control[i] = 10;
+			if (gpu_clock_control[i] < MIN_CLOCK_GPU) {
+				gpu_clock_control[i] = MIN_CLOCK_GPU;
 			}
-			else if (gpu_clock_control[i] > 450) {
-				gpu_clock_control[i] = 450;
+			else if (gpu_clock_control[i] > MAX_CLOCK_GPU) {
+				gpu_clock_control[i] = MAX_CLOCK_GPU;
 			}
 		}
 	}
