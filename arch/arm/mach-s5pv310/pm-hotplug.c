@@ -37,9 +37,11 @@
 
 #define CPUMON 0
 
-#define CHECK_DELAY	(.5*HZ)
+#define CHECK_DELAY	(HZ >> 1)
 #define TRANS_LOAD_L	20
-#define TRANS_LOAD_H	(TRANS_LOAD_L*3)
+#define TRANS_LOAD_H	50
+#define TRANS_LOAD_L_SCREEN_OFF 35
+#define TRANS_LOAD_H_SCREEN_OFF 90
 
 #define HOTPLUG_UNLOCKED 0
 #define HOTPLUG_LOCKED 1
@@ -65,8 +67,6 @@ struct cpu_time_info {
 
 static DEFINE_PER_CPU(struct cpu_time_info, hotplug_cpu_time);
 
-static bool screen_off = false;
-
 /* mutex can be used since hotplug_timer does not run in
    timer(softirq) context but in process context */
 static DEFINE_MUTEX(hotplug_lock);
@@ -77,10 +77,6 @@ static void hotplug_timer(struct work_struct *work)
 
 	mutex_lock(&hotplug_lock);
 
-	if (screen_off && !cpu_online(1)) {
-		printk(KERN_INFO "pm-hotplug: disable cpu auto-hotplug\n");
-		goto out;
-	}
 	if (user_lock == 1)
 		goto no_hotplug;
 
@@ -183,7 +179,8 @@ static struct notifier_block hotplug_reboot_notifier = {
 static void hotplug_early_suspend(struct early_suspend *handler)
 {
 	mutex_lock(&hotplug_lock);
-	screen_off = true;
+	trans_load_l = TRANS_LOAD_L_SCREEN_OFF;
+	trans_load_h = TRANS_LOAD_H_SCREEN_OFF;
 	mutex_unlock(&hotplug_lock);
 }
 
@@ -192,7 +189,9 @@ static void hotplug_late_resume(struct early_suspend *handler)
 	printk(KERN_INFO "pm-hotplug: enable cpu auto-hotplug\n");
 
 	mutex_lock(&hotplug_lock);
-	screen_off = false;
+	trans_load_l = TRANS_LOAD_L;
+	trans_load_h = TRANS_LOAD_H;
+	cpu_up(1); //when the screen is on, activate the second cpu no matter what the load is
 	queue_delayed_work_on(0, hotplug_wq, &hotplug_work, hotpluging_rate);
 	mutex_unlock(&hotplug_lock);
 }
