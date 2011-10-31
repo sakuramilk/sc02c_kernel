@@ -1819,7 +1819,7 @@ int cpufreq_register_governor(struct cpufreq_governor *governor)
 	err = -EBUSY;
 	if (__find_governor(governor->name) == NULL) {
 		err = 0;
-		if (!strncmp(governor->name, "smartassV2", CPUFREQ_NAME_LEN)
+/*		if (!strncmp(governor->name, "smartassV2", CPUFREQ_NAME_LEN)
 		|| !strncmp(governor->name, "ondemand", CPUFREQ_NAME_LEN)
 		|| !strncmp(governor->name, "interactive", CPUFREQ_NAME_LEN)
 		|| !strncmp(governor->name, "interactiveX", CPUFREQ_NAME_LEN)
@@ -1827,10 +1827,10 @@ int cpufreq_register_governor(struct cpufreq_governor *governor)
 		|| !strncmp(governor->name, "lagfree", CPUFREQ_NAME_LEN)
 		|| !strncmp(governor->name, "brazilianwax", CPUFREQ_NAME_LEN)
 		|| !strncmp(governor->name, "SavagedZen", CPUFREQ_NAME_LEN)
-		|| !strncmp(governor->name, "conservative", CPUFREQ_NAME_LEN))
+		|| !strncmp(governor->name, "conservative", CPUFREQ_NAME_LEN))*/
 			governor->disableScalingDuringSuspend = 1;
-		else
-			governor->disableScalingDuringSuspend = 0;
+/*		else
+			governor->disableScalingDuringSuspend = 0;*/
 		list_add(&governor->governor_list, &cpufreq_governor_list);
 	}
 
