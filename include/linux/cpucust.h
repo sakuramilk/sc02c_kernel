@@ -79,21 +79,21 @@
 
 #define CUST_ARM_CLK_L8             ( 100000)
 #define CUST_ARM_V_L8               ( 925000)
-#define CUST_INT_V_L8               (1000000)
+#define CUST_INT_V_L8               ( 950000)
 #define CUST_CLKDIV_CPU0_L8         { 0, 1, 3, 1, 3, 1, 7 }
 #define CUST_CLKDIV_CPU1_L8         { 3, 0 }
 #define CUST_APLL_PMS_L8            ( ((100<<16)|(6<<8)|(0x3)) ) // 1000
 
 #define CUST_ARM_CLK_L9             (  50000)
 #define CUST_ARM_V_L9               ( 900000)
-#define CUST_INT_V_L9               (1000000)
+#define CUST_INT_V_L9               ( 900000)
 #define CUST_CLKDIV_CPU0_L9         { 0, 1, 3, 1, 3, 1, 7 }
 #define CUST_CLKDIV_CPU1_L9         { 3, 0 }
 #define CUST_APLL_PMS_L9            ( ((100<<16)|(6<<8)|(0x4)) ) // 500
 
 #define CUST_ARM_CLK_L10            (  25000)
 #define CUST_ARM_V_L10              ( 875000)
-#define CUST_INT_V_L10              (1000000)
+#define CUST_INT_V_L10              ( 900000)
 #define CUST_CLKDIV_CPU0_L10        { 0, 1, 3, 1, 3, 1, 7 }
 #define CUST_CLKDIV_CPU1_L10        { 3, 0 }
 #define CUST_APLL_PMS_L10           ( (( 50<<16)|(6<<8)|(0x4)) ) // 500
