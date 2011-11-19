@@ -127,6 +127,8 @@ static char *static_command_line;
 static char *execute_command;
 static char *ramdisk_execute_command;
 
+unsigned int aosp_rom_mode = 0;
+
 #ifdef CONFIG_SMP
 /* Setup configured maximum number of CPUs to activate */
 unsigned int setup_max_cpus = NR_CPUS;
