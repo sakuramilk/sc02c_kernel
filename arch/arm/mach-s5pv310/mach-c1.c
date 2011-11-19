@@ -6485,7 +6485,8 @@ static void __init s5pv310_reserve(void)
 }
 #endif
 
-#ifdef CONFIG_BUILD_TARGET_CM7
+//#ifdef CONFIG_BUILD_TARGET_CM7
+#if 0
 #define CUST_MACHINE_NAME	"SMDKV310"
 #else
 #define CUST_MACHINE_NAME	"SMDKC210"
