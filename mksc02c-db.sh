@@ -17,7 +17,7 @@ chmod 6755 /tmp/sc02c_initramfs/vendor/su/recovery_su
 if [ "$ANS" = 'all' -o "$ANS" = 'a' ]; then
   echo "cleaning..."
   make clean
-  make c1_cm7_sakuramilk_defconfig
+  make c1_dualboot_sakuramilk_defconfig
 fi
 
 if [ "$ANS" != 'zImage' -a "$ANS" != 'z' ]; then
