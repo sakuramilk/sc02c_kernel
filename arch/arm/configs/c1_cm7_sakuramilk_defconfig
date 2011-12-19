@@ -466,6 +466,11 @@ CONFIG_FREQ_OVERCLOCK=y
 CONFIG_BUILD_TARGET_CM7=y
 
 #
+# build target DualBoot
+#
+# CONFIG_BUILD_TARGET_DUALBOOT is not set
+
+#
 # sakuramod kernel build
 #
 # CONFIG_SAKURAMOD is not set
