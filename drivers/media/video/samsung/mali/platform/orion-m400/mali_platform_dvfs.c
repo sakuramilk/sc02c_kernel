@@ -47,7 +47,7 @@ extern int gpu_voltage_control[2];
 #define MALI_DVFS_CLK_DEBUG 0
 #define MALI_CLK_VERIFICATION 0
 #define MALI_DVFS_PAUSE_RESUME_TEST 0
-#define MALI_DVFS_AGRESSIVE_POLICY
+//#define MALI_DVFS_AGRESSIVE_POLICY
 
 #if MALI_CLK_VERIFICATION
 #define NUM_OF_TEST_LOOP 2
@@ -61,8 +61,8 @@ extern int gpu_voltage_control[2];
 	#define GPU_DVFS_UP_THRESHOLD	((int)((255*55)/100))   // 55%
 	#define GPU_DVFS_DOWN_THRESHOLD	((int)((255*25)/100))   // 25%
 #else
-	#define GPU_DVFS_UP_THRESHOLD	((int)((255*65)/100))   // 60%
-	#define GPU_DVFS_DOWN_THRESHOLD	((int)((255*30)/100))   // 30%
+	#define GPU_DVFS_UP_THRESHOLD	((int)((255*85)/100))   // 65%
+	#define GPU_DVFS_DOWN_THRESHOLD	((int)((255*75)/100))   // 30%
 #endif
 #endif
 static int bMaliDvfsRun=0;
@@ -255,7 +255,7 @@ static mali_bool set_mali_dvfs_staus(u32 step,mali_bool boostup)
 #ifdef CONFIG_REGULATOR
         /*change the voltage*/
 #ifdef CONFIG_GPU_CLOCK_CONTROL
-    	mali_regulator_set_voltage(gpu_voltage_control[step], gpu_voltage_control[step]);
+        mali_regulator_set_voltage(gpu_voltage_control[step], gpu_voltage_control[step]);
 #else	
         mali_regulator_set_voltage(mali_dvfs[step].vol, mali_dvfs[step].vol);
 #endif
@@ -280,7 +280,7 @@ static mali_bool set_mali_dvfs_staus(u32 step,mali_bool boostup)
         voltage = regulator_get_voltage(g3d_regulator);
 
 #ifdef CONFIG_GPU_CLOCK_CONTROL
-	if((mali_dvfs[step].vol== voltage)||(gpu_clock_control[step]== clk_rate/mali_dvfs[step].freq))
+        if((mali_dvfs[step].vol== voltage)||(gpu_clock_control[step]== clk_rate/mali_dvfs[step].freq))
 #else
         if((mali_dvfs[step].vol== voltage)||(mali_dvfs[step].clock== clk_rate/mali_dvfs[step].freq))
 #endif
