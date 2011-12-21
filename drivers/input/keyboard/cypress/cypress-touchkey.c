@@ -37,6 +37,7 @@
 #include <linux/bln.h>
 #include <linux/spinlock.h>
 #endif
+#include <linux/wakelock.h>
 
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/driver.h>
@@ -67,11 +68,10 @@
 #define TOUCH_FIRMWARE_V04  0x04
 #define DOOSUNGTECH_TOUCH_V1_2  0x0C
 
+#ifdef CONFIG_BUILD_TARGET_CM7
 /*
  * Standard CM7 LED Notification functionality.
  */
-#include <linux/wakelock.h>
-
 #define ENABLE_BL	1
 #define DISABLE_BL	2
 #define BL_ALWAYS_ON	-1
@@ -93,7 +93,7 @@ static DECLARE_WORK(bl_off_work, bl_off);
 static struct timer_list notification_timer;
 static void notification_off(struct work_struct *notification_off_work);
 static DECLARE_WORK(notification_off_work, notification_off);
-
+#endif /* CONFIG_BUILD_TARGET_CM7 */
 
 /* touchkey declares */
 #if defined(CONFIG_TARGET_LOCALE_NAATT)
@@ -329,7 +329,6 @@ void touchkey_work_func(struct work_struct *p)
 	u8 data[10];
 	int ret;
 	int retry = 10;
-	int status;
 
 #if 0
 	if (gpio_get_value(_3_GPIO_TOUCH_INT)) {
@@ -450,16 +449,20 @@ void touchkey_work_func(struct work_struct *p)
 		}
 	}
 
-	/* we have timed out or the lights should be on */
-	if (led_timer.expires > jiffies || led_timeout != BL_ALWAYS_OFF) {
-		status = 1;
-		i2c_touchkey_write((u8 *)&status, 1); /* turn on */
-	}
+#ifdef CONFIG_BUILD_TARGET_CM7
+	if (IS_AOSP_ROM) {
+		/* we have timed out or the lights should be on */
+		if (led_timer.expires > jiffies || led_timeout != BL_ALWAYS_OFF) {
+			int status = 1;
+			i2c_touchkey_write((u8 *)&status, 1); /* turn on */
+		}
 
-	/* restart the timer */
-	if (led_timeout > 0) {
-		mod_timer(&led_timer, jiffies + msecs_to_jiffies(led_timeout));
+		/* restart the timer */
+		if (led_timeout > 0) {
+			mod_timer(&led_timer, jiffies + msecs_to_jiffies(led_timeout));
+		}
 	}
+#endif /* CONFIG_BUILD_TARGET_CM7 */
 
 	set_touchkey_debug('A');
 	enable_irq(IRQ_TOUCH_INT);
@@ -474,6 +477,7 @@ static irqreturn_t touchkey_interrupt(int irq, void *dummy)
 	return IRQ_HANDLED;
 }
 
+#ifdef CONFIG_BUILD_TARGET_CM7
 /*
  * Start of the main LED Notify code block
  */
@@ -541,6 +545,10 @@ static ssize_t led_status_write( struct device *dev, struct device_attribute *at
 {
 	unsigned int data;
 	int status;
+
+	if (!IS_AOSP_ROM) {
+		return size;
+	}
 
 	if(sscanf(buf,"%u\n", &data ) == 1) {
 
@@ -672,6 +680,7 @@ static struct miscdevice led_device = {
 /*
  * End of the main LED Notification code block, minor ones below
  */
+#endif /* CONFIG_BUILD_TARGET_CM7 */
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static int melfas_touchkey_early_suspend(struct early_suspend *h)
@@ -685,7 +694,6 @@ static int melfas_touchkey_early_suspend(struct early_suspend *h)
 
 	set_touchkey_debug('S');
 	printk(KERN_DEBUG "[TouchKey] melfas_touchkey_early_suspend\n");
-
 	if (touchkey_enable < 0) {
 		printk(KERN_DEBUG "[TouchKey] ---%s---touchkey_enable: %d\n", __func__, touchkey_enable);
 		BLN_SPIN_UNLOCK();
@@ -707,7 +715,9 @@ static int melfas_touchkey_early_suspend(struct early_suspend *h)
 
 	/* disable ldo11 */
 	touchkey_ldo_on(0);
+#ifdef CONFIG_BUILD_TARGET_CM7
 	screen_on = 0;
+#endif
 
 	BLN_SPIN_UNLOCK();
 
@@ -778,14 +788,17 @@ static struct bln_implementation cypress_touchkey_bln = {
 
 static int melfas_touchkey_late_resume(struct early_suspend *h)
 {
-	int status;
 	set_touchkey_debug('R');
 	printk(KERN_DEBUG "[TouchKey] melfas_touchkey_late_resume\n");
 
 	BLN_SPIN_LOCK();
 
-	/* Avoid race condition with LED notification disable */
-	down(&enable_sem);
+#ifdef CONFIG_BUILD_TARGET_CM7
+	if (IS_AOSP_ROM) {
+		/* Avoid race condition with LED notification disable */
+		down(&enable_sem);
+	}
+#endif
 
 #ifdef CONFIG_GENERIC_BLN
 	printk(KERN_DEBUG "[TouchKey] wake_unlock!!!\n");
@@ -797,7 +810,11 @@ static int melfas_touchkey_late_resume(struct early_suspend *h)
 
 	if (touchkey_enable < 0) {
 		printk(KERN_DEBUG "[TouchKey] ---%s---touchkey_enable: %d\n", __func__, touchkey_enable);
-		up(&enable_sem);
+#ifdef CONFIG_BUILD_TARGET_CM7
+		if (IS_AOSP_ROM) {
+			up(&enable_sem);
+		}
+#endif
 		BLN_SPIN_UNLOCK();
 		return 0;
 	}
@@ -810,44 +827,42 @@ static int melfas_touchkey_late_resume(struct early_suspend *h)
 	set_irq_type(IRQ_TOUCH_INT, IRQF_TRIGGER_FALLING);
 	s3c_gpio_cfgpin(_3_GPIO_TOUCH_INT, _3_GPIO_TOUCH_INT_AF);
 	s3c_gpio_setpull(_3_GPIO_TOUCH_INT, S3C_GPIO_PULL_NONE);
+#if !defined(CONFIG_BUILD_TARGET_CM7)
+	msleep(50);
+#endif
 
 	touchkey_led_ldo_on(1);
-	touchkey_enable = 1;
 
-	screen_on = 1;
-	/* see if late_resume is running before DISABLE_BL */
-	if (led_on) {
-		/* if a notification timeout was set, disable the timer */
-		if (notification_timeout > 0) {
-			del_timer(&notification_timer);
+#ifdef CONFIG_BUILD_TARGET_CM7
+	if (IS_AOSP_ROM) {
+		screen_on = 1;
+		/* see if late_resume is running before DISABLE_BL */
+		if (led_on) {
+			/* if a notification timeout was set, disable the timer */
+			if (notification_timeout > 0) {
+				del_timer(&notification_timer);
+			}
+
+			/* we were using a wakelock, unlock it */
+			if (wake_lock_active(&led_wake_lock)) {
+				wake_unlock(&led_wake_lock);
+			}
+
+			led_on = 0; /* force DISABLE_BL to ignore the led state because we want it left on */
 		}
 
-		/* we were using a wakelock, unlock it */
-		if (wake_lock_active(&led_wake_lock)) {
-			wake_unlock(&led_wake_lock);
+		if (led_timeout != BL_ALWAYS_OFF) {
+			/* ensure the light is ON */
+			int status = 1;
+			i2c_touchkey_write((u8 *)&status, 1);
 		}
 
-		led_on = 0; /* force DISABLE_BL to ignore the led state because we want it left on */
+		/* restart the timer if needed */
+		if (led_timeout > 0) {
+			mod_timer(&led_timer, jiffies + msecs_to_jiffies(led_timeout));
+		}
 	}
-
-
-	if (touchled_cmd_reversed) {
-		touchled_cmd_reversed = 0;
-		printk(KERN_DEBUG "[TouchKey:D] line=%d : call i2c_touchkey_write(value=%d)\n", __LINE__, touchkey_led_status);
-		i2c_touchkey_write((u8*)&touchkey_led_status, 1);
-		printk(KERN_DEBUG "LED returned on\n");
-	}
-
-	if (led_timeout != BL_ALWAYS_OFF) {
-		/* ensure the light is ON */
-		status = 1;
-		i2c_touchkey_write((u8 *)&status, 1);
-	}
-
-	/* restart the timer if needed */
-	if (led_timeout > 0) {
-		mod_timer(&led_timer, jiffies + msecs_to_jiffies(led_timeout));
-	}
+#endif /* CONFIG_BUILD_TARGET_CM7 */
 
 	/* all done, turn on IRQ */
 	enable_irq(IRQ_TOUCH_INT);
@@ -856,8 +871,19 @@ static int melfas_touchkey_late_resume(struct early_suspend *h)
 	touchkey_is_suspended = false;
 #endif
 
-	/* Avoid race condition with LED notification disable */
-	up(&enable_sem);
+#ifdef CONFIG_BUILD_TARGET_CM7
+	if (IS_AOSP_ROM) {
+		/* Avoid race condition with LED notification disable */
+		up(&enable_sem);
+	}
+#else
+	if (touchled_cmd_reversed) {
+		touchled_cmd_reversed = 0;
+		printk(KERN_DEBUG "[TouchKey:D] line=%d : call i2c_touchkey_write(value=%d)\n", __LINE__, touchkey_led_status);
+		i2c_touchkey_write((u8*)&touchkey_led_status, 1);
+		printk(KERN_DEBUG "LED returned on\n");
+	}
+#endif
 
 	BLN_SPIN_UNLOCK();
 
@@ -871,7 +897,6 @@ static int i2c_touchkey_probe(struct i2c_client *client, const struct i2c_device
 	struct device *dev = &client->dev;
 	struct input_dev *input_dev;
 	int err = 0;
-	int status;
 
 	printk(KERN_DEBUG "[TouchKey] melfas i2c_touchkey_probe\n");
 
@@ -938,6 +963,7 @@ static int i2c_touchkey_probe(struct i2c_client *client, const struct i2c_device
 
 	set_touchkey_debug('K');
 
+#ifdef CONFIG_BUILD_TARGET_CM7
 	err = misc_register(&led_device);
 	if( err ){
 		printk(KERN_ERR "[LED Notify] sysfs misc_register failed.\n");
@@ -956,9 +982,10 @@ static int i2c_touchkey_probe(struct i2c_client *client, const struct i2c_device
 
 	/* turn on the LED if it is not supposed to be allways off */
 	if (led_timeout != BL_ALWAYS_OFF) {
-		status = 1;
+		int status = 1;
 		i2c_touchkey_write((u8 *)&status, 1);
 	}
+#endif /* CONFIG_BUILD_TARGET_CM7 */
 
 	return 0;
 }
@@ -1457,10 +1484,12 @@ static void __exit touchkey_exit(void)
 	i2c_del_driver(&touchkey_i2c_driver);
 	misc_deregister(&touchkey_update_device);
 
+#ifdef CONFIG_BUILD_TARGET_CM7
 	misc_deregister(&led_device);
 	wake_lock_destroy(&led_wake_lock);
 	del_timer(&led_timer);
 	del_timer(&notification_timer);
+#endif
 
 #ifdef CONFIG_GENERIC_BLN
 	wake_lock_destroy(&touchkey_wake_lock);
