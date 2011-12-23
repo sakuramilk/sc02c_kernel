@@ -576,6 +576,14 @@ config BUILD_TARGET_CM7
 	 This option makes to select build target CyanogenMod7.
 endmenu
 
+menu "build target DualBoot"
+config BUILD_TARGET_DUALBOOT
+	bool "DualBoot"
+	default n
+	help
+	 This option makes to select build target DualBoot.
+endmenu
+
 menu "sakuramod kernel build"
 config SAKURAMOD
 	bool "SakuraMod"
