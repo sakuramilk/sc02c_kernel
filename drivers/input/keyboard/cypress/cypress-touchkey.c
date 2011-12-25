@@ -79,7 +79,7 @@
 
 int led_on = 0;
 int screen_on = 1;
-int led_timeout = BL_ALWAYS_ON; /* never time out */
+int led_timeout = BL_ALWAYS_OFF; /* never time out */
 int notification_timeout = -1; /* never time out */
 int notification_enabled = -1; /* Disabled by default */
 
@@ -272,7 +272,7 @@ static int i2c_touchkey_read(u8 reg, u8 *val, unsigned int len)
 	struct i2c_msg msg[1];
 
 	if ((touchkey_driver == NULL)) {
-		printk(KERN_ERR "[TouchKey] i2c_touchkey_read: touchkey is not enabled.R\n");
+		printk(KERN_ERR "[TouchKey] i2c_touchkey_read: touchkey is not enabled.\n");
 		return -ENODEV;
 	}
 
@@ -301,7 +301,7 @@ static int i2c_touchkey_write(u8 *val, unsigned int len)
 	int retry = 2;
 
 	if ((touchkey_driver == NULL) || !(touchkey_enable == 1)) {
-		printk(KERN_ERR "[TouchKey] i2c_touchkey_write: touchkey is not enabled.R\n");
+		printk(KERN_ERR "[TouchKey] i2c_touchkey_write: touchkey is not enabled.\n");
 		return -ENODEV;
 	}
 
@@ -313,9 +313,7 @@ static int i2c_touchkey_write(u8 *val, unsigned int len)
 		msg->buf = data;
 		err = i2c_transfer(touchkey_driver->client->adapter, msg, 1);
 		if (err >= 0) {
-
 			return 0;
-
 		}
 		printk(KERN_DEBUG "[TouchKey] i2c_touchkey_write: %s %d i2c transfer error\n", __func__, __LINE__);
 		mdelay(10);
@@ -434,9 +432,7 @@ void touchkey_work_func(struct work_struct *p)
 		} else {
 			if ((data[0] & KEYCODE_BIT) == 2) {
 				/* if back key is pressed, release multitouch */
-				/*
-				  printk(KERN_DEBUG "[TouchKey] touchkey release tsp input. \n");
-				*/
+				/*printk(KERN_DEBUG "[TouchKey] touchkey release tsp input. \n");*/
 				touch_forced_release();
 			}
 
@@ -454,6 +450,7 @@ void touchkey_work_func(struct work_struct *p)
 		/* we have timed out or the lights should be on */
 		if (led_timer.expires > jiffies || led_timeout != BL_ALWAYS_OFF) {
 			int status = 1;
+            printk(KERN_ERR "[TouchKey] %d : %s(%d)\n", __LINE__, __func__, status);
 			i2c_touchkey_write((u8 *)&status, 1); /* turn on */
 		}
 
@@ -491,6 +488,7 @@ static void bl_off(struct work_struct *bl_off_work)
 
 	/* we have timed out, turn the lights off */
 	status = 2;
+    printk(KERN_ERR "[TouchKey] %d : %s(%d)\n", __LINE__, __func__, status);
 	i2c_touchkey_write((u8 *)&status, 1);
 
 	return;
@@ -517,6 +515,7 @@ static void notification_off(struct work_struct *notification_off_work)
 
 	/* turn off the backlight */
 	status = 2; /* light off */
+    printk(KERN_ERR "[TouchKey] %d : %s(%d)\n", __LINE__, __func__, status);
 	i2c_touchkey_write((u8 *)&status, 1);
 	touchkey_enable = 0;
 	led_on = 0;
@@ -570,6 +569,7 @@ static ssize_t led_status_write( struct device *dev, struct device_attribute *at
 
 				/* enable the backlight */
 				status = 1;
+                printk(KERN_ERR "[TouchKey] %d : %s(%d)\n", __LINE__, __func__, status);
 				i2c_touchkey_write((u8 *)&status, 1);
 				led_on = 1;
 
@@ -591,6 +591,7 @@ static ssize_t led_status_write( struct device *dev, struct device_attribute *at
 
 				/* turn off the backlight */
 				status = 2; /* light off */
+                printk(KERN_ERR "[TouchKey] %d : %s(%d)\n", __LINE__, __func__, status);
 				i2c_touchkey_write((u8 *)&status, 1);
 				led_on = 0;
 
@@ -754,7 +755,7 @@ static void melfas_enable_touchkey_backlights(void) {
 		if (touchkey_enable == 0) {
 			touchkey_bln_wakeup();
 		}
-		printk(KERN_DEBUG "[TouchKey:D] line=%d : call i2c_touchkey_write(value=%d)\n", __LINE__, val);
+        printk(KERN_ERR "[TouchKey] %d : %s(%d)\n", __LINE__, __func__, val);
 		i2c_touchkey_write(&val, sizeof(val));
 		touchkey_led_status = 2;
 		touchled_cmd_reversed = 1;
@@ -769,7 +770,7 @@ static void melfas_disable_touchkey_backlights(void) {
 	BLN_SPIN_LOCK();
 	if (touchkey_is_suspended)
 	{
-		printk(KERN_DEBUG "[TouchKey:D] line=%d : call i2c_touchkey_write(value=%d)\n", __LINE__, val);
+        printk(KERN_ERR "[TouchKey] %d : %s(%d)\n", __LINE__, __func__, val);
 		i2c_touchkey_write(&val, sizeof(val));
 		if (touchkey_enable == 1) {
 			touchkey_bln_sleep();
@@ -854,6 +855,7 @@ static int melfas_touchkey_late_resume(struct early_suspend *h)
 		if (led_timeout != BL_ALWAYS_OFF) {
 			/* ensure the light is ON */
 			int status = 1;
+            printk(KERN_ERR "[TouchKey] %d : %s(%d)\n", __LINE__, __func__, status);
 			i2c_touchkey_write((u8 *)&status, 1);
 		}
 
@@ -876,14 +878,14 @@ static int melfas_touchkey_late_resume(struct early_suspend *h)
 		/* Avoid race condition with LED notification disable */
 		up(&enable_sem);
 	}
-#else
-	if (touchled_cmd_reversed) {
+#endif
+
+	if (touchled_cmd_reversed && !IS_AOSP_ROM) {
 		touchled_cmd_reversed = 0;
-		printk(KERN_DEBUG "[TouchKey:D] line=%d : call i2c_touchkey_write(value=%d)\n", __LINE__, touchkey_led_status);
+        printk(KERN_ERR "[TouchKey] %d : %s(%d)\n", __LINE__, __func__, touchkey_led_status);
 		i2c_touchkey_write((u8*)&touchkey_led_status, 1);
 		printk(KERN_DEBUG "LED returned on\n");
 	}
-#endif
 
 	BLN_SPIN_UNLOCK();
 
@@ -983,6 +985,7 @@ static int i2c_touchkey_probe(struct i2c_client *client, const struct i2c_device
 	/* turn on the LED if it is not supposed to be allways off */
 	if (led_timeout != BL_ALWAYS_OFF) {
 		int status = 1;
+        printk(KERN_ERR "[TouchKey] %d : %s(%d)\n", __LINE__, __func__, status);
 		i2c_touchkey_write((u8 *)&status, 1);
 	}
 #endif /* CONFIG_BUILD_TARGET_CM7 */
@@ -1124,6 +1127,12 @@ static ssize_t touch_led_control(struct device *dev, struct device_attribute *at
 	int errnum;
 
 	if (sscanf(buf, "%d\n", &data) == 1) {
+        printk(KERN_ERR "[TouchKey] %d : %s(%d)\n", __LINE__, __func__, data);
+#ifdef CONFIG_BUILD_TARGET_CM7
+		if (led_timeout == BL_ALWAYS_OFF && IS_AOSP_ROM && data == 1) {
+			return size;
+		}
+#endif
 		errnum = i2c_touchkey_write((u8 *)&data, 1);
 		if (errnum == -ENODEV) {
 			touchled_cmd_reversed = 1;
@@ -1138,7 +1147,6 @@ static ssize_t touch_led_control(struct device *dev, struct device_attribute *at
 
 static ssize_t touchkey_enable_disable(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
 {
-
 	return size;
 }
 
