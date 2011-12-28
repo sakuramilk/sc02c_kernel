@@ -1296,10 +1296,15 @@ static ssize_t touchkey_bln_control(struct device *dev,
 
 	if (sscanf(buf, "%d\n", &data) == 1) {
 		printk(KERN_ERR "[TouchKey] touchkey_bln_control: %d \n", data);
-		if (data == 1)
-			melfas_enable_touchkey_backlights();
-		else
-			melfas_disable_touchkey_backlights();
+		if (data == 1) {
+			//melfas_enable_touchkey_backlights();
+			int status = 1;
+			i2c_touchkey_write((u8 *)&status, 1);
+		} else {
+			//melfas_disable_touchkey_backlights();
+			int status = 2;
+			i2c_touchkey_write((u8 *)&status, 1);
+		}
 	} else {
 		printk(KERN_ERR "[TouchKey] touchkey_bln_control Error\n");
 	}
