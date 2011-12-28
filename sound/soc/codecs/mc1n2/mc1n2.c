@@ -50,6 +50,7 @@
 
 #include <plat/gpio-cfg.h>
 #include <mach/gpio.h>
+#include <mach/cpufreq.h>
 
 #ifdef CONFIG_SND_SOC_MIC_A1026
 
@@ -329,6 +330,7 @@ struct mc1n2_info_store mc1n2_info_store_tbl[] = {
 #define MC1N2_N_INFO_STORE (sizeof(mc1n2_info_store_tbl) / sizeof(struct mc1n2_info_store))
 
 int isVoiceSearch = 0;
+static int mc1n2_freq_lock = 0;
 
 static void mc1n2_set_codec_data(struct snd_soc_codec *codec)
 {
@@ -3830,8 +3832,11 @@ static int mc1n2_hwdep_ioctl_notify(struct snd_soc_codec *codec,
 		mc1n2->pdata->set_adc_power_contraints(1);
 		break;
 	case MCDRV_NOTIFY_MEDIA_PLAY_START:
+		if (mc1n2_freq_lock)
+			s5pv310_cpufreq_lock(DVFS_LOCK_ID_SND, CPU_L5); // CPU CLK lower lock 100MHz
 		break;
 	case MCDRV_NOTIFY_MEDIA_PLAY_STOP:
+		s5pv310_cpufreq_lock_free(DVFS_LOCK_ID_SND);
 		break;
 	case MCDRV_NOTIFY_FM_PLAY_START:
 		mc1n2_current_mode |= MC1N2_MODE_FM_ON;
@@ -4584,6 +4589,23 @@ static ssize_t update_reg_vol(struct device *dev, struct device_attribute *attr,
 static DEVICE_ATTR(update_volume, S_IWUSR | S_IWGRP, NULL, update_reg_vol);
 
 
+static ssize_t mc1n2_show_freq_lock(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf,"%d\n", mc1n2_freq_lock);
+}
+
+static ssize_t mc1n2_store_freq_lock(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
+{
+	int data;
+	if (sscanf(buf, "%d\n", &data) > 0) {
+		mc1n2_freq_lock = data;
+	}
+	return size;
+}
+
+static DEVICE_ATTR(freq_lock, S_IRUGO | S_IWUSR | S_IWGRP, mc1n2_show_freq_lock, mc1n2_store_freq_lock);
+
+
 /*
  * Module init and exit
  */
@@ -4688,6 +4710,9 @@ static int __init mc1n2_init(void)
 	}
 	if (device_create_file(sound_mc1n2, &dev_attr_update_volume)< 0) {
 		printk(KERN_ERR "Failed to create device file(%s)!\n", dev_attr_update_volume.attr.name);
+	}
+	if (device_create_file(sound_mc1n2, &dev_attr_freq_lock)< 0) {
+		printk(KERN_ERR "Failed to create device file(%s)!\n", dev_attr_freq_lock.attr.name);
 	}
 	
 	return i2c_add_driver(&mc1n2_i2c_driver);
