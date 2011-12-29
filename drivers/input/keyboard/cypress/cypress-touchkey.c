@@ -300,6 +300,8 @@ static int i2c_touchkey_write(u8 *val, unsigned int len)
 	unsigned char data[2];
 	int retry = 2;
 
+	printk(KERN_ERR "[TouchKey] i2c_touchkey_write: value=%d\n", *val);
+
 	if ((touchkey_driver == NULL) || !(touchkey_enable == 1)) {
 		printk(KERN_ERR "[TouchKey] i2c_touchkey_write: touchkey is not enabled.\n");
 		return -ENODEV;
@@ -828,9 +830,7 @@ static int melfas_touchkey_late_resume(struct early_suspend *h)
 	set_irq_type(IRQ_TOUCH_INT, IRQF_TRIGGER_FALLING);
 	s3c_gpio_cfgpin(_3_GPIO_TOUCH_INT, _3_GPIO_TOUCH_INT_AF);
 	s3c_gpio_setpull(_3_GPIO_TOUCH_INT, S3C_GPIO_PULL_NONE);
-#if !defined(CONFIG_BUILD_TARGET_CM7)
-	msleep(50);
-#endif
+	msleep(50); // 50msec required for touchkey device to wakeup
 
 	touchkey_led_ldo_on(1);
 
