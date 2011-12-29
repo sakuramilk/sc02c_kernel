@@ -89,7 +89,7 @@
 #define CUST_INT_V_L9               ( 900000)
 #define CUST_CLKDIV_CPU0_L9         { 0, 1, 3, 1, 3, 1, 7 }
 #define CUST_CLKDIV_CPU1_L9         { 3, 0 }
-#define CUST_APLL_PMS_L9            ( ((100<<16)|(6<<8)|(0x4)) ) // 500
+#define CUST_APLL_PMS_L9            ( (( 50<<16)|(6<<8)|(0x3)) ) // 1000
 
 #define CUST_ARM_CLK_L10            (  25000)
 #define CUST_ARM_V_L10              ( 875000)
