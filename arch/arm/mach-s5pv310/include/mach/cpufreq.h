@@ -17,17 +17,14 @@
  * This should be same with cpufreq_frequency_table
 */
 enum cpufreq_level_request{
-	CPU_L0, /* 1600MHz */
-	CPU_L1, /* 1504MHz */
-	CPU_L2, /* 1400MHz */
-	CPU_L3, /* 1200MHz */
-	CPU_L4, /* 1000MHz */
-	CPU_L5, /*  800MHz */
-	CPU_L6, /*  500MHz */
-	CPU_L7, /*  200MHz */
-	CPU_L8, /*  100MHz */
-	CPU_L9, /*   50MHz */
-	CPU_L10,/*   25MHz */
+	CPU_L0, /* 1200MHz */
+	CPU_L1, /* 1000MHz */
+	CPU_L2, /*  800MHz */
+	CPU_L3, /*  500MHz */
+	CPU_L4, /*  200MHz */
+	CPU_L5, /*  100MHz */
+	CPU_L6, /*   50MHz */
+	CPU_L7, /*   25MHz */
 	CPU_LEVEL_END,
 };
 
@@ -44,9 +41,10 @@ enum cpufreq_lock_ID{
 	DVFS_LOCK_ID_USB,	/* USB */
 	DVFS_LOCK_ID_CAM,	/* CAM */
 	DVFS_LOCK_ID_APP,	/* APP */
-	DVFS_LOCK_ID_PM,	/* PM */
-	DVFS_LOCK_ID_TSP,	/*TSP*/
-	DVFS_LOCK_ID_TMU,	/*TMU*/
+	DVFS_LOCK_ID_PM,	/* PM  */
+	DVFS_LOCK_ID_TSP,	/* TSP */
+	DVFS_LOCK_ID_TMU,	/* TMU */
+	DVFS_LOCK_ID_SND,	/* SND */
 	DVFS_LOCK_ID_END,
 };
 
