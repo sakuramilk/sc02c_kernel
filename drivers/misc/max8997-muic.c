@@ -508,7 +508,7 @@ static DEVICE_ATTR(adc_debounce_time, 0664,
 #if defined(CONFIG_TARGET_LOCALE_NA)
 static DEVICE_ATTR(esn, 0664, esn_show, esn_store);
 #endif
-static DEVICE_ATTR(fake_cable_type, 0664,
+static DEVICE_ATTR(fake_cable_type, 0666,
 		max8997_muic_show_fake_cable_type, max8997_muic_set_fake_cable_type);
 
 static struct attribute *max8997_muic_attributes[] = {

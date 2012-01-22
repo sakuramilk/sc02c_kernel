@@ -1333,7 +1333,7 @@ static DEVICE_ATTR(touchkey_firm_version_panel, S_IRUGO | S_IWUSR | S_IWGRP, set
 
 static DEVICE_ATTR(touchkey_brightness, S_IRUGO | S_IWUSR | S_IWGRP, NULL, brightness_control);
 #ifdef CONFIG_GENERIC_BLN
-static DEVICE_ATTR(touchkey_bln_control, S_IRUGO | S_IWUSR | S_IWGRP, NULL, touchkey_bln_control);
+static DEVICE_ATTR(touchkey_bln_control, S_IWUGO, NULL, touchkey_bln_control);
 #endif
 
 static int __init touchkey_init(void)

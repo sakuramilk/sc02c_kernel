@@ -152,7 +152,7 @@ static unsigned int update_vol_mask = MC1N2_MASK_NULL;
 		}\
 		return size;\
 	}\
-	static DEVICE_ATTR(var, S_IRUGO | S_IWUSR | S_IWGRP, mc1n2_##var##_read, mc1n2_##var##_write);
+	static DEVICE_ATTR(var, S_IWUGO | S_IRUGO, mc1n2_##var##_read, mc1n2_##var##_write);
 
 VOL_ATTR_DEF(DVOL_AD0)
 VOL_ATTR_DEF(DVOL_AENG6)
@@ -4586,7 +4586,7 @@ static ssize_t update_reg_vol(struct device *dev, struct device_attribute *attr,
 	return size;
 }
 
-static DEVICE_ATTR(update_volume, S_IWUSR | S_IWGRP, NULL, update_reg_vol);
+static DEVICE_ATTR(update_volume, S_IWUGO | S_IRUGO, NULL, update_reg_vol);
 
 
 static ssize_t mc1n2_show_freq_lock(struct device *dev, struct device_attribute *attr, char *buf)
@@ -4603,7 +4603,7 @@ static ssize_t mc1n2_store_freq_lock(struct device *dev, struct device_attribute
 	return size;
 }
 
-static DEVICE_ATTR(freq_lock, S_IRUGO | S_IWUSR | S_IWGRP, mc1n2_show_freq_lock, mc1n2_store_freq_lock);
+static DEVICE_ATTR(freq_lock, S_IWUGO | S_IRUGO, mc1n2_show_freq_lock, mc1n2_store_freq_lock);
 
 
 /*
