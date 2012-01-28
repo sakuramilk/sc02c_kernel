@@ -360,7 +360,7 @@ static struct s3c2410_uartcfg smdkc210_uartcfgs[] __initdata = {
 		.ulcon		= SMDKC210_ULCON_DEFAULT,
 		.ufcon		= SMDKC210_UFCON_DEFAULT,
 		.cfg_gpio	= s3c_setup_uart_cfg_gpio,
-#ifdef CONFIG_BUILD_TARGET_CM7
+#ifdef CONFIG_FEATURE_AOSP
 		.wake_peer	= c1_bt_uart_wake_peer,
 #endif
 	},
@@ -6485,7 +6485,6 @@ static void __init s5pv310_reserve(void)
 }
 #endif
 
-//#ifdef CONFIG_BUILD_TARGET_CM7
 #if 0
 #define CUST_MACHINE_NAME	"SMDKV310"
 #else

@@ -10,7 +10,7 @@
 
 OSKOS :=linux
 FILES_PREFIX=
-ifeq ($(CONFIG_SAKURAMOD),y)
+ifeq ($(CONFIG_CM_KERNEL),y)
 MALI_FILE_PREFIX = $(KBUILD_SRC)/drivers/media/video/samsung/mali
 KBUILDROOT = $(KBUILD_OUTPUT)
 else
@@ -87,7 +87,7 @@ ifeq ($(USING_OS_MEMORY),1)
         USING_MMU = 1
 endif
 # Check if a Mali Core sub module should be enabled, true or false returned
-ifeq ($(CONFIG_SAKURAMOD),y)
+ifeq ($(CONFIG_CM_KERNEL),y)
 submodule_enabled = $(shell set -x ; echo $(KBUILD_SRC) 1>&2; gcc $(DEFINES) -E $(MALI_FILE_PREFIX)/arch/config.h | grep type | grep -c $(2))
 else
 submodule_enabled = $(shell gcc $(DEFINES) -E $(MALI_FILE_PREFIX)/arch/config.h | grep type | grep -c $(2))
@@ -139,7 +139,7 @@ obj-$(CONFIG_VIDEO_MALI400MP)		+= mali.o
 
 # Use our defines when compiling
 # MALI
-ifeq ($(CONFIG_SAKURAMOD),y)
+ifeq ($(CONFIG_CM_KERNEL),y)
 INCLUDES = \
 		-I$(KBUILD_SRC) \
 		-I$(KBUILD_OUTPUT) \

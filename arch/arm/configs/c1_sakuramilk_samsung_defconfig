@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.35.14
-# Sun Oct 23 02:38:06 2011
+# Sat Jan 28 23:04:44 2012
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -131,9 +131,7 @@ CONFIG_PERF_USE_VMALLOC=y
 #
 CONFIG_PERF_EVENTS=y
 CONFIG_PERF_COUNTERS=y
-# CONFIG_DEBUG_PERF_USE_VMALLOC is not set
 CONFIG_VM_EVENT_COUNTERS=y
-# CONFIG_SLUB_DEBUG is not set
 CONFIG_COMPAT_BRK=y
 # CONFIG_SLAB is not set
 # CONFIG_SLUB is not set
@@ -151,9 +149,9 @@ CONFIG_HAVE_CLK=y
 #
 # GCOV-based kernel profiling
 #
-# CONFIG_GCOV_KERNEL is not set
-# CONFIG_SLOW_WORK is not set
+CONFIG_SLOW_WORK=y
 CONFIG_HAVE_GENERIC_DMA_COHERENT=y
+CONFIG_SLABINFO=y
 CONFIG_RT_MUTEXES=y
 CONFIG_BASE_SMALL=0
 CONFIG_MODULES=y
@@ -213,7 +211,7 @@ CONFIG_DEFAULT_IOSCHED="bfq"
 # CONFIG_INLINE_WRITE_UNLOCK_BH is not set
 # CONFIG_INLINE_WRITE_UNLOCK_IRQ is not set
 # CONFIG_INLINE_WRITE_UNLOCK_IRQRESTORE is not set
-# CONFIG_MUTEX_SPIN_ON_OWNER is not set
+CONFIG_MUTEX_SPIN_ON_OWNER=y
 CONFIG_FREEZER=y
 
 #
@@ -461,19 +459,16 @@ CONFIG_FREQ_STEP_UP_L2_L0=y
 CONFIG_FREQ_OVERCLOCK=y
 
 #
-# build target CyanogenMod7
+# Build target
 #
-# CONFIG_BUILD_TARGET_CM7 is not set
+CONFIG_BUILD_TARGET_SAMSUNG=y
+# CONFIG_BUILD_TARGET_AOSP is not set
+# CONFIG_BUILD_TARGET_MULTI is not set
 
 #
-# build target DualBoot
+# CyanogenMod kernel build
 #
-# CONFIG_BUILD_TARGET_DUALBOOT is not set
-
-#
-# sakuramod kernel build
-#
-# CONFIG_SAKURAMOD is not set
+# CONFIG_CM_KERNEL is not set
 
 #
 # Processor Type

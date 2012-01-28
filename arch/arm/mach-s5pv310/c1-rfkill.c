@@ -35,7 +35,7 @@
 #include <plat/gpio-cfg.h>
 #include <plat/irqs.h>
 
-#if !defined(CONFIG_BUILD_TARGET_CM7)
+#if !defined(CONFIG_FEATURE_AOSP)
 #define BT_SLEEP_ENABLE
 #endif
 

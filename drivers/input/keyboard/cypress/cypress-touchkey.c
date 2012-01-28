@@ -68,7 +68,7 @@
 #define TOUCH_FIRMWARE_V04  0x04
 #define DOOSUNGTECH_TOUCH_V1_2  0x0C
 
-#ifdef CONFIG_BUILD_TARGET_CM7
+#ifdef CONFIG_FEATURE_AOSP
 /*
  * Standard CM7 LED Notification functionality.
  */
@@ -93,7 +93,7 @@ static DECLARE_WORK(bl_off_work, bl_off);
 static struct timer_list notification_timer;
 static void notification_off(struct work_struct *notification_off_work);
 static DECLARE_WORK(notification_off_work, notification_off);
-#endif /* CONFIG_BUILD_TARGET_CM7 */
+#endif /* CONFIG_FEATURE_AOSP */
 
 /* touchkey declares */
 #if defined(CONFIG_TARGET_LOCALE_NAATT)
@@ -447,8 +447,8 @@ void touchkey_work_func(struct work_struct *p)
 		}
 	}
 
-#ifdef CONFIG_BUILD_TARGET_CM7
-	if (IS_AOSP_ROM) {
+#ifdef CONFIG_FEATURE_AOSP
+	if (FEATURE_AOSP_ENABLE) {
 		/* we have timed out or the lights should be on */
 		if (led_timer.expires > jiffies || led_timeout != BL_ALWAYS_OFF) {
 			int status = 1;
@@ -461,7 +461,7 @@ void touchkey_work_func(struct work_struct *p)
 			mod_timer(&led_timer, jiffies + msecs_to_jiffies(led_timeout));
 		}
 	}
-#endif /* CONFIG_BUILD_TARGET_CM7 */
+#endif /* CONFIG_FEATURE_AOSP */
 
 	set_touchkey_debug('A');
 	enable_irq(IRQ_TOUCH_INT);
@@ -476,7 +476,7 @@ static irqreturn_t touchkey_interrupt(int irq, void *dummy)
 	return IRQ_HANDLED;
 }
 
-#ifdef CONFIG_BUILD_TARGET_CM7
+#ifdef CONFIG_FEATURE_AOSP
 /*
  * Start of the main LED Notify code block
  */
@@ -547,9 +547,9 @@ static ssize_t led_status_write( struct device *dev, struct device_attribute *at
 	unsigned int data;
 	int status;
 
-	if (!IS_AOSP_ROM) {
+	if (!FEATURE_AOSP_ENABLE) {
 		return size;
-	}
+		}
 
 	if(sscanf(buf,"%u\n", &data ) == 1) {
 
@@ -683,7 +683,7 @@ static struct miscdevice led_device = {
 /*
  * End of the main LED Notification code block, minor ones below
  */
-#endif /* CONFIG_BUILD_TARGET_CM7 */
+#endif /* CONFIG_FEATURE_AOSP */
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static int melfas_touchkey_early_suspend(struct early_suspend *h)
@@ -718,7 +718,7 @@ static int melfas_touchkey_early_suspend(struct early_suspend *h)
 
 	/* disable ldo11 */
 	touchkey_ldo_on(0);
-#ifdef CONFIG_BUILD_TARGET_CM7
+#ifdef CONFIG_FEATURE_AOSP
 	screen_on = 0;
 #endif
 
@@ -796,8 +796,8 @@ static int melfas_touchkey_late_resume(struct early_suspend *h)
 
 	BLN_SPIN_LOCK();
 
-#ifdef CONFIG_BUILD_TARGET_CM7
-	if (IS_AOSP_ROM) {
+#ifdef CONFIG_FEATURE_AOSP
+	if (FEATURE_AOSP_ENABLE) {
 		/* Avoid race condition with LED notification disable */
 		down(&enable_sem);
 	}
@@ -813,8 +813,8 @@ static int melfas_touchkey_late_resume(struct early_suspend *h)
 
 	if (touchkey_enable < 0) {
 		printk(KERN_DEBUG "[TouchKey] ---%s---touchkey_enable: %d\n", __func__, touchkey_enable);
-#ifdef CONFIG_BUILD_TARGET_CM7
-		if (IS_AOSP_ROM) {
+#ifdef CONFIG_FEATURE_AOSP
+		if (FEATURE_AOSP_ENABLE) {
 			up(&enable_sem);
 		}
 #endif
@@ -834,8 +834,8 @@ static int melfas_touchkey_late_resume(struct early_suspend *h)
 
 	touchkey_led_ldo_on(1);
 
-#ifdef CONFIG_BUILD_TARGET_CM7
-	if (IS_AOSP_ROM) {
+#ifdef CONFIG_FEATURE_AOSP
+	if (FEATURE_AOSP_ENABLE) {
 		screen_on = 1;
 		/* see if late_resume is running before DISABLE_BL */
 		if (led_on) {
@@ -864,7 +864,7 @@ static int melfas_touchkey_late_resume(struct early_suspend *h)
 			mod_timer(&led_timer, jiffies + msecs_to_jiffies(led_timeout));
 		}
 	}
-#endif /* CONFIG_BUILD_TARGET_CM7 */
+#endif /* CONFIG_FEATURE_AOSP */
 
 	/* all done, turn on IRQ */
 	enable_irq(IRQ_TOUCH_INT);
@@ -873,14 +873,14 @@ static int melfas_touchkey_late_resume(struct early_suspend *h)
 	touchkey_is_suspended = false;
 #endif
 
-#ifdef CONFIG_BUILD_TARGET_CM7
-	if (IS_AOSP_ROM) {
+#ifdef CONFIG_FEATURE_AOSP
+	if (FEATURE_AOSP_ENABLE) {
 		/* Avoid race condition with LED notification disable */
 		up(&enable_sem);
 	}
 #endif
 
-	if (touchled_cmd_reversed && !IS_AOSP_ROM) {
+	if (touchled_cmd_reversed && !FEATURE_AOSP_ENABLE) {
 		touchled_cmd_reversed = 0;
         printk(KERN_ERR "[TouchKey] %d : %s(%d)\n", __LINE__, __func__, touchkey_led_status);
 		i2c_touchkey_write((u8*)&touchkey_led_status, 1);
@@ -965,7 +965,7 @@ static int i2c_touchkey_probe(struct i2c_client *client, const struct i2c_device
 
 	set_touchkey_debug('K');
 
-#ifdef CONFIG_BUILD_TARGET_CM7
+#ifdef CONFIG_FEATURE_AOSP
 	err = misc_register(&led_device);
 	if( err ){
 		printk(KERN_ERR "[LED Notify] sysfs misc_register failed.\n");
@@ -988,7 +988,7 @@ static int i2c_touchkey_probe(struct i2c_client *client, const struct i2c_device
         printk(KERN_ERR "[TouchKey] %d : %s(%d)\n", __LINE__, __func__, status);
 		i2c_touchkey_write((u8 *)&status, 1);
 	}
-#endif /* CONFIG_BUILD_TARGET_CM7 */
+#endif /* CONFIG_FEATURE_AOSP */
 
 	return 0;
 }
@@ -1128,8 +1128,8 @@ static ssize_t touch_led_control(struct device *dev, struct device_attribute *at
 
 	if (sscanf(buf, "%d\n", &data) == 1) {
         printk(KERN_ERR "[TouchKey] %d : %s(%d)\n", __LINE__, __func__, data);
-#ifdef CONFIG_BUILD_TARGET_CM7
-		if (led_timeout == BL_ALWAYS_OFF && IS_AOSP_ROM && data == 1) {
+#ifdef CONFIG_FEATURE_AOSP
+		if (led_timeout == BL_ALWAYS_OFF && FEATURE_AOSP_ENABLE && data == 1) {
 			return size;
 		}
 #endif
@@ -1497,7 +1497,7 @@ static void __exit touchkey_exit(void)
 	i2c_del_driver(&touchkey_i2c_driver);
 	misc_deregister(&touchkey_update_device);
 
-#ifdef CONFIG_BUILD_TARGET_CM7
+#ifdef CONFIG_FEATURE_AOSP
 	misc_deregister(&led_device);
 	wake_lock_destroy(&led_wake_lock);
 	del_timer(&led_timer);

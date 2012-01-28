@@ -127,12 +127,18 @@ static char *static_command_line;
 static char *execute_command;
 static char *ramdisk_execute_command;
 
-#if defined(CONFIG_BUILD_TARGET_CM7) && defined(CONFIG_BUILD_TARGET_DUALBOOT)
-unsigned int aosp_rom_mode = 0;
-#elif defined(CONFIG_BUILD_TARGET_CM7)
-unsigned int aosp_rom_mode = 1;
+#if defined(CONFIG_BUILD_TARGET_SAMSUNG)
+unsigned int kproc_build_target = 0;
+#elif defined(CONFIG_BUILD_TARGET_AOSP)
+unsigned int kproc_build_target = 1;
+#elif defined(CONFIG_BUILD_TARGET_MULTI)
+unsigned int kproc_build_target = 2;
+#endif
+
+#if defined(CONFIG_FEATURE_AOSP)
+unsigned int kproc_feature_aosp = 1;
 #else
-unsigned int aosp_rom_mode = 0;
+unsigned int kproc_feature_aosp = 0;
 #endif
 
 #ifdef CONFIG_SMP

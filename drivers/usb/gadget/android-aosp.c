@@ -47,7 +47,7 @@
 #include "usbstring.c"
 #include "config.c"
 #include "epautoconf.c"
-#include "composite-cm7.c"
+#include "composite-aosp.c"
 
 
 #define CSY_USE_SAFE_USB_SWITCH

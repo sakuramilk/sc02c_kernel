@@ -568,28 +568,45 @@ config FREQ_OVERCLOCK
 	 This option makes to overclock frequecy.
 endmenu
 
-menu "build target CyanogenMod7"
-config BUILD_TARGET_CM7
-	bool "CM7"
-	default n
+menu "Build target"
+choice
+	prompt "Build target"
+	default BUILD_TARGET_SAMSUNG
 	help
-	 This option makes to select build target CyanogenMod7.
+	   This option select a build target.
+
+config BUILD_TARGET_SAMSUNG
+	bool "Samsung"
+	help
+	 This option makes to select build target Samsung ROM.
+
+config BUILD_TARGET_AOSP
+	bool "AOSP"
+        select FEATURE_AOSP
+	help
+	 This option makes to select build target AOSP ROM.
+
+config BUILD_TARGET_MULTI
+	bool "Multi"
+        select FEATURE_AOSP
+	help
+	 This option makes to select build target Multi ROM.
+endchoice
+
+
+config FEATURE_AOSP
+	bool "Enable AOSP features"
+	help
+	 This option enable AOSP freatures.
+
 endmenu
 
-menu "build target DualBoot"
-config BUILD_TARGET_DUALBOOT
-	bool "DualBoot"
+menu "CyanogenMod kernel build"
+config CM_KERNEL
+	bool "CM Kernel"
 	default n
 	help
-	 This option makes to select build target DualBoot.
-endmenu
-
-menu "sakuramod kernel build"
-config SAKURAMOD
-	bool "SakuraMod"
-	default n
-	help
-	 This option makes to select SakuraMod kernel build.
+	 This option makes to select CyanogenMod kernel build.
 endmenu
 
 endif

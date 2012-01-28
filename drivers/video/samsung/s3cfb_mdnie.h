@@ -341,7 +341,7 @@
 #define SIG_MDNIE_ISDBT_COLD_MODE	32
 #endif
 
-#ifdef CONFIG_BUILD_TARGET_CM7
+#ifdef CONFIG_FEATURE_AOSP
 #define MDNIE_TUNE_DIR	"/vendor/mdnie"
 #else
 #define MDNIE_TUNE_DIR	"/system/etc"

@@ -15,8 +15,8 @@ obj-				:=
 obj-y				+= dev-uart.o
 obj-y				+= cpu.o
 obj-y				+= clock.o
-ifeq ($(CONFIG_BUILD_TARGET_CM7),y)
-obj-y				+= devs-cm7.o
+ifeq ($(CONFIG_FEATURE_AOSP),y)
+obj-y				+= devs-aosp.o
 else
 obj-y				+= devs.o
 endif

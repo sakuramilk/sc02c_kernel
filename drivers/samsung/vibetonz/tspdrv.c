@@ -104,7 +104,7 @@ static int g_nMajor;
 #endif
 
 /* timed_output */
-#if !defined(CONFIG_BUILD_TARGET_CM7)
+#if !defined(CONFIG_FEATURE_AOSP)
 #ifndef CONFIG_TARGET_LOCALE_NA
 #define VIBRATOR_PERIOD	38022	/* 128 * 205 = 26.240 */
 #else
@@ -120,7 +120,7 @@ static int g_nMajor;
 #define VIBRATOR_PERIOD		44138
 static const int vibrator_duty_levels[] = { 26000, 28000, 30000, 32000, 34000, 36000, 38000, 40000, 42000, 44000 };
 static int vibrator_level = 7;
-#endif /* !defined(CONFIG_BUILD_TARGET_CM7) */
+#endif /* !defined(CONFIG_FEATURE_AOSP) */
 
 static void _set_vibetonz_work(struct work_struct *unused);
 
@@ -167,7 +167,7 @@ static int set_vibetonz(int timeout)
 		}
 	} else {
 		wake_lock(&vib_wake_lock);
-#if defined(CONFIG_BUILD_TARGET_CM7)
+#if defined(CONFIG_FEATURE_AOSP)
 		_pwm_config(Immvib_pwm, vibrator_duty_levels[vibrator_level], VIBRATOR_PERIOD);
 #else
 		_pwm_config(Immvib_pwm, VIBRATOR_DUTY, VIBRATOR_PERIOD);
@@ -282,7 +282,7 @@ static const struct file_operations fops = {
 	.release =  release
 };
 
-#if defined(CONFIG_BUILD_TARGET_CM7)
+#if defined(CONFIG_FEATURE_AOSP)
 /* sysfs */
 static ssize_t show_vibrator_level_max(struct device *dev,
 				      struct device_attribute *attr, char *buf)
@@ -315,7 +315,7 @@ static ssize_t store_vibrator_level(struct device *dev,
 
 static DEVICE_ATTR(vibrator_level_max, S_IRUGO | S_IWUGO, show_vibrator_level_max, NULL);
 static DEVICE_ATTR(vibrator_level, S_IRUGO | S_IWUGO, show_vibrator_level, store_vibrator_level);
-#endif /* CONFIG_BUILD_TARGET_CM7 */
+#endif /* CONFIG_FEATURE_AOSP */
 
 
 #ifndef IMPLEMENT_AS_CHAR_DRIVER
@@ -501,7 +501,7 @@ int init_module(void)
 
 	wake_lock_init(&vib_wake_lock, WAKE_LOCK_SUSPEND, "vib_present");
 
-#if defined(CONFIG_BUILD_TARGET_CM7)
+#if defined(CONFIG_FEATURE_AOSP)
 	if (device_create_file(&platdev.dev, &dev_attr_vibrator_level_max) < 0) {
 		printk(KERN_ERR "Failed to create device file(%s)!\n", dev_attr_vibrator_level_max.attr.name);
 	}

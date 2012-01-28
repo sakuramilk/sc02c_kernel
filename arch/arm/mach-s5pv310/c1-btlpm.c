@@ -55,7 +55,7 @@ void c1_bt_uart_wake_peer(struct uart_port *port)
     hrtimer_start(&bt_lpm.bt_lpm_timer, bt_lpm.bt_lpm_delay, HRTIMER_MODE_REL);
 }
 
-#ifdef CONFIG_BUILD_TARGET_DUALBOOT
+#ifdef CONFIG_BUILD_TARGET_MULTI
 static ssize_t bt_mode_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
 {
     int ret, value = 0;
@@ -94,7 +94,7 @@ static int __init bt_lpm_init(void)
 {
     int ret;
 
-#ifdef CONFIG_BUILD_TARGET_DUALBOOT
+#ifdef CONFIG_BUILD_TARGET_MULTI
     ret = misc_register(&bt_lpm_device);
     if (ret) {
         pr_err("%s misc_register(%s) fail\n", __func__, bt_lpm_device.name);

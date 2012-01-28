@@ -5,7 +5,7 @@
 #ifndef __C1_H__
 #define __C1_H__
 
-#ifdef CONFIG_BUILD_TARGET_CM7
+#ifdef CONFIG_FEATURE_AOSP
 struct uart_port;
 extern void c1_bt_uart_wake_peer(struct uart_port *port);
 #endif
