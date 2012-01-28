@@ -10,7 +10,7 @@ fi
 cp -a ../sc02c_initramfs /tmp/
 rm -rf /tmp/sc02c_initramfs/.git
 find /tmp/sc02c_initramfs -name .gitignore | xargs rm
-chmod 6755 /tmp/sc02c_initramfs/vendor/su/recovery_su
+#chmod 6755 /tmp/sc02c_initramfs/vendor/su/recovery_su
 
 # make start
 if [ "$ANS" = 'all' -o "$ANS" = 'a' ]; then
