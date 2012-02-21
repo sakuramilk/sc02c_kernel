@@ -24,9 +24,6 @@
 
 #include <mach/dsim.h>
 #include <mach/mipi_ddi.h>
-//#include <mach/max8998_function.h>
-//#include <linux/regulator/max8998.h>
-#include <linux/mfd/max8997.h>
 
 
 static struct dsim_config dsim_info = {
@@ -44,18 +41,18 @@ static struct dsim_config dsim_info = {
 	.e_no_data_lane = DSIM_DATA_LANE_4,
 	.e_byte_clk = DSIM_PLL_OUT_DIV8,
 
-	/* 420MHz */
-#ifdef CONFIG_FB_S3C_S6D6AA0
-	.p = 3,
-	.m = 62,
-	.s = 0,
-#endif
+	/* 480Mbps */
 #ifdef CONFIG_FB_S3C_S6E8AA0
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
 	.p = 3,
-	.m = 120,
+	.m = 125,
+	.s = 1,
+#else
+	.p = 4,
+	.m = 161,
 	.s = 1,
 #endif
-
+#endif
 
 	.pll_stable_time = 500,		/* D-PHY PLL stable time spec :min = 200usec ~ max 400usec */
 
@@ -95,22 +92,8 @@ static struct resource s5p_dsim_resource[] = {
 	},
 };
 
-extern int get_usb_cable_state(void);
-
 static void s5p_dsim_mipi_power(int enable)
 {
-#if 0
-	if (enable) {
-  		max8997_ldo_enable_direct(MAX8997_LDO3);		
- 		max8997_ldo_enable_direct(MAX8997_LDO6);		 
- 	} else {
-	       if( get_usb_cable_state()==0)
-		       	max8997_ldo_disable_direct(MAX8997_LDO3);
-		   
-		max8997_ldo_disable_direct(MAX8997_LDO6);
-	}
-#endif
-
 	return;
 }
 

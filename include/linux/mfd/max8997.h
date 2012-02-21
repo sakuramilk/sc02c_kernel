@@ -25,6 +25,10 @@
 
 #include <linux/regulator/machine.h>
 
+#if defined(CONFIG_MACH_Q1_REV02)
+#define MAX8997_SUPPORT_TORCH
+#endif /* CONFIG_MACH_Q1_REV02 */
+
 /* MAX 8997 regulator ids */
 enum {
 	MAX8997_LDO1 = 1,
@@ -60,6 +64,9 @@ enum {
 	MAX8997_ESAFEOUT2,
 	MAX8997_FLASH_CUR,
 	MAX8997_MOVIE_CUR,
+#ifdef MAX8997_SUPPORT_TORCH
+	MAX8997_FLASH_TORCH,
+#endif /* CONFIG_MACH_Q1_REV02 */
 };
 
 /**

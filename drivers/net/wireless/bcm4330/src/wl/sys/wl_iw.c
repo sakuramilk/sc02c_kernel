@@ -70,6 +70,14 @@ typedef const struct si_pub  si_t;
 
 #include <linux/sched.h>
 
+#ifdef BCMCCX
+#ifndef IW_AUTH_KEY_MGMT_CCKM
+#define IW_AUTH_KEY_MGMT_CCKM	0x10
+#endif
+
+#define DOT11_LEAP_AUTH		0x80	/* LEAP authentication frame payload constants */
+#endif /* BCMCCX */
+
 #define WL_IW_USE_ISCAN  1
 #define ENABLE_ACTIVE_PASSIVE_SCAN_SUPPRESS  1
 
@@ -1914,7 +1922,7 @@ get_ssid_from_string(
 			parm_str_len = param_str_end - param_str_begin;
 		}
 
-		WL_TRACE((" 'token:%s', len:%d, ", token, parm_str_len));
+		//WL_TRACE((" 'token:%s', len:%d, ", token, parm_str_len));  // removed personal log - younho.park 2012.01.19
 
 		if (parm_str_len > param_max_len) {
 			WL_ERROR((" WARNING: extracted param len:%d is > MAX:%d\n",
@@ -1925,7 +1933,7 @@ get_ssid_from_string(
 
 		memcpy(dst, param_str_begin, parm_str_len);
 		*((char *)dst + parm_str_len) = 0; /* Z term */
-		WL_ERROR((" written as a string:%s\n", (char *)dst));
+		// WL_ERROR((" written as a string:%s\n", (char *)dst)); // removed personal log - younho.park 2012.01.19
 
 		return 0;
 	}
@@ -2082,7 +2090,7 @@ iwpriv_set_ap_config(struct net_device *dev,
 		}
 
 		extra[wrqu->data.length] = 0;
-		WL_SOFTAP((" Got str param in iw_point:\n %s\n", extra));
+		// WL_SOFTAP((" Got str param in iw_point:\n %s\n", extra));  // removed personal log - younho.park 2012.01.19
 
 		memset(ap_cfg, 0, sizeof(struct ap_profile));
 
@@ -2735,7 +2743,7 @@ wl_iw_get_range(
 	}
 	rateset.count = dtoh32(rateset.count);
 	range->num_bitrates = rateset.count;
-	for (i = 0; i < rateset.count && i < IW_MAX_BITRATES; i++)
+	for (i = 0; i < rateset.count && i < WL_NUMRATES; i++)
 		range->bitrate[i] = (rateset.rates[i]& 0x7f) * 500000; /* convert to bps */
 	dev_wlc_intvar_get(dev, "nmode", &nmode);
 	dev_wlc_ioctl(dev, WLC_GET_PHYTYPE, &phytype, sizeof(phytype));
@@ -3259,6 +3267,12 @@ wl_iw_iscan_prep(wl_scan_params_t *params, wlc_ssid_t *ssid)
 	params->home_time = -1;
 #ifdef USE_INITIAL_2G_SCAN
 	if (g_first_broadcast_scan == BROADCAST_SCAN_FIRST_STARTED) {
+		/* Prevent Memory Corruption. */
+		if (g_init_scan_chan_num > 14) {
+			WL_ERROR(("%s : g_init_scan_chan_num %d\n",
+				__func__, g_init_scan_chan_num));
+			g_init_scan_chan_num = 14;
+		}
 		params->channel_num = g_init_scan_chan_num;
 		memcpy(params->channel_list, g_init_scan_chan_list, g_init_scan_chan_num*sizeof(uint16));
 		WL_SCAN(("Triggering 2.4G scan only\n"));
@@ -3940,6 +3954,14 @@ wl_iw_iscan_set_scan_broadcast_prep(struct net_device *dev, uint flag)
 				if ((0 < chan) && (chan <= 14))
 					g_init_scan_chan_num++;
 			}
+			/* Prevent Memory Corruption */
+			if (g_init_scan_chan_num > 14) {
+				WL_ERROR(("%s: channel_num %d is over(14)\n",
+					__func__, g_init_scan_chan_num));
+				WL_ERROR(("%s: list->count is returned %d\n",
+					__func__, list->count));
+				g_init_scan_chan_num = 14;
+			}
 			WL_SCAN(("%s: Trying %d channels for initial broad scan\n", __FUNCTION__, g_init_scan_chan_num));
 		}
 #endif /* USE_INITIAL_2G_SCAN */
@@ -4252,6 +4274,7 @@ wl_iw_handle_scanresults_ies(char **event_p, char *end,
 			wpa_snprintf_hex(buf + 10, 2+1, &(ie->len), 1);
 			wpa_snprintf_hex(buf + 12, 2*ie->len+1, ie->data, ie->len);
 			event = IWE_STREAM_ADD_POINT(info, event, end, &iwe, buf);
+			kfree(buf);
 #endif 
 			break;
 		}
@@ -4351,7 +4374,8 @@ wl_iw_get_scan_prep(
 				iwe.cmd = SIOCGIWRATE;
 				/* Those two flags are ignored... */
 				iwe.u.bitrate.fixed = iwe.u.bitrate.disabled = 0;
-				for (j = 0; j < bi->rateset.count && j < IW_MAX_BITRATES; j++) {
+				for (j = 0; j < bi->rateset.count &&
+							j < WL_NUMRATES; j++) {
 					iwe.u.bitrate.value =
 						(bi->rateset.rates[j] & 0x7f) * 500000;
 					value = IWE_STREAM_ADD_VALUE(info, event, value, end, &iwe,
@@ -4751,7 +4775,8 @@ wl_iw_iscan_get_scan(
 			iwe.cmd = SIOCGIWRATE;
 			/* Those two flags are ignored... */
 			iwe.u.bitrate.fixed = iwe.u.bitrate.disabled = 0;
-			for (j = 0; j < bi->rateset.count && j < IW_MAX_BITRATES; j++) {
+			for (j = 0; j < bi->rateset.count &&
+						 j < WL_NUMRATES; j++) {
 					iwe.u.bitrate.value =
 					        (bi->rateset.rates[j] & 0x7f) * 500000;
 				value = IWE_STREAM_ADD_VALUE(info, event, value, end, &iwe,
@@ -5978,7 +6003,20 @@ wl_iw_set_wpaauth(
 				val = WPA2_AUTH_PSK;
 			else /* IW_AUTH_WPA_VERSION_DISABLED */
 				val = WPA_AUTH_DISABLED;
-		} else if (paramval & IW_AUTH_KEY_MGMT_802_1X) {
+		} 
+#ifdef BCMCCX
+		else if (paramval & IW_AUTH_KEY_MGMT_CCKM) {
+			if (iw->wpaversion == IW_AUTH_WPA_VERSION_WPA) {
+				val = WPA_AUTH_CCKM;
+			}
+			else if (iw->wpaversion == IW_AUTH_WPA_VERSION_WPA2) {
+				val = WPA2_AUTH_CCKM;
+			}
+			else /* IW_AUTH_WPA_VERSION_DISABLED */
+				val = WPA_AUTH_DISABLED;			
+		} 
+#endif /*BCMCCX*/
+               else if (paramval & IW_AUTH_KEY_MGMT_802_1X) {
 			if (iw->wpaversion == IW_AUTH_WPA_VERSION_WPA)
 				val = WPA_AUTH_UNSPECIFIED;
 			else if (iw->wpaversion == IW_AUTH_WPA_VERSION_WPA2)
@@ -6011,6 +6049,10 @@ wl_iw_set_wpaauth(
 			val = 1;
 		else if (paramval == (IW_AUTH_ALG_OPEN_SYSTEM | IW_AUTH_ALG_SHARED_KEY))
 			val = 2;
+#ifdef BCMCCX
+		else if (paramval == IW_AUTH_ALG_LEAP)
+			val = DOT11_LEAP_AUTH;
+#endif /* BCMCCX */
 		else
 			error = 1;
 		if (!error && (error = dev_wlc_intvar_set(dev, "auth", val)))
@@ -6081,6 +6123,10 @@ wl_iw_set_wpaauth(
 }
 #define VAL_PSK(_val) (((_val) & WPA_AUTH_PSK) || ((_val) & WPA2_AUTH_PSK))
 
+#ifdef BCMCCX
+#define VAL_CCKM(_val) (((_val) & WPA_AUTH_CCKM) || ((_val) & WPA2_AUTH_CCKM))
+#endif /* BCMCCX */
+
 static int
 wl_iw_get_wpaauth(
 	struct net_device *dev,
@@ -6116,6 +6162,11 @@ wl_iw_get_wpaauth(
 		/* psk, 1x */
 		if ((error = dev_wlc_intvar_get(dev, "wpa_auth", &val)))
 			return error;
+#ifdef BCMCCX
+		if (VAL_CCKM(val))
+			paramval = IW_AUTH_KEY_MGMT_CCKM;
+		else
+#endif /* BCMCCX */
 		if (VAL_PSK(val))
 			paramval = IW_AUTH_KEY_MGMT_PSK;
 		else
@@ -6764,6 +6815,8 @@ wl_iw_set_cscan(
 			g_first_broadcast_scan = BROADCAST_SCAN_FIRST_RESULT_CONSUMED;
 		}
 
+		net_os_wake_lock_timeout_enable(dev);
+
 		/* Combined SCAN execution */
 		res = wl_iw_combined_scan_set(dev, ssids_local, nssid, nchan);
 
@@ -6965,6 +7018,9 @@ set_ap_cfg(struct net_device *dev, struct ap_profile *ap)
 	int bsscfg_index = 1;
 	char buf[WLC_IOCTL_SMLEN];
 #endif
+#ifdef CONFIG_MACH_C1_KDDI_REV00
+	int dtim = 1;
+#endif
 
 	if (!dev) {
 		WL_ERROR(("%s: dev is null\n", __FUNCTION__));
@@ -6975,10 +7031,10 @@ set_ap_cfg(struct net_device *dev, struct ap_profile *ap)
 	DHD_OS_MUTEX_LOCK(&wl_softap_lock);
 
 	WL_SOFTAP(("wl_iw: set ap profile:\n"));
-	WL_SOFTAP(("	ssid = '%s'\n", ap->ssid));
+	//WL_SOFTAP(("	ssid = '%s'\n", ap->ssid));  // removed personal log - younho.park 2012.01.19
 	WL_SOFTAP(("	security = '%s'\n", ap->sec));
-	if (ap->key[0] != '\0')
-		WL_SOFTAP(("	key = '%s'\n", ap->key));
+	//if (ap->key[0] != '\0')
+		//WL_SOFTAP(("	key = '%s'\n", ap->key));  // removed personal log - younho.park 2012.01.19
 	WL_SOFTAP(("	channel = %d\n", ap->channel));
 	WL_SOFTAP(("	max scb = %d\n", ap->max_scb));
 #ifdef USE_HIDDEN_SSID
@@ -7061,9 +7117,14 @@ set_ap_cfg(struct net_device *dev, struct ap_profile *ap)
 		} 
 #endif /* AP_ONLY */
 
-           /*  WMM and ARP offloading disable  */
-          dev_wlc_intvar_set(dev, "wme", 0);
-          dev_wlc_intvar_set(dev, "arpoe", 0);
+		/*  WMM and ARP offloading disable  */
+		dev_wlc_intvar_set(dev, "wme", 0);
+		dev_wlc_intvar_set(dev, "arpoe", 0);
+		dev_wlc_intvar_set(dev, "vlan_mode", 0);
+#ifdef CONFIG_MACH_C1_KDDI_REV00
+		/* Set SoftAP DTIM */
+		dev_wlc_ioctl(dev, WLC_SET_DTIMPRD, &dtim, sizeof(dtim));
+#endif
 
 		updown = 1;
 		if ((res = dev_wlc_ioctl(dev, WLC_UP, &updown, sizeof(updown))) < 0) {
@@ -7238,10 +7299,10 @@ wl_iw_set_ap_security(struct net_device *dev, struct ap_profile *ap)
 
 	WL_SOFTAP(("\nsetting SOFTAP security mode:\n"));
 	WL_SOFTAP(("wl_iw: set ap profile:\n"));
-	WL_SOFTAP(("	ssid = '%s'\n", ap->ssid));
+	//WL_SOFTAP(("	ssid = '%s'\n", ap->ssid));  // removed personal log - younho.park 2012.01.19
 	WL_SOFTAP(("	security = '%s'\n", ap->sec));
-	if (ap->key[0] != '\0')
-		WL_SOFTAP(("	key = '%s'\n", ap->key));
+	//if (ap->key[0] != '\0')
+	//	WL_SOFTAP(("	key = '%s'\n", ap->key));  // removed personal log - younho.park 2012.01.19
 	WL_SOFTAP(("	channel = %d\n", ap->channel));
 	WL_SOFTAP(("	max scb = %d\n", ap->max_scb));
 
@@ -7483,7 +7544,7 @@ get_parameter_from_string(
 			parm_str_len = param_str_end - param_str_begin;
 		}
 
-		WL_TRACE((" 'token:%s', len:%d, ", token, parm_str_len));
+		//WL_TRACE((" 'token:%s', len:%d, ", token, parm_str_len));  // removed personal log - younho.park 2012.01.19
 
 		if (parm_str_len > param_max_len) {
 			WL_ERROR((" WARNING: extracted param len:%d is > MAX:%d\n",
@@ -7506,7 +7567,7 @@ get_parameter_from_string(
 
 				*pdst_int = simple_strtoul(int_str, &eptr, 10);
 
-				WL_TRACE((" written as integer:%d\n",  *pdst_int));
+				//WL_TRACE((" written as integer:%d\n",  *pdst_int));   // removed personal log - younho.park 2012.01.19
 			}
 			break;
 			case PTYPE_STR_HEX: {
@@ -7521,7 +7582,7 @@ get_parameter_from_string(
 				/* param is array of ASCII chars, no convertion needed */
 				memcpy(dst, param_str_begin, parm_str_len);
 				*((char *)dst + parm_str_len) = 0; /* Z term */
-				WL_ERROR((" written as a string:%s\n", (char *)dst));
+				//WL_ERROR((" written as a string:%s\n", (char *)dst));   // removed personal log - younho.park 2012.01.19
 			break;
 
 		}
@@ -7679,6 +7740,13 @@ iwpriv_fw_reload(struct net_device *dev,
 			WL_ERROR(("Error: extracting FW_PATH='' string\n"));
 			goto exit_proc;
 		}
+
+#if (defined(CONFIG_MACH_SAMSUNG_P3) && defined(CHECK_CHIP_REV)) || defined(CONFIG_MACH_C1) || defined(CONFIG_MACH_N1)
+		if (g_chipver == 4) {
+		   WL_SOFTAP(("---------------- CHIP bcm4330_B2 for SoftAP --------------------- \r\n"));
+		   strcat(fwstr, "_b2");
+		}
+#endif
 
 		if  (strstr(fwstr, "aps") != NULL) {
 			  WL_SOFTAP(("GOT APSTA FIRMWARE\n"));
@@ -8306,6 +8374,96 @@ static int wl_iw_get_roam_scan_period(
 }
 #endif
 
+
+#ifdef BCMCCX
+static int
+wl_iw_get_cckm_rn(
+	struct net_device *dev,
+	struct iw_request_info *info,
+	union iwreq_data *wrqu,
+	char *extra
+)
+{
+	int error, rn;
+
+	WL_TRACE(("%s: wl_iw_get_cckm_rn\n", dev->name));
+
+	if ((error = dev_wlc_intvar_get(dev, "cckm_rn", &rn)))
+	{
+		return error;
+	}
+
+	memcpy(extra, &rn, sizeof(u32));
+	wrqu->data.length = sizeof(u32);
+
+	return 0;
+}
+
+static int
+wl_iw_set_cckm_krk(
+	struct net_device *dev,
+	struct iw_request_info *info,
+	union iwreq_data *wrqu,
+	char *extra
+)
+{
+	int error;
+	u8 key[16];
+
+	WL_TRACE(("%s: wl_iw_set_cckm_krk\n", dev->name));
+
+	memcpy(key, extra+strlen("set cckm_krk")+1, 16);
+
+	if ((error = dev_wlc_bufvar_set(dev, "cckm_krk", key, sizeof(key))))
+		return error;
+
+	return 0;
+}
+
+static int
+wl_iw_get_assoc_res_ies(
+	struct net_device *dev,
+	struct iw_request_info *info,
+	union iwreq_data *wrqu,
+	char *extra
+)
+{
+	int error;
+	u8 buf[256];
+	wl_assoc_info_t assoc_info;
+	u32 resp_ies_len = 0;
+
+	WL_TRACE(("%s: wl_iw_get_assoc_res_ies\n", dev->name));
+
+	if ((error = dev_wlc_bufvar_get(dev, "assoc_info", buf, sizeof(buf))))
+		return error;
+
+	memcpy(&assoc_info, buf, sizeof(wl_assoc_info_t));
+	assoc_info.req_len = htod32(assoc_info.req_len);
+	assoc_info.resp_len = htod32(assoc_info.resp_len);
+	assoc_info.flags = htod32(assoc_info.flags);
+
+	if (assoc_info.resp_len) {
+		resp_ies_len = assoc_info.resp_len - sizeof(struct dot11_assoc_resp);
+	}
+
+	/* first 4 bytes are ie len */
+	memcpy(extra, &resp_ies_len, sizeof(u32));
+	wrqu->data.length = sizeof(u32);
+
+	/* get the association resp IE's if there are any */
+	if (resp_ies_len) {
+		if ((error = dev_wlc_bufvar_get(dev, "assoc_resp_ies", buf, sizeof(buf))))
+			return error;
+
+		memcpy(extra+sizeof(u32), buf, resp_ies_len);
+		wrqu->data.length += resp_ies_len;
+	}
+
+	return 0;
+}
+#endif /* BCMCCX */
+
 static int
 wl_iw_set_priv(
 	struct net_device *dev,
@@ -8433,6 +8591,15 @@ wl_iw_set_priv(
 			set_ap_mac_list(dev, (extra + PROFILE_OFFSET));
 	    }
 #endif /* SOFTAP */
+
+#ifdef BCMCCX
+	    else if (strnicmp(extra, "get cckm_rn", strlen("get cckm_rn")) == 0)
+			ret = wl_iw_get_cckm_rn(dev, info, (union iwreq_data *)dwrq, extra);
+	    else if (strnicmp(extra, "set cckm_krk", strlen("set cckm_krk")) == 0)
+			ret = wl_iw_set_cckm_krk(dev, info, (union iwreq_data *)dwrq, extra);
+	    else if (strnicmp(extra, "get assoc_res_ies", strlen("get assoc_res_ies")) == 0)
+			ret = wl_iw_get_assoc_res_ies(dev, info, (union iwreq_data *)dwrq, extra);
+#endif /* BCMCCX */
 
 #ifdef OKC_SUPPORT
            else if (strnicmp(extra, "SET_PMK",strlen("SET_PMK")) == 0)
@@ -8992,6 +9159,11 @@ wl_iw_check_conn_fail(wl_event_msg_t *e, char* stringBuf, uint buflen)
 #define IW_CUSTOM_MAX 256 /* size of extra buffer used for translation of events */
 #endif /* IW_CUSTOM_MAX */
 
+#ifdef BCMCCX
+/* to avoid disassoc after roaming by deauth frame from previous AP*/
+static char g_current_bssid[6] = {0, };
+#endif /* BCMCCX */
+
 void
 wl_iw_event(struct net_device *dev, wl_event_msg_t *e, void* data)
 {
@@ -9078,10 +9250,23 @@ wl_iw_event(struct net_device *dev, wl_event_msg_t *e, void* data)
 			ciq_assoc_reject_cnt++;
 		}
 #endif
+#ifdef BCMCCX
+		/* save current bssid */
+		memcpy(g_current_bssid, &e->addr, ETHER_ADDR_LEN);
+#endif /* BCMCCX */
+
 		memcpy(wrqu.addr.sa_data, &e->addr, ETHER_ADDR_LEN);
 		wrqu.addr.sa_family = ARPHRD_ETHER;
 		cmd = IWEVREGISTERED;
 		break;
+
+#ifdef BCMCCX
+	case WLC_E_REASSOC:
+		/* save current bssid */
+		memcpy(g_current_bssid, &e->addr, ETHER_ADDR_LEN);
+		break;
+#endif /* BCMCCX */
+
 	case WLC_E_ROAM:
 		if (status != WLC_E_STATUS_SUCCESS) {
 			roam_no_success++;
@@ -9112,6 +9297,15 @@ wl_iw_event(struct net_device *dev, wl_event_msg_t *e, void* data)
 			goto wl_iw_event_end;
 		}
 #endif 
+
+#ifdef BCMCCX
+		/* ignore deauth from previous AP after roaming */
+		if (memcmp(g_current_bssid, &e->addr, 6) != 0) {
+			WL_ERROR(("Deauth[%d] from different BSSID\n", event_type));
+		} else {
+			bzero(g_current_bssid, ETHER_ADDR_LEN);
+#endif /* BCMCCX */
+
 #ifdef CIQ_SUPPORT
 		if (event_type == WLC_E_DISASSOC_IND)
 			ciq_disassoc_cnt++;
@@ -9120,6 +9314,9 @@ wl_iw_event(struct net_device *dev, wl_event_msg_t *e, void* data)
 		bzero(wrqu.addr.sa_data, ETHER_ADDR_LEN);
 		wrqu.addr.sa_family = ARPHRD_ETHER;
 		bzero(&extra, ETHER_ADDR_LEN);
+#ifdef BCMCCX
+		}
+#endif /* BCMCCX */
 		break;
 	case WLC_E_LINK:
 	case WLC_E_NDIS_LINK:
@@ -9629,8 +9826,10 @@ wl_iw_attach(struct net_device *dev, void * dhdp)
 
 	/* Allocate memory for iscan extra params */
 	iscan->iscan_ex_params_p = (wl_iscan_params_t*)kmalloc(params_size, GFP_KERNEL);
-	if (!iscan->iscan_ex_params_p)
+	if (!iscan->iscan_ex_params_p) {
+		kfree(iscan);
 		return -ENOMEM;
+	}
 	iscan->iscan_ex_param_size = params_size;
 	iscan->sysioc_pid = -1;
 	/* we only care about main interface so save a global here */

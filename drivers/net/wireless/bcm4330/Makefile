@@ -10,7 +10,11 @@ EXTRA_CFLAGS += -DCUSTOMER_HW_SAMSUNG
 EXTRA_CFLAGS += -DSYSLSI_SPECIFIC
 
 # For U1
-EXTRA_CFLAGS += -DUSE_WIFI_DIRECT -DDTIM_CNT1
+EXTRA_CFLAGS += -DUSE_WIFI_DIRECT -DDTIM_CNT1 -DWHITELIST_PKT_FILTER
+
+ifeq ($(TARGET_PRODUCT),GT-I9100)
+EXTRA_CFLAGS += -DBCMCCX
+endif
 
 # Print out CHIP REV
 EXTRA_CFLAGS += -DCHECK_CHIP_REV
@@ -26,8 +30,11 @@ EXTRA_CFLAGS += -DOKC_SUPPORT
 else
 ifdef CONFIG_TARGET_LOCALE_NA
 EXTRA_CFLAGS += -DRDWR_MACADDR
+ifneq ($(TARGET_PRODUCT),SCH-R760)
 EXTRA_CFLAGS += -DUSE_HIDDEN_SSID
 EXTRA_CFLAGS += -DUSE_NA_HOTSPOT
+EXTRA_CFLAGS += -DDHD_DEBUG_MEM_DUMP
+endif
 else
 EXTRA_CFLAGS += -DWRITE_MACADDR
 endif
@@ -89,6 +96,9 @@ ifeq ($(CONFIG_TARGET_LOCALE_NAATT),y)
 EXTRA_CFLAGS += -DUSE_HIDDEN_SSID
 endif
 
+# ARP offloading
+EXTRA_CFLAGS += -DARP_OFFLOAD_SUPPORT
+
 
 ###############################################################################################
 
@@ -127,15 +137,15 @@ dhd-y := src/dhd/sys/dhd_linux.o \
          src/bcmsdio/sys/bcmsdh_linux.o \
          src/bcmsdio/sys/bcmsdh_sdmmc_linux.o \
          src/wl/sys/wl_iw.o
-         
+
 all:
 	@echo "$(MAKE) --no-print-directory -C $(KDIR) SUBDIRS=$(CURDIR) modules"
 	@$(MAKE) --no-print-directory -C $(KDIR) \
 		SUBDIRS=$(CURDIR) modules
 
-clean: 
+clean:
 	rm -rf *.o *.ko *.mod.c *~ .*.cmd Module.symvers modules.order .tmp_versions	\
-	 	 src/dhd/sys/dhd_linux.o \
+		 src/dhd/sys/dhd_linux.o \
          src/dhd/sys/dhd_common.o \
          src/dhd/sys/dhd_cdc.o \
          src/dhd/sys/dhd_linux_sched.o\

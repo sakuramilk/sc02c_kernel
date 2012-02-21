@@ -427,7 +427,7 @@ config VIDEO_S5K6AAFX
 
 config VIDEO_S5K5BAFX
 	tristate "S5K5BAFX supporting camera driver"
-	depends on I2C && VIDEO_V4L2 && MACH_C1_REV02
+	depends on I2C && VIDEO_V4L2
 	---help---
 	  This driver supports S5K5BAFX SoC camera module
 
@@ -437,6 +437,18 @@ config VIDEO_S5K5BBGX
 	---help---
 	  This driver supports S5K5BBGX SoC camera module
 
+config VIDEO_SR130PC10
+	tristate "SR130PC10 supporting camera driver"
+	depends on I2C && VIDEO_V4L2 && TARGET_LOCALE_NA
+	---help---
+	  This driver supports SR130PC10 SoC camera module
+
+config VIDEO_SR200PC20
+	tristate "SR200PC20 supporting camera driver"
+	depends on I2C && VIDEO_V4L2 && TARGET_LOCALE_NA
+	---help---
+	  This driver supports SR200PC20 SoC camera module
+	  
 config VIDEO_S5K3BA
 	tristate "S5K3BA supporting camera driver"
 	depends on I2C && VIDEO_V4L2
@@ -474,6 +486,10 @@ config VIDEO_M5MO_USE_SWI2C
 	depends on VIDEO_M5MO && I2C
 	---help---
 	  Support that M5MO camera module uses SW I2C
+
+config VIDEO_CONFERENCE_CALL
+	bool "Support Coolots App"
+	depends on VIDEO_FIMC && VIDEO_M5MO && VIDEO_S5K5BAFX
 
 comment "Video and audio decoders"
 

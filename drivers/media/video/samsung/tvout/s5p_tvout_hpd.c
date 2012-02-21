@@ -430,6 +430,18 @@ static irqreturn_t s5p_hpd_irq_handler(int irq, void *dev_id)
 	return ret;
 }
 
+void set_hpd_irq(bool on)
+{
+	if (on==1)
+		enable_irq(hpd_struct.irq_n);
+	else
+		disable_irq(hpd_struct.irq_n);
+
+	printk("[HPD] %s(%d)\n",__func__,on);
+}
+
+
+
 static int __init s5p_hpd_probe(struct platform_device *pdev)
 {
 	struct s5p_platform_hpd *pdata;

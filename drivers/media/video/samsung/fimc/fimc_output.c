@@ -2318,6 +2318,7 @@ static int fimc_qbuf_output_single_buf(struct fimc_control *ctrl,
 #ifdef SYSMMU_FIMC
 	switch (format) {
 	case V4L2_PIX_FMT_RGB32:
+	case V4L2_PIX_FMT_RGB565:	/* fall through */
 		buf_set.vaddr_base[FIMC_ADDR_Y] = (dma_addr_t)ctx->fbuf.base;
 		break;
 	case V4L2_PIX_FMT_YUV420:
@@ -2342,6 +2343,7 @@ static int fimc_qbuf_output_single_buf(struct fimc_control *ctrl,
 #else
 	switch (format) {
 	case V4L2_PIX_FMT_RGB32:
+	case V4L2_PIX_FMT_RGB565:	/* fall through */
 		buf_set.base[FIMC_ADDR_Y] = (dma_addr_t)ctx->fbuf.base;
 		break;
 	case V4L2_PIX_FMT_YUV420:
@@ -2405,6 +2407,7 @@ static int fimc_qbuf_output_multi_buf(struct fimc_control *ctrl,
 #ifdef SYSMMU_FIMC
 	switch (format) {
 	case V4L2_PIX_FMT_RGB32:
+	case V4L2_PIX_FMT_RGB565:	/* fall through */
 		buf_set.vaddr_base[FIMC_ADDR_Y] = ctx->dst[idx].base[FIMC_ADDR_Y];
 		break;
 	case V4L2_PIX_FMT_YUV420:
@@ -2425,6 +2428,7 @@ static int fimc_qbuf_output_multi_buf(struct fimc_control *ctrl,
 #else
 	switch (format) {
 	case V4L2_PIX_FMT_RGB32:
+	case V4L2_PIX_FMT_RGB565:	/* fall through */
 		buf_set.base[FIMC_ADDR_Y] = ctx->dst[idx].base[FIMC_ADDR_Y];
 		break;
 	case V4L2_PIX_FMT_YUV420:
@@ -2780,11 +2784,16 @@ int fimc_qbuf_output(void *fh, struct v4l2_buffer *b)
 		}
 
 		ctx = &ctrl->out->ctx[ctx_num];
+
 		if (ctx_num != ctrl->out->last_ctx) {
 			ctrl->out->last_ctx = ctx->ctx_num;
 			ret = fimc_outdev_set_ctx_param(ctrl, ctx);
-			if (ret < 0)
+			if (ret < 0) {
+				ctx->src[b->index].state = VIDEOBUF_IDLE;
+				ctrl->out->last_ctx = -1;
+				fimc_err("Fail: fimc_outdev_set_ctx_param\n");
 				return ret;
+			}
 		}
 
 		switch (ctx->overlay.mode) {

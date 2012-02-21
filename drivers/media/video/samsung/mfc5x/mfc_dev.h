@@ -65,6 +65,7 @@ struct mfc_mem {
 
 struct mfc_fw {
 	const struct firmware	*info;
+	int			requesting;
 	int			state;
 	int			ver;
 #if defined(CONFIG_VIDEO_MFC_VCM_UMP)
@@ -104,6 +105,7 @@ struct mfc_dev {
 	struct device		*device;
 #ifdef CONFIG_CPU_FREQ
 	atomic_t		busfreq_lock_cnt; /* Bus frequency Lock count */
+	atomic_t		cpufreq_lock_cnt; /* CPU frequency Lock count */
 #endif
 };
 

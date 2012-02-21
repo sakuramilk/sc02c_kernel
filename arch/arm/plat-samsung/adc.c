@@ -53,6 +53,7 @@ struct s3c_adc_client {
 			      unsigned val1, unsigned val2,
 			      unsigned *samples_left);
 	atomic_t		running;
+	int			error_count;
 };
 
 struct adc_device {
@@ -136,9 +137,6 @@ static void s3c_adc_try(struct adc_device *adc)
 		s3c_adc_select(adc, next);
 		s3c_adc_convert(adc);
 		s3c_adc_dbgshow(adc);
-
-		if (!atomic_xchg(&next->running, 0))
-			WARN(1, "%s: %p is already stopped\n", __func__, next);
 	} else {
 		con = readl(adc->regs + S3C2410_ADCCON);
 		con &= ~S3C2410_ADCCON_PRSCEN;
@@ -161,10 +159,7 @@ int s3c_adc_start(struct s3c_adc_client *client,
 	struct adc_device *adc = adc_dev;
 	unsigned long flags;
 
-	if (!adc) {
-		printk(KERN_ERR "%s: failed to find adc\n", __func__);
-		return -EINVAL;
-	}
+	BUG_ON(!adc);
 
 	if (client->is_ts && adc->ts_pend)
 		return -EAGAIN;
@@ -211,10 +206,13 @@ int s3c_adc_read(struct s3c_adc_client *client, unsigned int ch)
 	ret = wait_event_timeout(wake, client->result >= 0, HZ / 2);
 	if (client->result < 0) {
 		s3c_adc_stop(client);
-		WARN(1, "%s: %p is timed out\n", __func__, client);
+		WARN(1, "%s: %p is timed out at ch %d\n", __func__, client, ch);
+		++client->error_count;
+		BUG_ON(client->error_count > 10);
 		ret = -ETIMEDOUT;
 		goto err;
-	}
+	} else
+		client->error_count = 0;
 
 	client->convert_cb = NULL;
 	return client->result;
@@ -279,15 +277,13 @@ static void s3c_adc_stop(struct s3c_adc_client *client)
 
 		list_for_each_safe(p, n, &adc_pending) {
 			tmp = list_entry(p, struct s3c_adc_client, pend);
-			if (tmp == client) {
+			if (tmp == client)
 				list_del(&tmp->pend);
-				if (!atomic_xchg(&tmp->running, 0)) {
-					WARN(1, "%s: %p is already stopped\n",
-					     __func__, tmp);
-				}
-			}
 		}
 	}
+
+	if (!atomic_xchg(&client->running, 0))
+		WARN(1, "%s: %p is already stopped\n", __func__, client);
 
 	if (adc_dev->cur == NULL)
 		s3c_adc_try(adc_dev);
@@ -308,7 +304,9 @@ static irqreturn_t s3c_adc_irq(int irq, void *pw)
 	struct s3c_adc_client *client = adc->cur;
 	unsigned data0, data1;
 
-	if (!client) {
+	spin_lock(&adc->lock);
+
+	if (!client || !client->nr_samples) {
 		dev_warn(&adc->pdev->dev, "%s: no adc pending\n", __func__);
 		goto exit;
 	}
@@ -332,17 +330,18 @@ static irqreturn_t s3c_adc_irq(int irq, void *pw)
 		(client->convert_cb)(client, data0, data1, &client->nr_samples);
 
 	if (client->nr_samples > 0) {
-		/* fire another conversion for this */
-
-		client->select_cb(client, 1);
+		/* fire another conversion for this client */
+		(client->select_cb)(client, 1);
 		s3c_adc_convert(adc);
 	} else {
-		spin_lock(&adc->lock);
+		/* finish conversion for this client */
 		(client->select_cb)(client, 0);
-		adc->cur = NULL;
+		if (!atomic_xchg(&client->running, 0))
+			WARN(1, "%s: %p is already stopped\n", __func__, client);
 
+		/* fire conversion for next client if any */
+		adc->cur = NULL;
 		s3c_adc_try(adc);
-		spin_unlock(&adc->lock);
 	}
 
 exit:
@@ -350,6 +349,9 @@ exit:
 		/* Clear ADC interrupt */
 		writel(0, adc->regs + S3C64XX_ADCCLRINT);
 	}
+
+	spin_unlock(&adc->lock);
+
 	return IRQ_HANDLED;
 }
 

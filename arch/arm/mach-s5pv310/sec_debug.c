@@ -20,7 +20,7 @@
 #include <linux/uaccess.h>
 #include <linux/proc_fs.h>
 
-#include <mach/system.h>
+#include <plat/system-reset.h>
 #include <mach/sec_debug.h>
 
 enum sec_debug_upload_cause_t {
@@ -132,7 +132,9 @@ static char gkernel_sec_build_info[100];
 #ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 static struct sched_log gExcpTaskLog[2][SCHED_LOG_MAX] __cacheline_aligned;
 static atomic_t gExcpTaskLogIdx[2] = { ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
+#ifdef CONFIG_SEC_DEBUG_IRQ_EXIT_LOG
 static unsigned long long gExcpIrqExitTime[2];
+#endif
 
 static int checksum_sched_log(void)
 {
@@ -415,37 +417,33 @@ static int sec_debug_panic_handler(struct notifier_block *nb,
 	return 0;
 }
 
-#if !defined(CONFIG_TARGET_LOCALE_NA)
+#if !defined(CONFIG_TARGET_LOCALE_NA)	\
+	|| defined(CONFIG_MACH_C1_KDDI_REV00)
+
 void sec_debug_check_crash_key(unsigned int code, int value)
 {
-	static enum { NONE, HOME_DOWN } state = NONE;
-	static unsigned long home_down_jiffies;
+	static unsigned long home_down_jiffies = 0;
+	static unsigned long vol_up_jiffies = 0;
 
 	if (!enable)
 		return;
 
-	//pr_info("%s: %d %d\n", __func__, code, value);
+	if (code == KEY_HOME)
+		home_down_jiffies = value ? jiffies : 0;
+	else if (code == KEY_VOLUMEUP)
+		vol_up_jiffies = value ? jiffies : 0;
+	else {
+		home_down_jiffies = 0;
+		vol_up_jiffies = 0;
+	}
 
-	if (code == KEY_HOME) {
-		if (value) {
-			state = HOME_DOWN;
-			home_down_jiffies = jiffies;
-		} else
-			state = NONE;
-	} else if (code == KEY_VOLUMEUP) {
-		if (value) {
-			if (state == HOME_DOWN) {
-				pr_err("%s: %u msec after home down\n",
-				       __func__,
-				       jiffies_to_msecs(jiffies -
-							home_down_jiffies));
-				panic("Crash Key");
-			}
-			/* else do nothing */
-		} else
-			state = NONE;
-	} else
-		state = NONE;
+	/* press home first and then vol up */
+	if (home_down_jiffies && vol_up_jiffies
+	    && time_after(vol_up_jiffies, home_down_jiffies)) {
+		pr_err("%s: %u msec after home down\n", __func__,
+		       jiffies_to_msecs(vol_up_jiffies - home_down_jiffies));
+		panic("Crash Key");
+	}
 }
 
 #else
@@ -497,10 +495,11 @@ void sec_debug_check_crash_key(unsigned int code, int value)
 	}
 }
 
-static void __init upload_timer_init()
+static int __init upload_timer_init(void)
 {
         hrtimer_init(&upload_start_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
         upload_start_timer.function = force_upload_timer_func;
+	return 0;
 }
 
 /* this should be initialized prior to keypad driver */
@@ -543,6 +542,17 @@ __init int sec_debug_init(void)
 	return 0;
 }
 
+int sec_debug_level(void)
+{
+	return enable | (enable_user << 1);
+}
+
+void sec_debug_set_debug_level(int level)
+{
+	enable = level & 1;
+	enable_user = !!(level & 2);
+}
+
 /* klaatu - schedule log */
 #ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 void sec_debug_task_sched_log(int cpu, struct task_struct *task)
@@ -571,7 +581,7 @@ void sec_debug_irq_sched_log(unsigned int irq, void *fn, int en)
 void sec_debug_irq_last_exit_log(void)
 {
 	int cpu = smp_processor_id();
-    gExcpIrqExitTime[cpu] = cpu_clock(cpu);
+	gExcpIrqExitTime[cpu] = cpu_clock(cpu);
 }
 #endif
 #endif /* CONFIG_SEC_DEBUG_SCHED_LOG */

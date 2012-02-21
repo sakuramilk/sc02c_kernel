@@ -129,6 +129,56 @@ void s5pv310_setup_mshci_init_card(struct platform_device *dev)
 }
 #endif
 
+#ifdef CONFIG_MACH_C1
+void s5pv310_setup_mshci_set_power(struct platform_device *dev, int en)
+{
+	struct s3c_mshci_platdata *pdata = dev->dev.platform_data;
+	unsigned int gpio = 0;
+
+	if (pdata->int_power_gpio) {
+		if (en) {
+			/*CMD/CLK*/
+			for (gpio = S5PV310_GPK0(0); gpio < S5PV310_GPK0(2); gpio++) {
+				s3c_gpio_cfgpin(gpio, S3C_GPIO_SFN(3));
+				s3c_gpio_setpull(gpio, S3C_GPIO_PULL_NONE);
+			}
+			/*DAT[0]~[3]*/
+			for (gpio = S5PV310_GPK0(3); gpio <= S5PV310_GPK0(6); gpio++){
+				s3c_gpio_cfgpin(gpio, S3C_GPIO_SFN(3));
+				s3c_gpio_setpull(gpio, S3C_GPIO_PULL_NONE);
+			}
+			/*DAT[4]~[7]*/
+			for (gpio = S5PV310_GPK1(3); gpio <= S5PV310_GPK1(6); gpio++){
+				s3c_gpio_cfgpin(gpio, S3C_GPIO_SFN(4));
+				s3c_gpio_setpull(gpio, S3C_GPIO_PULL_NONE);
+			}
+
+			gpio_set_value(pdata->int_power_gpio, 1);
+			pr_info("%s : internal MMC Card ON samsung-mshc.\n",
+					__func__);
+		} else {
+			gpio_set_value(pdata->int_power_gpio, 0);
+			/*CMD/CLK*/
+			for (gpio = S5PV310_GPK0(0); gpio < S5PV310_GPK0(2); gpio++) {
+				s3c_gpio_cfgpin(gpio, S3C_GPIO_INPUT);
+				s3c_gpio_setpull(gpio, S3C_GPIO_PULL_DOWN);
+			}
+			/*DAT[0]~[3]*/
+			for (gpio = S5PV310_GPK0(3); gpio <= S5PV310_GPK0(6); gpio++){
+				s3c_gpio_cfgpin(gpio, S3C_GPIO_INPUT);
+				s3c_gpio_setpull(gpio, S3C_GPIO_PULL_DOWN);
+			}
+			/*DAT[4]~[7]*/
+			for (gpio = S5PV310_GPK1(3); gpio <= S5PV310_GPK1(6); gpio++){
+				s3c_gpio_cfgpin(gpio, S3C_GPIO_INPUT);
+				s3c_gpio_setpull(gpio, S3C_GPIO_PULL_DOWN);
+			}
+			pr_info("%s : internal MMC Card OFF samsung-mshc.\n",
+					__func__);
+		}
+	}
+}
+#endif
 
 void s5pv310_setup_mshci_shutdown()
 {

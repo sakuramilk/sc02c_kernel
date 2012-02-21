@@ -227,7 +227,7 @@ static int audio_ctrl_mic_bias_gpio(struct mc1n2_platform_data *pdata, int mic, 
 		pdata->set_sub_mic_bias(on);
 
 #ifdef CONFIG_TARGET_LOCALE_NA
-    DEBUG_LOG_ERR("===================================================> mic = %d. on = %d.", mic, on);
+//    DEBUG_LOG_ERR("===================================================> mic = %d. on = %d.", mic, on);
 #endif		
 	return 0;
 }
@@ -2383,7 +2383,7 @@ static int mc1n2_write_reg(struct snd_soc_codec *codec,
 	int err;
 
 #ifdef CONFIG_TARGET_LOCALE_NA
-    DEBUG_LOG_ERR("===================================================> reg = %d, value = %d.", reg, value);
+//    DEBUG_LOG_ERR("===================================================> reg = %d, value = %d.", reg, value);
 #endif
 	
 	if (reg < MC1N2_N_VOL_REG) {
@@ -2414,7 +2414,7 @@ static int mc1n2_set_codec_status(struct snd_kcontrol *kcontrol,
 	int i;
 
 #ifdef CONFIG_TARGET_LOCALE_NA
-        DEBUG_LOG_ERR("===================================================> control_data = %d.", control_data);
+//        DEBUG_LOG_ERR("===================================================> control_data = %d.", control_data);
 #else
 	printk(KERN_DEBUG "%s : control_data [%#X]\n", __func__, control_data);
 #endif
@@ -3236,7 +3236,7 @@ static int mc1n2_hwdep_ioctl_set_path(struct snd_soc_codec *codec,
 		}
 
 #ifdef CONFIG_TARGET_LOCALE_NA
-		DEBUG_LOG_ERR("===================================================> ch->abSrcOnOff[3] = 0x%x.", ch->abSrcOnOff[3]);
+//		DEBUG_LOG_ERR("===================================================> ch->abSrcOnOff[3] = 0x%x.", ch->abSrcOnOff[3]);
 #endif
 #endif
 #ifdef DIO1_DAI_ENABLE
@@ -3399,7 +3399,7 @@ static int mc1n2_hwdep_ioctl_set_ae(struct snd_soc_codec *codec,
 	mutex_unlock(&mc1n2->mutex);
 
 #ifdef CONFIG_TARGET_LOCALE_NA
-    DEBUG_LOG_ERR("===================================================> onoff = %d, update = 0x%x", mc1n2->ae_store.bOnOff, update);
+   // DEBUG_LOG_ERR("===================================================> onoff = %d, update = 0x%x", mc1n2->ae_store.bOnOff, update);
 #endif
 	
 	return 0;
@@ -3476,7 +3476,7 @@ static int mc1n2_hwdep_ioctl_get_ctrl(struct snd_soc_codec *codec,
 	err = _McDrv_Ctrl(args->dCmd, info, args->dPrm);
 
 #ifdef CONFIG_TARGET_LOCALE_NA
-	DEBUG_LOG_ERR("===================================================> Cmd = 0x%x, Parameter = %s.", args->dCmd, args->dPrm);
+//	DEBUG_LOG_ERR("===================================================> Cmd = 0x%x, Parameter = %s.", args->dCmd, args->dPrm);
 #endif
 
 	err = mc1n2_hwdep_map_error(err);
@@ -3547,7 +3547,7 @@ static int mc1n2_hwdep_ioctl_set_ctrl(struct snd_soc_codec *codec,
 		McResCtrl_GetAeInfo(&sAeInfo);
 		bReg	= McResCtrl_GetRegVal(MCDRV_PACKET_REGTYPE_A, MCI_BDSP_ST);
 
-		DEBUG_LOG_ERR("=============================================================================================================> sAeInfo.bOnOff = 0x%x, bReg = 0x%x.", sAeInfo.bOnOff, bReg);
+//		DEBUG_LOG_ERR("=============================================================================================================> sAeInfo.bOnOff = 0x%x, bReg = 0x%x.", sAeInfo.bOnOff, bReg);
     }
 #endif
 
@@ -3556,7 +3556,7 @@ static int mc1n2_hwdep_ioctl_set_ctrl(struct snd_soc_codec *codec,
 	kfree(info);
 
 #ifdef CONFIG_TARGET_LOCALE_NA
-    DEBUG_LOG_ERR("===================================================> Cmd = 0x%x, Parameter = 0x%x.", args->dCmd, args->dPrm);
+//    DEBUG_LOG_ERR("===================================================> Cmd = 0x%x, Parameter = 0x%x.", args->dCmd, args->dPrm);
 #endif
 	
 	return mc1n2_hwdep_map_error(err);
@@ -3583,7 +3583,7 @@ static int mc1n2_hwdep_ioctl_read_reg(struct mc1n2_ctrl_args *args)
 	err = _McDrv_Ctrl(args->dCmd, &info, args->dPrm);
 
 #ifdef CONFIG_TARGET_LOCALE_NA
-	DEBUG_LOG_ERR("===================================================> Cmd = 0x%x, Parameter = 0x%x.", args->dCmd, args->dPrm);
+//	DEBUG_LOG_ERR("===================================================> Cmd = 0x%x, Parameter = 0x%x.", args->dCmd, args->dPrm);
 #endif
 	
 	if (err != MCDRV_SUCCESS) {
@@ -3689,7 +3689,7 @@ static int mc1n2_hwdep_ioctl_notify(struct snd_soc_codec *codec,
 	mutex_unlock(&mc1n2->mutex);
 
 #ifdef CONFIG_TARGET_LOCALE_NA
-    DEBUG_LOG_ERR("===================================================> Cmd = 0x%x, mc1n2_current_mode = 0x%x.", args->dCmd, mc1n2_current_mode);
+//    DEBUG_LOG_ERR("===================================================> Cmd = 0x%x, mc1n2_current_mode = 0x%x.", args->dCmd, mc1n2_current_mode);
 #endif
 	
 	return 0;
@@ -3724,19 +3724,19 @@ static int mc1n2_hwdep_ioctl(struct snd_hwdep *hw, struct file *file,
 	case MC1N2_IOCTL_GET_CTRL:
 		err = mc1n2_hwdep_ioctl_get_ctrl(codec, &ctrl_args);
 #ifdef CONFIG_TARGET_LOCALE_NA
-		DEBUG_LOG_ERR("===================================================> cmd = MC1N2_IOCTL_GET_CTRL.");
+//		DEBUG_LOG_ERR("===================================================> cmd = MC1N2_IOCTL_GET_CTRL.");
 #endif
 		break;
 	case MC1N2_IOCTL_SET_CTRL:
 		err = mc1n2_hwdep_ioctl_set_ctrl(codec, &ctrl_args);
 #ifdef CONFIG_TARGET_LOCALE_NA
-		DEBUG_LOG_ERR("===================================================> cmd = MC1N2_IOCTL_SET_CTRL.");
+//		DEBUG_LOG_ERR("===================================================> cmd = MC1N2_IOCTL_SET_CTRL.");
 #endif
 		break;
 	case MC1N2_IOCTL_READ_REG:
 		err = mc1n2_hwdep_ioctl_read_reg(&ctrl_args);
 #ifdef CONFIG_TARGET_LOCALE_NA
-		DEBUG_LOG_ERR("===================================================> cmd = MC1N2_IOCTL_READ_REG.");
+//		DEBUG_LOG_ERR("===================================================> cmd = MC1N2_IOCTL_READ_REG.");
 #endif
 		break;
 	default:
@@ -3766,7 +3766,7 @@ static int mc1n2_add_hwdep(struct snd_soc_codec *codec)
 	strcpy(hw->name, MC1N2_HWDEP_ID);
 	mc1n2->hwdep = hw;
 #ifdef CONFIG_TARGET_LOCALE_NA
-    DEBUG_LOG_ERR("");
+//    DEBUG_LOG_ERR("");
 #endif
 
 	return 0;
@@ -3911,7 +3911,7 @@ static int mc1n2_probe(struct platform_device *pdev)
 	}
 
 #ifdef CONFIG_TARGET_LOCALE_NA
-    DEBUG_LOG_ERR("");
+//    DEBUG_LOG_ERR("");
 #endif
 	
 	return 0;
@@ -4016,7 +4016,7 @@ static int mc1n2_suspend(struct platform_device *pdev, pm_message_t state)
 	mc1n2_set_mclk_source(0);
 
 #ifdef CONFIG_TARGET_LOCALE_NA
-    DEBUG_LOG_ERR("");
+//    DEBUG_LOG_ERR("");
 #endif
 	
 error:
@@ -4078,7 +4078,7 @@ error:
 	mutex_unlock(&mc1n2->mutex);
 
 #ifdef CONFIG_TARGET_LOCALE_NA
-    DEBUG_LOG_ERR("");
+//    DEBUG_LOG_ERR("");
 #endif
 	
 	return err;
@@ -4100,7 +4100,7 @@ static int mc1n2_i2c_detect(struct i2c_client *client, struct i2c_board_info *in
 	UINT8	bHwid = mc1n2_i2c_read_byte(client, 8);
 
 #ifdef CONFIG_TARGET_LOCALE_NA
-    DEBUG_LOG_ERR("===================================================> bHwid = 0x%x.", bHwid);
+//      ("===================================================> bHwid = 0x%x.", bHwid);
 #endif
 	
 	if (bHwid != MC1N2_HW_ID_AB && bHwid != MC1N2_HW_ID_AA) {
@@ -4192,7 +4192,7 @@ static int mc1n2_i2c_probe(struct i2c_client *client,
 	}
 
 #ifdef CONFIG_TARGET_LOCALE_NA
-    DEBUG_LOG_ERR("");
+//    DEBUG_LOG_ERR("");
 #endif
 	
 	return 0;
@@ -4233,7 +4233,7 @@ static int mc1n2_i2c_remove(struct i2c_client *client)
 	}
 
 #ifdef CONFIG_TARGET_LOCALE_NA
-    DEBUG_LOG_ERR("");
+//    DEBUG_LOG_ERR("");
 #endif
 	
 	return 0;

@@ -42,7 +42,11 @@ static ssize_t power_supply_show_property(struct device *dev,
 					  struct device_attribute *attr,
 					  char *buf) {
 	static char *type_text[] = {
+#ifdef CONFIG_MACH_C1_NA_SPR_EPIC2_REV00
+		"Battery", "UPS", "Mains", "USB", "USB_DCP", "USB_CDP", "USB_ACA"
+#else
 		"Battery", "UPS", "Mains", "USB"
+#endif /* CONFIG_MACH_C1_NA_SPR_EPIC2_REV00 */
 	};
 	static char *status_text[] = {
 		"Unknown", "Charging", "Discharging", "Not charging", "Full"

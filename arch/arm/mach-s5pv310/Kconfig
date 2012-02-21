@@ -179,6 +179,27 @@ config DEV_THERMAL
     help
       Use Thermal management driver for S5PV310 & S5PV210
 
+config S5PV310_USE_UEVENT_TMU
+	bool "TMU send state information to platform by using uevent"
+	default n
+	help
+	  S5PV310 TMU block send state info to platform by using uevent
+	  for set's thermal management.
+
+config 8M_AF_EN
+	bool
+	help
+	Use GPIO_8M_AF_EN
+
+config SEC_THERMISTOR
+	bool "Use external thermistor with ADC"
+	depends on MACH_C1 && SAMSUNG_DEV_ADC
+	default n
+	help
+	 Use thermistor driver for U1 & U1 Premium.
+	 U1 has two thermistors. this device driver use one of those
+	 to check system temperature.
+
 # machine support
 
 config MACH_SMDKC210
@@ -272,7 +293,7 @@ config MACH_C1
 	select S5PV310_MSHC_CH0_8BIT if CPU_S5PV310_EVT1
 	select S5PV310_MSHC_CH0_DDR if CPU_S5PV310_EVT1
 	select S3C_DEV_HSMMC if !S5P_DEV_MSHC
-	select S3C_DEV_HSMMC2 
+	select S3C_DEV_HSMMC2
 	select S3C_DEV_HSMMC3
 	select S5PV310_SETUP_SDHCI
 	select S5PV310_SD_CH0_8BIT
@@ -282,6 +303,7 @@ config MACH_C1
 	select S5PV310_DEV_PD if PM_RUNTIME
 	select SAMSUNG_IRQ_GPIO
 	select SEC_DEV_JACK
+	select 8M_AF_EN
 	help
 	  Machine support for TN C1 board
 
@@ -290,25 +312,18 @@ choice
 	depends on MACH_C1
 	default MACH_C1_REV00PRE
 
-config MACH_C1_REV00PRE
-	bool "C1 REV00 Pre"
-
-config MACH_C1_REV01PRE
-	bool "C1 REV01 Pre"
-
-config MACH_C1_REV00
-	bool "C1 REV00"
-
-config MACH_C1_REV01
-	bool "C1 REV01"
-
 config MACH_C1_REV02
 	bool "C1 REV02 (EVT1)"
 
 config MACH_C1Q1_REV02
 	bool "Q1 REV02 (EVT1)"
 
-config MACH_P6_REV02
+config MACH_Q1_REV00
+	bool "Q1 REV00 (EVT1)"
+	select S3C_DEV_I2C4
+	select S5PV310_SETUP_I2C4
+
+config MACH_Q1_REV02
 	bool "Q1 REV02 (EVT1)"
 	select S3C_DEV_I2C4
 	select S5PV310_SETUP_I2C4
@@ -337,6 +352,20 @@ config MACH_C1_NA_SPR_EPIC2_REV00
 	select S5PV310_SETUP_I2C2
 	select S5PV310_SETUP_I2C4
 
+config MACH_C1_NA_USCC_REV05
+	bool "USCC REV05 (EVT1)"
+	select S3C_DEV_I2C2
+	select S3C_DEV_I2C4
+	select S5PV310_SETUP_I2C2
+	select S5PV310_SETUP_I2C4
+
+config MACH_C1_KDDI_REV00
+	bool "Dali REV00 (EVT1)"
+	select S3C_DEV_I2C2
+	select S3C_DEV_I2C4
+	select S5PV310_SETUP_I2C2
+	select S5PV310_SETUP_I2C4
+
 endchoice
 
 choice
@@ -356,17 +385,33 @@ config TARGET_LOCALE_KOR
 config TARGET_LOCALE_NTT
 	bool "JPN"
         help
-          Support Japan Board     
+          Support Japan Board
 
 config TARGET_LOCALE_NA
         bool "NA"
         help
-          Support North America Board          
+          Support North America Board
 
 config TARGET_LOCALE_NAATT
         bool "NAGSM"
         help
-          Support North America GSM ATT Board        
+          Support North America GSM ATT Board
+
+endchoice
+
+choice
+	prompt "LCD panel selection"
+	depends on MACH_C1
+	default PANEL_C1
+
+config PANEL_C1
+	bool "U1/C1 default panel"
+
+config PANEL_C1_NA_SPR
+	bool "D710 panel"
+
+config PANEL_EPIC2
+	bool "EPIC2 panel"
 
 endchoice
 
@@ -528,6 +573,7 @@ endmenu
 
 config S5PV310_ASV
 	bool "Enable ASV support"
+	depends on CPU_FREQ
 	default n
 	help
 		Say Y here to enable ASV(Adaptive Supply Voltage)
@@ -539,6 +585,12 @@ menu "BUS Frequency and Voltage scaling (Experimental)"
 	default n
 	help
 	  Bus frequency and voltage scaling support.
+
+	config BUSFREQ_L2_160M
+	bool "Busfreq L2 level use 160MHz"
+	default n
+	help
+		Optimize busfreq dvfs level transition for LCD high resolution.
 endmenu
 
 menu "CPUFreq step up sequence selection: 2 step or 3 step"

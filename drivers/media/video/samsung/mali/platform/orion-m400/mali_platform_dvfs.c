@@ -56,8 +56,8 @@
 	#define GPU_DVFS_UP_THRESHOLD	((int)((255*55)/100))   // 55%
 	#define GPU_DVFS_DOWN_THRESHOLD	((int)((255*25)/100))   // 25%
 #else
-	#define GPU_DVFS_UP_THRESHOLD	((int)((255*65)/100))   // 60%
-	#define GPU_DVFS_DOWN_THRESHOLD	((int)((255*30)/100))   // 30%
+	#define GPU_DVFS_UP_THRESHOLD	((int)((255*85)/100))   // 65%
+	#define GPU_DVFS_DOWN_THRESHOLD	((int)((255*75)/100))   // 30%
 #endif
 #endif
 static int bMaliDvfsRun=0;

@@ -1174,6 +1174,18 @@ static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 
 	host = mmc_priv(mmc);
 
+	if (ios->power_mode == MMC_POWER_OFF) {
+		if (host->vmmc && regulator_is_enabled(host->vmmc)) {
+			regulator_disable(host->vmmc);
+			pr_info("%s : MMC Card OFF %s\n", __func__, host->hw_name);
+		}
+	} else {
+		if (host->vmmc && !regulator_is_enabled(host->vmmc)) {
+			regulator_enable(host->vmmc);
+			pr_info("%s : MMC Card ON %s\n", __func__, host->hw_name);
+		}
+	}
+
 	spin_lock_irqsave(&host->lock, flags);
 
 	if (host->flags & SDHCI_DEVICE_DEAD)
@@ -1462,8 +1474,10 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 	}
 
 	if (intmask & SDHCI_INT_TIMEOUT) {
-		printk(KERN_ERR "%s: cmd %d command timeout error\n",
-			 mmc_hostname(host->mmc), host->cmd->opcode);
+		if (host->mmc->card)
+			printk(KERN_ERR "%s: cmd %d command timeout error\n",
+					mmc_hostname(host->mmc), host->cmd->opcode);
+
 		host->cmd->error = -ETIMEDOUT;
 	}
 	else if (intmask & (SDHCI_INT_CRC | SDHCI_INT_END_BIT |
@@ -1706,9 +1720,12 @@ int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state)
 
 	free_irq(host->irq, host);
 
-	if (host->vmmc && regulator_is_enabled(host->vmmc)) {
-		ret = regulator_disable(host->vmmc);
-		pr_info("%s : MMC Card OFF %s\n", __func__, host->hw_name);
+	if (host->vmmc) {
+		if (regulator_is_enabled(host->vmmc)) {
+			ret = regulator_disable(host->vmmc);
+			pr_info("%s : MMC Card OFF %s\n", __func__, host->hw_name);
+		}
+		mdelay(50);
 	}
 
 	return ret;
@@ -2014,6 +2031,10 @@ int sdhci_add_host(struct sdhci_host *host)
 	sc = sdhci_priv(host);
 	
 	if (sc) {
+#if defined(CONFIG_MACH_C1_KDDI_REV00)		
+			pr_info("%s : Regulator NONE\n", __func__);
+			host->vmmc = NULL;
+#else
 		if (sc->ext_cd_irq) {
 			/* This means this device is T-flash */
 			pr_info("%s : Regulator OK\n", __func__);
@@ -2023,6 +2044,7 @@ int sdhci_add_host(struct sdhci_host *host)
 			pr_info("%s : Regulator NONE\n", __func__);
 			host->vmmc = NULL;
 		}
+#endif
 
 	} else
 		pr_info("%s : sdhci_priv error\n", __func__);

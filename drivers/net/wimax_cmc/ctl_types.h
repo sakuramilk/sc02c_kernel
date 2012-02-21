@@ -38,7 +38,6 @@
 #define	CONTROL_IOCTL_WIMAX_POWER_CTL		CTL_CODE(FILE_DEVICE_UNKNOWN, 0x821, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define	CONTROL_IOCTL_WIMAX_MODE_CHANGE		CTL_CODE(FILE_DEVICE_UNKNOWN, 0x838, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define	CONTROL_IOCTL_WIMAX_EEPROM_DOWNLOAD	CTL_CODE(FILE_DEVICE_UNKNOWN, 0x839, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define	CONTROL_IOCTL_WIMAX_SLEEP_MODE		CTL_CODE(FILE_DEVICE_UNKNOWN, 0x83A, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define	CONTROL_IOCTL_WIMAX_WRITE_REV		CTL_CODE(FILE_DEVICE_UNKNOWN, 0x83B, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define	CONTROL_IOCTL_WIMAX_CHECK_CERT		CTL_CODE(FILE_DEVICE_UNKNOWN, 0x83C, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define	CONTROL_IOCTL_WIMAX_CHECK_CAL		CTL_CODE(FILE_DEVICE_UNKNOWN, 0x83D, METHOD_BUFFERED, FILE_ANY_ACCESS)
@@ -69,7 +68,7 @@ struct eth_header {
 
 /* process element managed by control type */
 struct process_descriptor {
-	struct list_head	node;
+	struct list_head	list;
 	wait_queue_head_t	read_wait;
 	u_long		id;
 	u_short		type;
@@ -81,6 +80,11 @@ struct ctl_app_descriptor {
 	struct list_head	process_list;	/* there could be undefined number of applications */
 	spinlock_t		lock;
 	u_char		ready;
+};
+
+struct queue_info {
+	struct list_head	list;		/* list head */
+	spinlock_t		lock;		/* protection */
 };
 
 struct ctl_info {

@@ -29,7 +29,12 @@
 #include <plat/adc.h>
 #include <mach/sec_battery.h>
 
-#ifdef CONFIG_TARGET_LOCALE_NA
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+#include <mach/cpufreq.h>
+#include <linux/rtc.h>
+#endif
+
+#if (defined(CONFIG_TARGET_LOCALE_NA) || defined(CONFIG_TARGET_LOCALE_NAATT))
 #define POLLING_INTERVAL	(10 * 1000)
 #else
 #define POLLING_INTERVAL	(40 * 1000)
@@ -39,9 +44,14 @@
 #if defined(CONFIG_TARGET_LOCALE_NAATT)
 #define VF_CHECK_INTERVAL	(5 * 1000)
 
-#define	MAX_VF	1500
-#define	MIN_VF	1350
+#define	MAX_VF	1800
+#define	MIN_VF	1100
 #define	VF_COUNT	1
+#elif defined(CONFIG_MACH_Q1_REV02)
+#define VF_CHECK_INTERVAL	(5 * 1000)
+#define	MAX_VF_ADC	2500
+#define	MIN_VF_ADC	1800
+#define	ADC_CH_VF	1
 #else
 #define VF_CHECK_INTERVAL	(10 * 1000)
 #endif
@@ -60,13 +70,17 @@
 #define BAT_USE_TIMER_EXPIRE	( 10 * 60 * HZ)	 /* 10 min */
 #endif
 
-#ifdef CONFIG_TARGET_LOCALE_NA
-#define RECHARGING_VOLTAGE	(4130 * 1000)	/* 4.13 V */
+#if defined(CONFIG_TARGET_LOCALE_NA) || defined(CONFIG_MACH_Q1_REV02)
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+#define RECHARGING_VOLTAGE	(4135 * 1000)	/* 4.135 V */
+#endif
 #else
 #define RECHARGING_VOLTAGE	(4150 * 1000)	/* 4.15 V */
 #endif
 
-#ifdef CONFIG_TARGET_LOCALE_NA
+#if defined (CONFIG_MACH_C1_KDDI_REV00)
+#define RECHARGING_CND_COUNT    1
+#elif defined (CONFIG_TARGET_LOCALE_NA)
 #define RECHARGING_CND_COUNT    2
 #endif
 
@@ -79,7 +93,11 @@
 #define FG_T_AVGVCELL	5
 
 #define ADC_SAMPLING_CNT	7
+#if defined(CONFIG_MACH_Q1_REV02)
+#define ADC_CH_CHGCURRENT	0
+#else
 #define ADC_CH_CHGCURRENT	1
+#endif
 #define ADC_TOTAL_COUNT		5
 
 #if defined(CONFIG_TARGET_LOCALE_NAATT)
@@ -91,6 +109,7 @@
 #define OFFSET_WIFI	(0x1 << 5)
 #define OFFSET_GPS	(0x1 << 6)
 #define OFFSET_CAMERA_ON	(0x1 << 7)
+#define OFFSET_RECORDING_ON	(0x1 << 8)
 #endif
 
 /* put off current during charging*/
@@ -106,23 +125,60 @@
 #endif
 
 #ifdef CONFIG_TARGET_LOCALE_NA
-#define EVENT_BLOCK_TEMP_ADC		750
+#ifdef CONFIG_MACH_C1_NA_SPR_EPIC2_REV00
+#define EVENT_BLOCK_TEMP_ADC	       755
 #define HIGH_BLOCK_TEMP_ADC            715
+#define LOW_BLOCK_TEMP_ADC             521
+#define HIGH_RECOVER_TEMP_ADC          714
+#define LOW_RECOVER_TEMP_ADC           522
+
+#define HIGH_BLOCK_TEMP_ADC_LPM        715
+#define LOW_BLOCK_TEMP_ADC_LPM         521
+#define HIGH_RECOVER_TEMP_ADC_LPM      714
+#define LOW_RECOVER_TEMP_ADC_LPM       522
+#elif defined(CONFIG_MACH_C1_KDDI_REV00)
+#define EVENT_BLOCK_TEMP_ADC           764	//777
+#define HIGH_BLOCK_TEMP_ADC 767 //751 //707 GUMI Team gives us a command-> 258 -- 65 degrees
+#define LOW_BLOCK_TEMP_ADC 507 //498 GUMI Team gives us a command-> 1561 -- -2 degrees
+#define HIGH_RECOVER_TEMP_ADC 707 //701 //705 GUMI Team gives us a command-> 562  -- 42 degrees
+#define LOW_RECOVER_TEMP_ADC 523 //514 GUMI Team gives us a command-> 1476 = 2 degrees
+
+#define HIGH_BLOCK_TEMP_ADC_LPM        767 //751 //710
+#define LOW_BLOCK_TEMP_ADC_LPM         507 //498 //506
+#define HIGH_RECOVER_TEMP_ADC_LPM      707 //701 //702
+#define LOW_RECOVER_TEMP_ADC_LPM       523 //514 //512
+
+#define SYSFS_TEST_MODE_TEMP	0xF001
+#define SYSFS_TEST_MODE_SOC	0xF002
+#define SYSFS_TEST_MODE_ADC	0xF004
+#define SYSFS_TEST_MODE_ON	0xF010
+#define SYSFS_TEST_MODE_OFF	0xF000
+
+static int sysfs_test_mode = SYSFS_TEST_MODE_OFF;	// default OFF;
+#else
+#define EVENT_BLOCK_TEMP_ADC           777
+#define HIGH_BLOCK_TEMP_ADC            729
 #define LOW_BLOCK_TEMP_ADC             502
-#define HIGH_RECOVER_TEMP_ADC          690
-#define LOW_RECOVER_TEMP_ADC           510
+#define HIGH_RECOVER_TEMP_ADC          699
+#define LOW_RECOVER_TEMP_ADC           516
 
 #define HIGH_BLOCK_TEMP_ADC_LPM        710
-#define LOW_BLOCK_TEMP_ADC_LPM         508
+#define LOW_BLOCK_TEMP_ADC_LPM         506
 #define HIGH_RECOVER_TEMP_ADC_LPM      702
-#define LOW_RECOVER_TEMP_ADC_LPM       514
+#define LOW_RECOVER_TEMP_ADC_LPM       512
+#endif
 #elif defined(CONFIG_TARGET_LOCALE_NAATT)
 #define EVENT_BLOCK_TEMP			620
 #define HIGH_BLOCK_TEMP			490
 #define LOW_BLOCK_TEMP			(-30)
 
-#define EVENT_RECOVER_TEMP		420
-#define HIGH_RECOVER_TEMP		420
+#define EVENT_RECOVER_TEMP		430
+#define HIGH_RECOVER_TEMP		430
+#define LOW_RECOVER_TEMP		0
+#elif defined(CONFIG_MACH_Q1_REV02)
+#define HIGH_BLOCK_TEMP			650
+#define LOW_BLOCK_TEMP			(-50)
+#define HIGH_RECOVER_TEMP		430
 #define LOW_RECOVER_TEMP		0
 #else
 #define HIGH_BLOCK_TEMP			650
@@ -131,13 +187,44 @@
 #define LOW_RECOVER_TEMP		0
 #endif
 
+#if defined(CONFIG_TARGET_LOCALE_NAATT)
+#define HIGH_DEC_CURR_TEMP			410
+#define HIGH_INC_CURR_TEMP			380
+#endif
+
+#if defined (CONFIG_MACH_C1_KDDI_REV00)
+#define TEMP_BLOCK_COUNT			2
+#else
+#define TEMP_BLOCK_COUNT			3
+#endif
+
 #ifdef CONFIG_TARGET_LOCALE_NA
-#define CURRENT_OF_FULL_CHG			550
+#if defined(CONFIG_MACH_C1_NA_SPR_EPIC2_REV00)
+#define CURRENT_OF_FULL_CHG                     1
+#elif defined(CONFIG_MACH_C1_KDDI_REV00)
+//ssong. my goal == 200mA cutoff current. try offset 140!(X, 212mA)| try 115!(X, 185mA) | try 130 ()
+//#define CURRENT_OF_FULL_CHG			720	//560 |: 720==230mA, 560==140mA cutoff current.
+#define CURRENT_OF_FULL_CHG		640 //200mA cutoff current
+
+//#define CUT_OFF_CURRENT_OFFSET_RTC_TIMER_LPM	130 //140 //220 //940 ADC  : 220 == 230mA : 140 == 212mA : 115 == 185mA
+//#define CUT_OFF_CURRENT_OFFSET_RTC_TIMER_IDLE	325 //300 //380 //1020 ADC
+//int gi32_full_chg_curr = CURRENT_OF_FULL_CHG;
+#else
+#define CURRENT_OF_FULL_CHG			350
+#endif /* CONFIG_MACH_C1_NA_SPR_EPIC2_REV00 */
+#elif defined(CONFIG_MACH_Q1_REV02)
+#ifdef SEC_BATTERY_1ST_2ND_TOPOFF
+#define CURRENT_1ST_FULL_CHG		1000	/* 360mA */
+#define CURRENT_2ND_FULL_CHG		650		/* 220mA */
+//#define CURRENT_1ST_FULL_CHG		550		/* 195mA */
+//#define CURRENT_2ND_FULL_CHG		400		/* 170mA */
+#else
+#define CURRENT_OF_FULL_CHG			850
+#endif
 #else
 #define CURRENT_OF_FULL_CHG			520
 #endif
 
-#define TEMP_BLOCK_COUNT			3
 #ifdef SEC_BATTERY_INDEPEDENT_VF_CHECK
 #define BAT_DET_COUNT				0
 #else
@@ -160,6 +247,42 @@
 #ifdef CONFIG_TARGET_LOCALE_NA
 #define SPRINT_SLATE_TEST
 #endif /* CONFIG_TARGET_LOCALE_NA */
+
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+//#define RTC_USE_FOR_WAKEUP_TIMER
+// #define BATT_SYSFS_TEST_MODE
+#define EMPTY			(8/10)
+#define FULL			95
+
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+#define VCELL_SAMPLING_CNT	6
+#endif
+
+int sysfs_get_testmode_status(void)
+{
+	pr_err("%s: sysfs_test_mode val = %x\n", __func__, sysfs_test_mode);
+	return sysfs_test_mode;
+}
+
+#if defined (CONFIG_MACH_C1_KDDI_REV00) && defined (BATT_SYSFS_TEST_MODE)
+static int sysfs_set_testmode_status(int val)
+{
+	val = (SYSFS_TEST_MODE_ON | val);
+	
+	if ((val  < (SYSFS_TEST_MODE_ON|SYSFS_TEST_MODE_TEMP)) || (val >  (SYSFS_TEST_MODE_ON|SYSFS_TEST_MODE_ADC)))
+	{
+		pr_err("%s: ERROR - Input Param[%x] outside range. sysfs_test_mode curr status = %x\n", __func__, val, sysfs_test_mode);
+		return -1;
+	}
+	else
+	{
+		pr_err("%s: sysfs_test_mode curr status = %x, new status = %x\n", __func__, sysfs_test_mode, val);
+		sysfs_test_mode = val;
+	}
+	return 0;
+}
+#endif
+#endif
 
 enum tmu_status_t {
 	TMU_STATUS_NORMAL = 0,
@@ -184,6 +307,14 @@ enum {
 	BAT_NOT_DETECTED,
 	BAT_DETECTED
 };
+
+#if defined(CONFIG_TARGET_LOCALE_NAATT)
+enum batt_temp_extra {
+	BATT_TEMP_EXT_NONE = 0,
+	BATT_TEMP_EXT_CAMCORDING_NORMAL,
+	BATT_TEMP_EXT_CAMCORDING_HIGH,
+};
+#endif
 
 static ssize_t sec_bat_show_property(struct device *dev,
 				     struct device_attribute *attr, char *buf);
@@ -228,6 +359,10 @@ struct sec_bat_info {
 	int batt_temp_high_cnt;
 	int batt_temp_low_cnt;
 	int batt_temp_recover_cnt;
+#if defined(CONFIG_TARGET_LOCALE_NAATT)
+	enum batt_temp_extra batt_temp_ext;
+	enum batt_temp_extra batt_temp_ext_pre;
+#endif
 	unsigned int batt_health;
 	unsigned int batt_vcell;
 	unsigned int batt_vfocv;
@@ -250,7 +385,7 @@ struct sec_bat_info {
 	int batt_vf_adc;
 	int batt_event_status;
 	unsigned long event_end_time;
-#elif CONFIG_TARGET_LOCALE_NA
+#elif defined(CONFIG_TARGET_LOCALE_NA)
 	int use_call ;
 	int use_video ;
 	int use_music ;
@@ -280,6 +415,10 @@ struct sec_bat_info {
 
 	struct mutex adclock;
 
+#if defined(RTC_USE_FOR_WAKEUP_TIMER)
+	struct rtc_device *rtc_dev;
+	struct rtc_task alarm_rtc_task;
+#endif
 	unsigned int (*get_lpcharging_state) (void);
 	int present;
 	int present_count;
@@ -293,7 +432,6 @@ struct sec_bat_info {
 	unsigned int vf_check_interval;
 	struct delayed_work vf_check_work;
 #endif
-
 	int batt_tmu_status;
 };
 
@@ -305,16 +443,117 @@ static enum power_supply_property sec_battery_props[] = {
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_PRESENT,
-	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CAPACITY,
-	POWER_SUPPLY_PROP_TECHNOLOGY,
+	POWER_SUPPLY_PROP_TEMP,
 };
 
 static enum power_supply_property sec_power_props[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 };
+
+#ifdef CONFIG_TARGET_LOCALE_NA
+static struct sec_bat_info *pchg = NULL ;
+#endif
+
+#if defined(RTC_USE_FOR_WAKEUP_TIMER)
+#define	SEC_BAT_RTC_ALARM_NAME	"rtc1"
+
+static void alarm_triggered_func(void *pdata)
+{
+	struct sec_bat_info *info_rtc = pdata;
+
+	if(info_rtc == NULL ||info_rtc->cable_type != CABLE_TYPE_AC )
+	{
+		printk("[ssong] %s: info_rtc == NULL! or cable=[%d]\nDo nothing! Just return here!\n",__func__, info_rtc->cable_type);
+		return;
+	}
+	else
+	{
+		printk("[ssong] %s: rtc timer callback function called!!! info_rtc=0x%x\n",__func__,(int)info_rtc);
+	}
+
+	wake_lock(&info_rtc->monitor_wake_lock);
+	queue_work(info_rtc->monitor_wqueue, &info_rtc->monitor_work);
+}
+
+static int sec_bat_rtc_set(void *pdata, int onoff)
+{
+	int status=-1;
+	struct rtc_wkalrm alm;
+	unsigned long	now;
+	struct sec_bat_info *info_rtc = pdata;
+
+	if(info_rtc->rtc_dev == NULL)
+	{
+		printk(" %s OPEN %s error!\n",__func__,SEC_BAT_RTC_ALARM_NAME);
+		goto out;
+	}
+
+	status = rtc_read_time(info_rtc->rtc_dev, &alm.time);
+	if(status < 0)
+	{
+		printk("ERROR : %s read alarm\n",__func__); 
+		goto out;
+	}
+
+	rtc_tm_to_time(&alm.time, &now);
+
+	memset(&alm, 0, sizeof(alm));
+	rtc_time_to_tm((now+10), &alm.time); //10s
+
+	if(onoff)
+		alm.enabled = true;
+	else
+		alm.enabled = false;
+
+	status = rtc_set_alarm(info_rtc->rtc_dev, &alm);
+	if(status < 0)
+	{
+		printk("ERROR : %s set alarm\n", __func__);
+		goto out;
+	}
+
+	printk("%s : set_alarm enable[%d].\n",__func__, onoff);
+out:
+	return 0;
+}	
+
+static void sec_bat_alarm_init(void *pdata)
+{
+	int status;
+	struct sec_bat_info *info_rtc = pdata;
+	char *rtcname = SEC_BAT_RTC_ALARM_NAME;
+
+	info_rtc->rtc_dev = rtc_class_open(rtcname);
+	if(info_rtc->rtc_dev == NULL)
+	{
+		printk(" %s OPEN %s error!\n",__func__,rtcname);
+		goto out;
+	}
+
+	info_rtc->alarm_rtc_task.func = alarm_triggered_func;
+	info_rtc->alarm_rtc_task.private_data = pdata; 
+
+	status = rtc_irq_register(info_rtc->rtc_dev, &info_rtc->alarm_rtc_task);
+	if(status)
+		printk(" %s rtc_irq_register error!err=%d\n",__func__,status);
+
+	printk("%s : set_alarm ok.\n",__func__);
+out:
+	return;
+}
+#endif
+
+struct power_supply *get_power_supply_by_name(char *name)
+{
+	if (!name)
+		return (struct power_supply *)NULL;
+	else
+		return power_supply_get_by_name(name);
+}
 
 static int sec_bat_enable_charging(struct sec_bat_info *info,
 	bool enable);
@@ -354,7 +593,7 @@ static int calculate_average_adc(struct sec_bat_info *info,
 static int sec_bat_get_fuelgauge_data(struct sec_bat_info *info, int type)
 {
 	struct power_supply *psy
-	    = power_supply_get_by_name(info->fuel_gauge_name);
+	    = get_power_supply_by_name(info->fuel_gauge_name);
 	union power_supply_propval value;
 
 	if (!psy) {
@@ -423,6 +662,34 @@ static int sec_bat_get_property(struct power_supply *ps,
 			return -EINVAL;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+		if ((info->charging_status == POWER_SUPPLY_STATUS_FULL) ||(info->batt_soc >= FULL)) {
+			val->intval = 100;
+			break;
+		}		
+		if (info->batt_soc <= 1) {
+			val->intval = 0;
+			break;
+		}
+		val->intval = ((1000*info->batt_soc)/FULL); 
+		int temp = val->intval/10; 
+		temp = temp*10; 
+		if(val->intval - temp >= 5) 
+		val->intval=(val->intval/10) + 1;
+		else
+		val->intval=(val->intval/10);	
+		if (val->intval < 13)
+			val->intval =(val->intval -1);	
+		if (val->intval == -1)
+			return -EINVAL;
+		break;
+#elif defined (CONFIG_TARGET_LOCALE_NA)
+		if (info->charging_status !=POWER_SUPPLY_STATUS_FULL && info->batt_soc == 100) {
+			val->intval = 99;
+			break;
+		}
+#endif /*CONFIG_TARGET_LOCALE_NA*/
+
 		if (info->charging_status == POWER_SUPPLY_STATUS_FULL) {
 			val->intval = 100;
 			break;
@@ -442,6 +709,22 @@ static int sec_bat_get_property(struct power_supply *ps,
 
 static void sec_bat_handle_charger_topoff(struct sec_bat_info *info)
 {
+#ifdef SEC_BATTERY_1ST_2ND_TOPOFF
+	if (info->charging_status != POWER_SUPPLY_STATUS_FULL) {	/* 1st top-off */
+		info->charging_status = POWER_SUPPLY_STATUS_FULL;
+
+		dev_info(info->dev,
+			 "%s: Charging 1st Top-off\n", __func__);
+	} else {	/* 2nd top-off, recharging top-off */
+		if (!sec_bat_enable_charging(info, false)) {
+			info->batt_full_status = BATT_FULL;
+			info->recharging_status = false;
+		}
+
+		dev_info(info->dev,
+			 "%s: Charging 2nd Top-off\n", __func__);
+	}
+#else
 	if (!sec_bat_enable_charging(info, false)) {
 		info->charging_status = POWER_SUPPLY_STATUS_FULL;
 		info->batt_full_status = BATT_FULL;
@@ -450,6 +733,7 @@ static void sec_bat_handle_charger_topoff(struct sec_bat_info *info)
 		dev_info(info->dev,
 			 "%s: Charging Top-off\n", __func__);
 	}
+#endif
 }
 
 static int sec_bat_set_property(struct power_supply *ps,
@@ -458,7 +742,7 @@ static int sec_bat_set_property(struct power_supply *ps,
 {
 	struct sec_bat_info *info = container_of(ps, struct sec_bat_info,
 						 psy_bat);
-	struct power_supply *psy = power_supply_get_by_name(info->charger_name);
+	struct power_supply *psy = get_power_supply_by_name(info->charger_name);
 	union power_supply_propval value;
 
 	switch (psp) {
@@ -468,8 +752,10 @@ static int sec_bat_set_property(struct power_supply *ps,
 			return -EINVAL;
 
 		if (info->use_sub_charger) {
+#if !defined(CONFIG_MACH_Q1_REV02)
 			if (info->cable_type == CABLE_TYPE_USB ||
 					info->cable_type == CABLE_TYPE_MISC)
+#endif
 				sec_bat_handle_charger_topoff(info);
 			break;
 		}
@@ -505,6 +791,12 @@ static int sec_bat_set_property(struct power_supply *ps,
 					  &value);
 		}
 #endif
+		break;
+	case POWER_SUPPLY_PROP_CAPACITY:
+		dev_info(info->dev, "%s: refresh battery data\n", __func__);
+		wake_lock(&info->monitor_wake_lock);
+		queue_work(info->monitor_wqueue, &info->monitor_work);
+
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY_LEVEL:
 		/* TODO: lowbatt interrupt: called by fuel gauge */
@@ -551,6 +843,18 @@ static int sec_bat_set_property(struct power_supply *ps,
 			__func__, info->batt_tmu_status);
 
 		break;
+#if defined (CONFIG_MACH_Q1_CHN) && (defined (CONFIG_SMB136_CHARGER) || defined (CONFIG_SMB328_CHARGER))
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		info->batt_health = val->intval;
+
+		dev_info(info->dev, "%s: OVP status has been changed(%d), (%d)\n",
+			__func__, info->batt_health, info->charging_status);
+
+		wake_lock(&info->monitor_wake_lock);
+		queue_work(info->monitor_wqueue, &info->monitor_work);
+
+		break;
+#endif
 	default:
 		return -EINVAL;
 	}
@@ -630,7 +934,40 @@ err:
 static inline int s3c_read_temper_adc(struct sec_bat_info *info)
 {
 	int adc;
+	#if defined(CONFIG_MACH_C1_KDDI_REV00) && defined (BATT_SYSFS_TEST_MODE)
+	int testmode_status = sysfs_get_testmode_status();
 
+	pr_err("%s: sysfs_test_mode status = %x\n", __func__, testmode_status);
+	if (testmode_status == (SYSFS_TEST_MODE_ON | SYSFS_TEST_MODE_TEMP))
+	{
+		int low, high, mid;
+		int i32_batt_temp = (int)info->batt_temp;
+		low =  mid = 0;
+		high = info->adc_arr_size - 1;
+		
+		pr_err("%s: sysfs_test_mode is ON. batt_temp = %d\n", __func__, i32_batt_temp);
+
+		while (low <= high) 
+		{
+			mid = (low + high) / 2;
+			if (info->adc_table[mid].temperature < i32_batt_temp)
+				high = mid - 1;
+			else if (info->adc_table[mid].temperature > i32_batt_temp)
+				low = mid + 1;
+			else
+				break;
+		}
+
+		info->batt_temp_adc = info->adc_table[mid].adc;
+		pr_err("%s: sysfs_test_mode is ON. batt_temp_adc = %d\n", __func__, i32_batt_temp);
+	}
+	else if (testmode_status == (SYSFS_TEST_MODE_ON | SYSFS_TEST_MODE_ADC))
+	{
+		pr_err("%s: sysfs_test_mode is ON. User Given ADC = %d\n", __func__, info->batt_temp_adc);
+	}
+	else if (testmode_status == SYSFS_TEST_MODE_OFF)
+	#endif
+	{
 	mutex_lock(&info->adclock);
 	adc = sec_bat_get_adc_data(info, info->adc_channel);
 	mutex_unlock(&info->adclock);
@@ -638,7 +975,7 @@ static inline int s3c_read_temper_adc(struct sec_bat_info *info)
 		adc = info->batt_temp_adc;
 
 	info->batt_temp_adc = calculate_average_adc(info, &info->temper_adc_sample, adc);
-
+	}
 	return info->batt_temp_adc;
 }
 #else
@@ -681,6 +1018,11 @@ static int is_event_end_timer_running(struct sec_bat_info *info)
 	}
 
 	return false;
+}
+
+static int get_recording_state(struct sec_bat_info *info)
+{
+	return info->batt_event_status & OFFSET_RECORDING_ON;
 }
 #endif
 
@@ -726,7 +1068,6 @@ static unsigned long sec_rescale_temp_adc(struct sec_bat_info *info)
 	info->batt_temp_radc = adc_tmp;
 
 	printk("deb***: [battery] bat temper : %d, rescale : %d\n", info->batt_temp_adc, adc_tmp);
-
 	return adc_tmp;
 }
 #endif
@@ -735,7 +1076,7 @@ static unsigned long sec_rescale_temp_adc(struct sec_bat_info *info)
 static int sec_bat_check_temper(struct sec_bat_info *info)
 {
 	struct power_supply *psy
-	    = power_supply_get_by_name(info->fuel_gauge_name);
+	    = get_power_supply_by_name(info->fuel_gauge_name);
 	union power_supply_propval value;
 	int ret;
 
@@ -755,6 +1096,19 @@ static int sec_bat_check_temper(struct sec_bat_info *info)
 		info->batt_temp = temp;
 		return temp;
 	}
+
+	#if defined(CONFIG_MACH_C1_KDDI_REV00)  && defined (BATT_SYSFS_TEST_MODE)
+	int testmode_status = sysfs_get_testmode_status();
+	
+	pr_err("%s: sysfs_test_mode status = %x\n", __func__, testmode_status);
+	if (testmode_status == (SYSFS_TEST_MODE_ON | SYSFS_TEST_MODE_TEMP))
+	{
+		pr_err("%s: batt_temp already set by user[%d], mapped ADC = [%d], RADC = [%d]\n", __func__, info->batt_temp,temp_adc, temp_radc);
+		temp = info->batt_temp;
+	}
+	else
+	#endif
+	{
 	high = info->adc_arr_size - 1;
 
 	while (low <= high) {
@@ -770,9 +1124,9 @@ static int sec_bat_check_temper(struct sec_bat_info *info)
 
 	info->batt_temp = temp;
 
-	dev_info(info->dev, "[test] temp_radc_value : %d \n",
+	dev_info(info->dev, "[test] %s: temp_radc_value : %d \n",
 					__func__, temp_radc);
-
+	}
 	if (info->get_lpcharging_state) {
 		if (info->get_lpcharging_state()) {
 			if (temp_radc >= HIGH_BLOCK_TEMP_ADC_LPM) {
@@ -808,7 +1162,7 @@ static int sec_bat_check_temper(struct sec_bat_info *info)
 
 		} else {
 			if((info->batt_event_status) || (is_event_end_timer_running(info))){
-				dev_info(info->dev,  "[NA_SPR] Changed Put off Current",  __func__);
+				dev_info(info->dev,  "%s: [NA_SPR] Changed Put off Current",  __func__);
 				if (temp_radc >= EVENT_BLOCK_TEMP_ADC) {
 					if (health != POWER_SUPPLY_HEALTH_OVERHEAT &&
 					health != POWER_SUPPLY_HEALTH_UNSPEC_FAILURE)
@@ -876,6 +1230,14 @@ static int sec_bat_check_temper(struct sec_bat_info *info)
 
 		}
 	}
+
+	if (info->cable_type ==CABLE_TYPE_NONE) {
+		if (info->batt_health == POWER_SUPPLY_HEALTH_OVERHEAT || info->batt_health == POWER_SUPPLY_HEALTH_COLD) {
+			info->batt_health = POWER_SUPPLY_HEALTH_GOOD;
+			goto skip;
+		}
+	}
+
 	if (info->batt_temp_high_cnt >= TEMP_BLOCK_COUNT)
 		info->batt_health = POWER_SUPPLY_HEALTH_OVERHEAT;
 	else if (info->batt_temp_low_cnt >= TEMP_BLOCK_COUNT)
@@ -888,7 +1250,7 @@ static int sec_bat_check_temper(struct sec_bat_info *info)
 
 	/*else if (info->batt_temp_recover_cnt >= TEMP_BLOCK_COUNT)
 		info->batt_health = POWER_SUPPLY_HEALTH_GOOD;*/
-
+skip:
 	/* Set temperature to fuel gauge */
 	if (info->fuel_gauge_name) {
 		value.intval = info->batt_temp / 10;
@@ -904,21 +1266,25 @@ static int sec_bat_check_temper(struct sec_bat_info *info)
 	return temp;
 }
 
-static int sec_bat_get_dcinovp(struct sec_bat_info *info)
+static void sec_bat_get_dcinovp(struct sec_bat_info *info)
 {
-	struct power_supply *psy = power_supply_get_by_name(info->charger_name);
+	struct power_supply *psy = get_power_supply_by_name(info->charger_name);
 	union power_supply_propval value;
 
-	psy->get_property(psy, POWER_SUPPLY_PROP_STATUS, &value);
-
-	return value.intval;
+	if (info->slate_test_mode) {
+		info->charging_status = POWER_SUPPLY_STATUS_DISCHARGING;
+		info->cable_type = CABLE_TYPE_NONE;
+	} else {
+		psy->get_property(psy, POWER_SUPPLY_PROP_STATUS, &value);
+		info->charging_status = value.intval;
+	}
 }
 
 #elif defined(CONFIG_TARGET_LOCALE_NAATT)
 static int sec_bat_check_temper(struct sec_bat_info *info)
 {
 	struct power_supply *psy
-	    = power_supply_get_by_name(info->fuel_gauge_name);
+	    = get_power_supply_by_name(info->fuel_gauge_name);
 	union power_supply_propval value;
 	int ret;
 
@@ -987,6 +1353,31 @@ static int sec_bat_check_temper(struct sec_bat_info *info)
 			info->batt_temp_recover_cnt = 0;
 		}
 	} else {
+#if defined(CONFIG_TARGET_LOCALE_NAATT)
+	info->batt_temp_ext_pre = info->batt_temp_ext;
+	switch (info->batt_temp_ext) {
+	case BATT_TEMP_EXT_NONE:
+		if (get_recording_state(info))
+			info->batt_temp_ext = BATT_TEMP_EXT_CAMCORDING_NORMAL;
+		break;
+	case BATT_TEMP_EXT_CAMCORDING_NORMAL:
+		if (!get_recording_state(info))
+			info->batt_temp_ext = BATT_TEMP_EXT_NONE;
+		else if (temp >= HIGH_DEC_CURR_TEMP)
+			info->batt_temp_ext = BATT_TEMP_EXT_CAMCORDING_HIGH;
+		break;
+	case BATT_TEMP_EXT_CAMCORDING_HIGH:
+		if (!get_recording_state(info))
+			info->batt_temp_ext = BATT_TEMP_EXT_NONE;
+		else if (temp <= HIGH_INC_CURR_TEMP)
+			info->batt_temp_ext = BATT_TEMP_EXT_CAMCORDING_NORMAL;
+		break;
+	default:
+		break;
+	}
+	dev_info(info->dev, "%s: batt_temp_ext_pre=%d, batt_temp_ext=%d\n",
+		__func__, info->batt_temp_ext_pre, info->batt_temp_ext);
+#endif
 		/*printk("[%s] nomal temp is applied\n", __func__);*/
 		if (temp >= HIGH_BLOCK_TEMP) {
 			if (health != POWER_SUPPLY_HEALTH_OVERHEAT &&
@@ -1021,6 +1412,11 @@ static int sec_bat_check_temper(struct sec_bat_info *info)
 		}
 	}
 
+	if (info->cable_type == CABLE_TYPE_NONE) {
+			info->batt_temp_high_cnt = 0;
+			info->batt_temp_low_cnt = 0;
+	}
+
 	if (info->batt_temp_high_cnt >= TEMP_BLOCK_COUNT)
 		info->batt_health = POWER_SUPPLY_HEALTH_OVERHEAT;
 	else if (info->batt_temp_low_cnt >= TEMP_BLOCK_COUNT)
@@ -1047,7 +1443,7 @@ static int sec_bat_check_temper(struct sec_bat_info *info)
 static int sec_bat_check_temper(struct sec_bat_info *info)
 {
 	struct power_supply *psy
-	    = power_supply_get_by_name(info->fuel_gauge_name);
+	    = get_power_supply_by_name(info->fuel_gauge_name);
 	union power_supply_propval value;
 	int ret;
 
@@ -1132,16 +1528,28 @@ static int sec_bat_check_temper(struct sec_bat_info *info)
 #endif
 static void check_chgcurrent(struct sec_bat_info *info)
 {
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+	int chg_current_adc = 0;
+#else
 	unsigned long chg_current_adc = 0;
+#endif
 
 	mutex_lock(&info->adclock);
 	chg_current_adc = sec_bat_get_adc_data(info, ADC_CH_CHGCURRENT);
 	mutex_unlock(&info->adclock);
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+	if (chg_current_adc < 0)
+	{
+		dev_err(info->dev, "%s: ERROR! adc data(=%d) is wrong! make it as previous one.\n", __func__, chg_current_adc);
+		chg_current_adc = info->batt_current_adc;
+	}
+#else
 	if (chg_current_adc < 0)
 		chg_current_adc = info->batt_current_adc;
+#endif	
 	info->batt_current_adc = chg_current_adc;
 
-	dev_dbg(info->dev,
+	dev_info(info->dev,
 		"[battery] charging current = %d\n", info->batt_current_adc);
 }
 
@@ -1149,13 +1557,25 @@ static bool sec_check_chgcurrent(struct sec_bat_info *info)
 {
 	switch (info->charging_status) {
 	case POWER_SUPPLY_STATUS_FULL:
-		if (info->recharging_status == false)
+		if ((info->batt_full_status == BATT_FULL) &&
+			(info->recharging_status == false))
 			break;
 	case POWER_SUPPLY_STATUS_CHARGING:
 		if (info->batt_vcell >= FULL_CHARGE_COND_VOLTAGE) {
 			check_chgcurrent(info);
 
-			if (info->batt_current_adc <= CURRENT_OF_FULL_CHG) {
+#ifdef SEC_BATTERY_1ST_2ND_TOPOFF
+			if (((info->charging_status == POWER_SUPPLY_STATUS_CHARGING) &&
+				(info->batt_current_adc <= CURRENT_1ST_FULL_CHG)) ||
+				((info->charging_status == POWER_SUPPLY_STATUS_FULL) &&
+				(info->batt_current_adc <= CURRENT_2ND_FULL_CHG))) {
+#else
+		#if defined(RTC_USE_FOR_WAKEUP_TIMER)
+		if (info->batt_current_adc <= gi32_full_chg_curr ) {
+		#else
+		if (info->batt_current_adc <= CURRENT_OF_FULL_CHG) {
+		#endif			
+#endif
 				/*TA full charged */
 				info->charging_adc_full_count++;
 				if (info->charging_adc_full_count >=
@@ -1181,28 +1601,100 @@ static bool sec_check_chgcurrent(struct sec_bat_info *info)
 	return false;
 }
 
-static void sec_bat_update_info(struct sec_bat_info *info)
-{
-	info->batt_raw_soc = sec_bat_get_fuelgauge_data(info, FG_T_PSOC);
-	info->batt_soc = sec_bat_get_fuelgauge_data(info, FG_T_SOC);
-	info->batt_vcell = sec_bat_get_fuelgauge_data(info, FG_T_VCELL);
-	info->batt_vfocv = sec_bat_get_fuelgauge_data(info, FG_T_VFOCV);
 
-#ifdef SPRINT_SLATE_TEST
-	if (info->slate_test_mode) {
-		info->charging_status = POWER_SUPPLY_STATUS_DISCHARGING;
-		info->cable_type = CABLE_TYPE_NONE;
-	} else {
-	if (info->batt_full_status == BATT_NOT_FULL)
-		info->charging_status = sec_bat_get_dcinovp(info);
+
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+static int sec_bat_get_vcell_avg(struct sec_bat_info *info)
+{
+	int vcell_data;
+	int vcell_max = 0;
+	int vcell_min = 0;
+	int vcell_total = 0;
+	int i;
+	int err_value;
+
+	for (i = 0; i < VCELL_SAMPLING_CNT; i++) {
+		vcell_data = sec_bat_get_fuelgauge_data(info, FG_T_AVGVCELL);
+
+		if (vcell_data < 0) {
+			dev_err(info->dev, "%s : err(%d) returned, skip read\n",
+				__func__, vcell_data);
+			err_value = vcell_data;
+			goto err;
+		}
+
+		if (i != 0) {
+			if (vcell_data > vcell_max)
+				vcell_max = vcell_data;
+			else if (vcell_data < vcell_min)
+				vcell_min = vcell_data;
+		} else {
+			vcell_max = vcell_data;
+			vcell_min = vcell_data;
+		}
+		vcell_total += vcell_data;
+	}
+
+	return (vcell_total - vcell_max - vcell_min) / (VCELL_SAMPLING_CNT - 2);
+err:
+	return err_value;
 }
 #endif
 
+static void sec_bat_update_info(struct sec_bat_info *info)
+{
+#if defined(CONFIG_MACH_C1_KDDI_REV00)  && defined (BATT_SYSFS_TEST_MODE)
+	int testmode_status = sysfs_get_testmode_status();
+
+	pr_err("%s: sysfs_test_mode status = %x\n", __func__, testmode_status);
+	if (testmode_status == (SYSFS_TEST_MODE_ON | SYSFS_TEST_MODE_SOC))
+	{
+		pr_err("%s: batt_soc already set by user[%d], mapped raw_soc = [%d]\n", __func__, info->batt_soc, info->batt_raw_soc);
+	}
+	else if (testmode_status == (SYSFS_TEST_MODE_OFF))
+		info->batt_raw_soc = sec_bat_get_fuelgauge_data(info, FG_T_PSOC);
+#else
+	info->batt_raw_soc = sec_bat_get_fuelgauge_data(info, FG_T_PSOC);
+#endif
+	
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+	//info->batt_soc = ((info->batt_raw_soc-EMPTY)/(FULL-EMPTY))*100;
+	info->batt_soc = (100*info->batt_raw_soc)/FULL;
+	if(info->batt_soc >=100)
+		info->batt_soc = 100;
+	else if(info->batt_soc <= 0)
+		info->batt_soc = 0;
+#else
+	info->batt_soc = sec_bat_get_fuelgauge_data(info, FG_T_SOC);
+#endif
+
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+	if((info->charging_status == POWER_SUPPLY_STATUS_FULL) && (info->recharging_status == false))
+	{
+		int temp_vcell =  sec_bat_get_vcell_avg(info);
+		dev_err(info->dev, "%s: POWER_SUPPLY_STATUS_FULL avg_vcell = %d and previous batt_vcell = %d\n", __func__, temp_vcell, info->batt_vcell);
+		if(temp_vcell <= info->batt_vcell)
+			info->batt_vcell = temp_vcell;
+
+		dev_err(info->dev, "%s: POWER_SUPPLY_STATUS_FULL new batt_vcell = %d\n", __func__, info->batt_vcell);
+
+		//gi32_full_chg_curr = 720;	// changing the full cutoff current around ~230 mA
+	}
+	else
+	{
+		info->batt_vcell = sec_bat_get_fuelgauge_data(info, FG_T_VCELL);
+		//dev_err(info->dev, "%s:charging_status is %d and recharging_status is %d..  new batt_vcell = %d\n", __func__, info->charging_status, info->recharging_status, info->batt_vcell);
+		
+	}
+#else
+	info->batt_vcell = sec_bat_get_fuelgauge_data(info, FG_T_VCELL);
+#endif
+	info->batt_vfocv = sec_bat_get_fuelgauge_data(info, FG_T_VFOCV);
 }
 
 static int sec_bat_enable_charging_main(struct sec_bat_info *info, bool enable)
 {
-	struct power_supply *psy = power_supply_get_by_name(info->charger_name);
+	struct power_supply *psy = get_power_supply_by_name(info->charger_name);
 	union power_supply_propval val_type, val_chg_current, val_topoff;
 	int ret;
 
@@ -1278,9 +1770,9 @@ static int sec_bat_enable_charging_main(struct sec_bat_info *info, bool enable)
 static int sec_bat_enable_charging_sub(struct sec_bat_info *info, bool enable)
 {
 	struct power_supply *psy_main =
-	    power_supply_get_by_name(info->charger_name);
+	    get_power_supply_by_name(info->charger_name);
 	struct power_supply *psy_sub =
-	    power_supply_get_by_name(info->sub_charger_name);
+	    get_power_supply_by_name(info->sub_charger_name);
 	union power_supply_propval val_type, val_chg_current;
 	int ret;
 
@@ -1301,6 +1793,10 @@ static int sec_bat_enable_charging_sub(struct sec_bat_info *info, bool enable)
 			return ret;
 		}
 
+#if defined(CONFIG_MACH_Q1_REV02) || defined(CONFIG_MACH_C1_KDDI_REV00)
+		/* Set charging current only in charging start time */
+		if (info->charging_start_time == 0) {
+#endif
 		switch (info->cable_type) {
 		case CABLE_TYPE_USB:
 			val_type.intval = POWER_SUPPLY_STATUS_CHARGING;
@@ -1308,7 +1804,12 @@ static int sec_bat_enable_charging_sub(struct sec_bat_info *info, bool enable)
 			break;
 		case CABLE_TYPE_AC:
 			val_type.intval = POWER_SUPPLY_STATUS_CHARGING;
-			val_chg_current.intval = 650;	/* mA */
+#if defined(CONFIG_TARGET_LOCALE_NAATT)
+			if (info->batt_temp_ext == BATT_TEMP_EXT_CAMCORDING_HIGH)
+				val_chg_current.intval = 450;	/* mA */
+			else
+#endif
+				val_chg_current.intval = 650;	/* mA */
 			break;
 		case CABLE_TYPE_MISC:
 			val_type.intval = POWER_SUPPLY_STATUS_CHARGING;
@@ -1328,6 +1829,11 @@ static int sec_bat_enable_charging_sub(struct sec_bat_info *info, bool enable)
 				__func__, ret);
 			return ret;
 		}
+#if defined(CONFIG_MACH_Q1_REV02) || defined(CONFIG_MACH_C1_KDDI_REV00)
+		/* Reset charging */
+		} else
+			val_type.intval = POWER_SUPPLY_STATUS_CHARGING;
+#endif
 
 		/*Reset charging start time only in initial charging start */
 		if (info->charging_start_time == 0) {
@@ -1379,9 +1885,22 @@ static void sec_bat_cable_work(struct work_struct *work)
 	struct sec_bat_info *info = container_of(work, struct sec_bat_info,
 						 cable_work);
 
+	#if defined(CONFIG_MACH_C1_KDDI_REV00)
+		int retVal = 0;		
+	#endif
+	
 	switch (info->cable_type) {
 	case CABLE_TYPE_NONE:
-		if (!sec_bat_enable_charging(info, false)) {
+		#if defined(CONFIG_MACH_C1_KDDI_REV00)
+		retVal = sec_bat_enable_charging(info, false);
+
+		if (retVal)			
+			dev_err(info->dev, "%s: fail to disable charging(%d)\n", __func__, retVal);
+		#else
+		if (!sec_bat_enable_charging(info, false)) 
+		#endif
+		
+		{
 			info->batt_full_status = BATT_NOT_FULL;
 			info->recharging_status = false;
 			info->charging_status = POWER_SUPPLY_STATUS_DISCHARGING;
@@ -1389,16 +1908,46 @@ static void sec_bat_cable_work(struct work_struct *work)
 			info->batt_temp_high_cnt = 0;
 			info->batt_temp_low_cnt = 0;
 			info->batt_temp_recover_cnt = 0;
+#if defined(CONFIG_TARGET_LOCALE_NAATT)
+			info->batt_temp_ext = BATT_TEMP_EXT_NONE;
+			info->batt_temp_ext_pre = BATT_TEMP_EXT_NONE;
+#endif
 			wake_lock_timeout(&info->vbus_wake_lock, HZ * 5);
 		}
 		break;
+		
 	case CABLE_TYPE_USB:
 	case CABLE_TYPE_AC:
 	case CABLE_TYPE_MISC:
-		if (!sec_bat_enable_charging(info, true)) {
-		info->charging_status = POWER_SUPPLY_STATUS_CHARGING;
-		wake_lock(&info->vbus_wake_lock);
+		if (!sec_bat_enable_charging(info, true)) 
+		{
+			info->charging_status = POWER_SUPPLY_STATUS_CHARGING;
+#if defined (CONFIG_MACH_Q1_CHN) && defined (CONFIG_SMB328_CHARGER)
+			wake_lock(&info->monitor_wake_lock);
+                        queue_work(info->monitor_wqueue, &info->monitor_work);
+#endif
+#if defined(RTC_USE_FOR_WAKEUP_TIMER)
+		if (info->cable_type == CABLE_TYPE_AC)
+		{
+			dev_info(info->dev, "%s: TA is inserted, start RTC!!!\n", __func__);
+			alarm_triggered_func(info);
 		}
+
+		if(info->cable_type == CABLE_TYPE_USB)
+			wake_lock(&info->vbus_wake_lock);
+		else
+			wake_lock_timeout(&info->vbus_wake_lock, HZ * 5);
+#else
+		wake_lock(&info->vbus_wake_lock);
+#endif
+		}
+		#if defined(CONFIG_MACH_C1_KDDI_REV00)
+		else
+		{
+			dev_err(info->dev, "%s: fail to enable charging\n", __func__);
+			wake_lock(&info->vbus_wake_lock);
+		}
+		#endif
 		break;
 	default:
 		dev_err(info->dev, "%s: Invalid cable type\n", __func__);
@@ -1428,31 +1977,42 @@ static bool sec_bat_charging_time_management(struct sec_bat_info *info)
 
 	switch (info->charging_status) {
 	case POWER_SUPPLY_STATUS_FULL:
-		if (time_after(info->charging_passed_time,
-			(unsigned long)RECHARGING_TIME) &&
-		    info->recharging_status == true) {
+		if (info->recharging_status == true &&
+			time_after(info->charging_passed_time,
+			(unsigned long)RECHARGING_TIME)) {
 			if (!sec_bat_enable_charging(info, false)) {
-			info->recharging_status = false;
+				info->recharging_status = false;
 				dev_info(info->dev,
 					 "%s: Recharging timer expired\n",
 				 __func__);
-			return true;
+				return true;
+			}
 		}
-		}
+#ifndef SEC_BATTERY_1ST_2ND_TOPOFF
 		break;
+#endif
 	case POWER_SUPPLY_STATUS_CHARGING:
+#if defined(CONFIG_MACH_Q1_REV02) || defined(CONFIG_MACH_C1_KDDI_REV00)
+		if (info->cable_type != CABLE_TYPE_USB) {
+#endif
 		if (time_after(info->charging_passed_time,
 			       (unsigned long)FULL_CHARGING_TIME)) {
 			if (!sec_bat_enable_charging(info, false)) {
 				info->charging_status =
 				    POWER_SUPPLY_STATUS_FULL;
+				info->batt_full_status = BATT_FULL;
+				info->recharging_status = false;
 
 				dev_info(info->dev,
 					 "%s: Charging timer expired\n",
 				 __func__);
 			return true;
 			}
-		} else if (time_after(info->charging_passed_time,
+			}
+#if defined(CONFIG_MACH_Q1_REV02) || defined(CONFIG_MACH_C1_KDDI_REV00)
+		}
+#endif
+		if (time_after(info->charging_passed_time,
 					info->charging_next_time)) {
 			/*reset current in charging status */
 			if (!sec_bat_enable_charging(info, true)) {
@@ -1517,17 +2077,36 @@ static void sec_bat_check_vf_adc(struct sec_bat_info *info)
 
 static void sec_bat_check_vf(struct sec_bat_info *info)
 {
-	struct power_supply *psy = power_supply_get_by_name(info->charger_name);
+	struct power_supply *psy = get_power_supply_by_name(info->charger_name);
 	union power_supply_propval value;
 	int ret;
 
-	ret = psy->get_property(psy, POWER_SUPPLY_PROP_PRESENT, &value);
+#if defined(CONFIG_MACH_Q1_REV02)
+	if (system_rev <= HWREV_FOR_BATTERY) {
+		int adc;
 
-	if (ret < 0) {
-		dev_err(info->dev, "%s: fail to get status(%d)\n",
-			__func__, ret);
-		return;
+		mutex_lock(&info->adclock);
+		adc = sec_bat_get_adc_data(info, ADC_CH_VF);
+		mutex_unlock(&info->adclock);
+
+		dev_info(info->dev,  "%s: adc (%d/%d)\n",  __func__, adc, HWREV_FOR_BATTERY);
+
+		if (adc > MAX_VF_ADC || adc < MIN_VF_ADC)
+			value.intval = BAT_NOT_DETECTED;
+		else
+			value.intval = BAT_DETECTED;
+	} else {
+#endif
+		ret = psy->get_property(psy, POWER_SUPPLY_PROP_PRESENT, &value);
+
+		if (ret < 0) {
+			dev_err(info->dev, "%s: fail to get status(%d)\n",
+				__func__, ret);
+			return;
+		}
+#if defined(CONFIG_MACH_Q1_REV02)
 	}
+#endif
 
 	if (value.intval == BAT_NOT_DETECTED) {
 		if (info->present_count < BAT_DET_COUNT)
@@ -1552,14 +2131,35 @@ static void sec_bat_check_vf(struct sec_bat_info *info)
 	return;
 }
 
+#if (defined(CONFIG_MACH_Q1_REV02) && defined(CONFIG_SMB328_CHARGER)) \
+	|| (defined(CONFIG_MACH_C1_KDDI_REV00) && defined(CONFIG_SMB328_CHARGER))
+static void sec_bat_check_ovp(struct sec_bat_info *info)
+{
+	struct power_supply *psy = get_power_supply_by_name(info->sub_charger_name);
+	union power_supply_propval value;
+	int ret;
+
+	ret = psy->get_property(psy, POWER_SUPPLY_PROP_HEALTH, &value);
+
+	if (ret < 0) {
+		dev_err(info->dev, "%s: fail to get health(%d)\n",
+			__func__, ret);
+		return;
+	}
+
+	if (value.intval == POWER_SUPPLY_HEALTH_OVERVOLTAGE)
+		info->batt_health = value.intval;
+}
+#endif
+
 static bool sec_bat_check_ing_level_trigger(struct sec_bat_info *info)
 {
 	struct power_supply *psy;
 	union power_supply_propval value;
 	int ret;
 
-	if (info->use_sub_charger) {
-		psy = power_supply_get_by_name(info->sub_charger_name);
+	if (info->use_sub_charger && info->sub_charger_name) {
+		psy = get_power_supply_by_name(info->sub_charger_name);
 
 		ret = psy->get_property(psy, POWER_SUPPLY_PROP_STATUS, &value);
 
@@ -1575,13 +2175,52 @@ static bool sec_bat_check_ing_level_trigger(struct sec_bat_info *info)
 				break;
 		case POWER_SUPPLY_STATUS_CHARGING:
 			switch (value.intval) {
+#ifdef SEC_BATTERY_TOPOFF_BY_CHARGER
+			case POWER_SUPPLY_STATUS_FULL:	/* top-off by full charging */
+				if (info->batt_vcell >=
+					FULL_CHARGE_COND_VOLTAGE) {
+					sec_bat_handle_charger_topoff(info);
+					dev_info(info->dev, "%s : top-off by full charging\n",
+						__func__);
+					return true;
+				} else {
+					/*reactivate charging in*/
+					/*next monitor work*/
+					/*for abnormal*/
+					/*full-charged status*/
+					info->charging_next_time =
+					info->charging_passed_time + HZ;
+				}
+				break;
+#endif
+#if defined(CONFIG_MACH_Q1_REV02)
+			case POWER_SUPPLY_STATUS_NOT_CHARGING:
+				ret = psy->get_property(psy, POWER_SUPPLY_PROP_HEALTH, &value);
+
+				if (ret < 0) {
+					dev_err(info->dev, "%s: fail to get health(%d)\n",
+						__func__, ret);
+					return false;
+				}
+				info->batt_health = value.intval;
+#else
 			case POWER_SUPPLY_STATUS_DISCHARGING:
-				if (info->cable_type != CABLE_TYPE_NONE)
+#if defined(CONFIG_MACH_C1_KDDI_REV00)				
+				if ((info->cable_type != CABLE_TYPE_NONE) && (info->batt_health !=POWER_SUPPLY_HEALTH_GOOD))
+#else	
+                            if (info->cable_type != CABLE_TYPE_NONE)
+#endif
 					info->batt_health = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
 				break;
 			case POWER_SUPPLY_STATUS_NOT_CHARGING:
+#if defined(CONFIG_MACH_C1_NA_SPR_EPIC2_REV00)
+				if (info->cable_type == CABLE_TYPE_USB ||
+					info->cable_type == CABLE_TYPE_MISC ||
+						 info->cable_type == CABLE_TYPE_AC) {
+#else
 				if (info->cable_type == CABLE_TYPE_USB ||
 					info->cable_type == CABLE_TYPE_MISC) {
+#endif
 					if (info->batt_vcell >=
 					    FULL_CHARGE_COND_VOLTAGE) {
 						/*USB full charged */
@@ -1608,12 +2247,26 @@ static bool sec_bat_check_ing_level_trigger(struct sec_bat_info *info)
 					}
 				}
 				break;
+#endif
 			}
 			break;
 		case POWER_SUPPLY_STATUS_NOT_CHARGING:
+#if defined(CONFIG_MACH_Q1_REV02)
+			if (info->batt_health == POWER_SUPPLY_HEALTH_OVERVOLTAGE) {
+				ret = psy->get_property(psy, POWER_SUPPLY_PROP_HEALTH, &value);
+
+				if (ret < 0) {
+					dev_err(info->dev, "%s: fail to get health(%d)\n",
+						__func__, ret);
+					return false;
+				}
+				info->batt_health = value.intval;
+			}
+#else
 			if (info->batt_health == POWER_SUPPLY_HEALTH_OVERVOLTAGE
 			&& value.intval == POWER_SUPPLY_STATUS_NOT_CHARGING)
 				info->batt_health = POWER_SUPPLY_HEALTH_GOOD;
+#endif
 			break;
 		default:
 			info->charging_int_full_count = 0;
@@ -1621,7 +2274,7 @@ static bool sec_bat_check_ing_level_trigger(struct sec_bat_info *info)
 		}
 		return false;
 	} else {
-		psy = power_supply_get_by_name(info->charger_name);
+		psy = get_power_supply_by_name(info->charger_name);
 
 		ret = psy->get_property(psy, POWER_SUPPLY_PROP_STATUS, &value);
 
@@ -1681,18 +2334,33 @@ static void sec_bat_monitor_work(struct work_struct *work)
 	struct sec_bat_info *info = container_of(work, struct sec_bat_info,
 						 monitor_work);
 
+#ifdef CONFIG_S5PV310_HI_ARMCLK_THAN_1_2GHZ
+	s5pv310_cpufreq_lock(DVFS_LOCK_ID_PEN, CPU_L5);
+	mdelay(1);
+#endif
+
 	sec_bat_check_temper(info);
 #ifndef SEC_BATTERY_INDEPEDENT_VF_CHECK
 	sec_bat_check_vf(info);
 #endif
+#if defined (CONFIG_MACH_Q1_CHN) && defined (CONFIG_SMB328_CHARGER)
+	sec_bat_check_ovp(info);
+#endif
 	sec_bat_update_info(info);
+#ifdef SPRINT_SLATE_TEST
+	if (info->charging_status != POWER_SUPPLY_STATUS_FULL && info->batt_health == POWER_SUPPLY_HEALTH_GOOD)
+		if (info->batt_temp_recover_cnt == 0 || info->batt_temp_recover_cnt > 3)
+			sec_bat_get_dcinovp(info);
+#endif
 	if (sec_bat_charging_time_management(info))
 		goto full_charged;
 
 	if (sec_bat_check_ing_level_trigger(info))
 		goto full_charged;
 
+#if !defined(CONFIG_MACH_Q1_REV02) && !defined(CONFIG_MACH_C1_KDDI_REV00)
 	if (info->cable_type == CABLE_TYPE_AC)
+#endif
 		if (sec_check_chgcurrent(info))
 			goto full_charged;
 
@@ -1741,6 +2409,12 @@ static void sec_bat_monitor_work(struct work_struct *work)
 				dev_info(info->dev,
 				"%s: Start Recharging, Vcell = %d\n",
 				__func__, info->batt_vcell);
+
+				#if defined(RTC_USE_FOR_WAKEUP_TIMER)
+				wake_lock(&info->vbus_wake_lock);
+				//gi32_full_chg_curr = 485;	// changing the full cutoff current around ~140 mA
+			#endif
+				
 			}
 		}
 	} else {
@@ -1761,6 +2435,19 @@ static void sec_bat_monitor_work(struct work_struct *work)
 		break;
 	case POWER_SUPPLY_STATUS_CHARGING:
 		switch (info->batt_health) {
+#if defined(CONFIG_TARGET_LOCALE_NAATT)
+		case POWER_SUPPLY_HEALTH_GOOD:
+			if (info->batt_temp_ext_pre != info->batt_temp_ext) {
+				sec_bat_enable_charging(info, false);
+
+				if (!sec_bat_enable_charging(info, true)) {
+					dev_info(info->dev,
+					"%s: Changed charging current\n",
+					__func__);
+				}
+			}
+			break;
+#endif
 		case POWER_SUPPLY_HEALTH_OVERHEAT:
 		case POWER_SUPPLY_HEALTH_COLD:
 		case POWER_SUPPLY_HEALTH_OVERVOLTAGE:
@@ -1797,6 +2484,9 @@ static void sec_bat_monitor_work(struct work_struct *work)
 		break;
 	default:
 		dev_info(info->dev, "%s: Undefined Battery Status\n", __func__);
+#ifdef CONFIG_S5PV310_HI_ARMCLK_THAN_1_2GHZ
+		s5pv310_cpufreq_lock_free(DVFS_LOCK_ID_PEN);
+#endif
 		return;
 	}
 
@@ -1807,15 +2497,41 @@ full_charged:
 		info->batt_vcell / 1000, info->batt_temp / 10,
 		info->charging_status, info->batt_health, info->batt_vf_adc);
 #else
-	dev_info(info->dev, "soc(%d), vfocv(%d), vcell(%d), temp(%d), charging(%d), health(%d)\n",
-		info->batt_soc, info->batt_vfocv,
+	dev_info(info->dev, "raw_soc(%d), soc(%d), vfocv(%d), vcell(%d), temp(%d), charging(%d), health(%d)\n",
+		info->batt_raw_soc, info->batt_soc, info->batt_vfocv,
 		info->batt_vcell / 1000, info->batt_temp / 10,
 		info->charging_status, info->batt_health);
 #endif
 
 	power_supply_changed(&info->psy_bat);
 
+#if defined(RTC_USE_FOR_WAKEUP_TIMER)
+	if(info->cable_type == CABLE_TYPE_AC && ((info->charging_status == POWER_SUPPLY_STATUS_FULL) && (info->recharging_status == false)))
+	{
+		dev_err(info->dev, "%s: AC MAINS + BATT_FULL + RECHARGING=FALSE\n", __func__);
+		sec_bat_rtc_set(info,true);
+
+		if (info->get_lpcharging_state())
+			gi32_full_chg_curr = CURRENT_OF_FULL_CHG + CUT_OFF_CURRENT_OFFSET_RTC_TIMER_LPM;
+		else
+			gi32_full_chg_curr = CURRENT_OF_FULL_CHG + CUT_OFF_CURRENT_OFFSET_RTC_TIMER_IDLE;
+
+		RECHARGING_VOLTAGE = 4135*1000; //0.010V drop ???
+		
+		//wake_lock_timeout(&info->vbus_wake_lock, HZ*5);
+		wake_unlock(&info->vbus_wake_lock);
+	}
+	else
+	{
+		gi32_full_chg_curr = CURRENT_OF_FULL_CHG; //720 adc
+		RECHARGING_VOLTAGE = 4140*1000;
+	}
+#endif
 	wake_unlock(&info->monitor_wake_lock);
+
+#ifdef CONFIG_S5PV310_HI_ARMCLK_THAN_1_2GHZ
+	s5pv310_cpufreq_lock_free(DVFS_LOCK_ID_PEN);
+#endif
 
 	return;
 }
@@ -1831,9 +2547,19 @@ static void sec_bat_vf_check_work(struct work_struct *work)
 #if defined(CONFIG_TARGET_LOCALE_NAATT)
 	sec_bat_check_vf_adc(info);
 #endif
+
+#if (defined(CONFIG_MACH_Q1_REV02) && defined(CONFIG_SMB328_CHARGER)) \
+	|| (defined(CONFIG_MACH_C1_KDDI_REV00) && defined(CONFIG_SMB328_CHARGER))
+	sec_bat_check_ovp(info);
+
+	if ((info->batt_health == POWER_SUPPLY_HEALTH_UNSPEC_FAILURE) ||
+		(info->batt_health == POWER_SUPPLY_HEALTH_OVERVOLTAGE)) {
+		dev_info(info->dev,
+			"%s: Battery Disconnected or OVP activated\n", __func__);
+#else
 	if (info->batt_health == POWER_SUPPLY_HEALTH_UNSPEC_FAILURE) {
 		dev_info(info->dev, "%s: Battery Disconnected\n", __func__);
-
+#endif
 		wake_lock(&info->monitor_wake_lock);
 		queue_work(info->monitor_wqueue, &info->monitor_work);
 	}
@@ -1887,6 +2613,7 @@ static struct device_attribute sec_battery_attrs[] = {
 	SEC_BATTERY_ATTR(batt_temp_check),
 	SEC_BATTERY_ATTR(batt_temp_adc_spec),
 	SEC_BATTERY_ATTR(batt_test_value),
+	SEC_BATTERY_ATTR(batt_current_now),
 	SEC_BATTERY_ATTR(batt_current_adc),
 	SEC_BATTERY_ATTR(system_rev),
 #ifdef CONFIG_TARGET_LOCALE_NA
@@ -1901,13 +2628,14 @@ static struct device_attribute sec_battery_attrs[] = {
 #endif
 #if defined(CONFIG_TARGET_LOCALE_NAATT)
 	SEC_BATTERY_ATTR(batt_v_f_adc),
-	SEC_BATTERY_ATTR(talk_gsm),
-	SEC_BATTERY_ATTR(talk_wcdma),
-	SEC_BATTERY_ATTR(data_call),
+	SEC_BATTERY_ATTR(batt_voice_call_2g),
+	SEC_BATTERY_ATTR(batt_voice_call_3g),
+	SEC_BATTERY_ATTR(batt_data_call),
 	SEC_BATTERY_ATTR(wifi),
-	SEC_BATTERY_ATTR(gps),
+	SEC_BATTERY_ATTR(batt_gps),
 	SEC_BATTERY_ATTR(camera),
-#elif CONFIG_TARGET_LOCALE_NA
+	SEC_BATTERY_ATTR(recording),
+#elif defined(CONFIG_TARGET_LOCALE_NA)
 	SEC_BATTERY_ATTR(call),
 	//SEC_BATTERY_ATTR(video),
 	//SEC_BATTERY_ATTR(music),
@@ -1916,6 +2644,18 @@ static struct device_attribute sec_battery_attrs[] = {
 	SEC_BATTERY_ATTR(camera),
 	SEC_BATTERY_ATTR(data_call),
 	SEC_BATTERY_ATTR(wimax),
+#endif
+#if defined (CONFIG_MACH_C1_KDDI_REV00)  && defined (BATT_SYSFS_TEST_MODE)
+	SEC_BATTERY_ATTR(sysfs_test),
+	SEC_BATTERY_ATTR(test_event_block_temp),
+	SEC_BATTERY_ATTR(test_high_block_radc),
+	SEC_BATTERY_ATTR(test_low_block_radc),
+	SEC_BATTERY_ATTR(test_high_recover_radc),
+	SEC_BATTERY_ATTR(test_low_recover_radc),
+	SEC_BATTERY_ATTR(test_high_block_lpm),
+	SEC_BATTERY_ATTR(test_low_block_lpm),
+	SEC_BATTERY_ATTR(test_high_recover_lpm),
+	SEC_BATTERY_ATTR(test_low_recover_lpm),
 #endif
 };
 
@@ -1938,6 +2678,7 @@ enum {
 	BATT_TEMP_CHECK,
 	BATT_TEMP_ADC_SPEC,
 	BATT_TEST_VALUE,
+	BATT_CURRENT_NOW,
 	BATT_CURRENT_ADC,
 	BATT_SYSTEM_REV,
 	BATT_FG_PSOC,
@@ -1954,14 +2695,29 @@ enum {
 	BATT_WIFI,
 	BATT_GPS,
 	BATT_CAMERA,
+	BATT_RECORDING,
 #endif
-#if CONFIG_TARGET_LOCALE_NA
+#if defined(CONFIG_TARGET_LOCALE_NA)
 	BATT_CALL,
 	BATT_BROWSER,
 	BATT_HOTSOPT,
 	BATT_CAMERA,
 	BATT_DATA_CALL,
 	BATT_WIMAX,
+#endif
+#if defined (CONFIG_MACH_C1_KDDI_REV00)  && defined (BATT_SYSFS_TEST_MODE)
+	BATT_SYSFS_TESTMODE,
+	BATT_SYSFS_EVENT_BLOCK_TEMP_RADC,
+	BATT_SYSFS_HIGH_BLOCK_TEMP_RADC,
+	BATT_SYSFS_LOW_BLOCK_TEMP_RADC,
+	BATT_SYSFS_HIGH_RECOVER_TEMP_RADC,
+	BATT_SYSFS_LOW_RECOVER_TEMP_RADC,
+
+	BATT_SYSFS_HIGH_BLOCK_TEMP_RADC_LPM,
+	BATT_SYSFS_LOW_BLOCK_TEMP_RADC_LPM,
+	BATT_SYSFS_HIGH_RECOVER_TEMP_RADC_LPM,
+	BATT_SYSFS_LOW_RECOVER_TEMP_RADC_LPM,
+	
 #endif
 };
 
@@ -1991,7 +2747,7 @@ static void sec_bat_check_event_status(
 
 	return ;
 }
-#elif CONFIG_TARGET_LOCALE_NA
+#elif defined(CONFIG_TARGET_LOCALE_NA)
 static void sec_bat_check_event_status(
 		struct sec_bat_info *info, int mode, int offset)
 {
@@ -2018,6 +2774,12 @@ static void sec_bat_check_event_status(
 	return ;
 }
 
+int sec_bat_use_wimax(int onoff)
+{
+	struct sec_bat_info *info = pchg ;
+	sec_bat_check_event_status(info, onoff, USE_WIMAX) ;
+}
+EXPORT_SYMBOL(sec_bat_use_wimax) ;
 #endif
 
 static ssize_t sec_bat_show_property(struct device *dev,
@@ -2045,6 +2807,9 @@ static ssize_t sec_bat_show_property(struct device *dev,
 		break;
 	case BATT_TEMP_ADC:
 		val = s3c_read_temper_adc(info);
+#ifdef CONFIG_MACH_C1_KDDI_REV00
+		val = 2000 - val;
+#endif
 		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n", val);
 		break;
 #ifdef CONFIG_TARGET_LOCALE_NA
@@ -2113,6 +2878,27 @@ static ssize_t sec_bat_show_property(struct device *dev,
 		i += scnprintf(buf + i, PAGE_SIZE - i, "0-normal, 1-full, 2-low, 3-high, 4-over, 5-cf, 6-trip (%d)\n",
 			info->test_value);
 		break;
+	case BATT_CURRENT_NOW:
+		{
+			struct power_supply *psy =
+				get_power_supply_by_name(info->sub_charger_name);
+			union power_supply_propval value;
+
+			if (!psy) {
+				pr_err("%s: fail to get battery ps\n", __func__);
+				return -ENODEV;
+			}
+
+			value.intval = 0;	/* initialized as NOT charging */
+
+			if ((info->charging_status == POWER_SUPPLY_STATUS_CHARGING) ||
+				(info->charging_status == POWER_SUPPLY_STATUS_FULL))
+				psy->get_property(psy, POWER_SUPPLY_PROP_CURRENT_NOW, &value);
+
+			i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
+				value.intval);
+		}
+		break;
 	case BATT_CURRENT_ADC:
 		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
 			info->batt_current_adc);
@@ -2167,6 +2953,10 @@ static ssize_t sec_bat_show_property(struct device *dev,
 		/* TODO */
 		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n", 0);
 		break;
+	case BATT_RECORDING:
+		/* TODO */
+		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n", 0);
+		break;
 #endif
 #ifdef CONFIG_TARGET_LOCALE_NA
 	case BATT_CALL:
@@ -2188,6 +2978,12 @@ static ssize_t sec_bat_show_property(struct device *dev,
 		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n", info->use_wimax);
 		break;
 #endif
+
+#if defined(CONFIG_MACH_C1_KDDI_REV00)  && defined (BATT_SYSFS_TEST_MODE)
+	case BATT_SYSFS_TESTMODE:
+		i += scnprintf(buf + i, PAGE_SIZE - i, "%x\n", sysfs_test_mode);
+	break;
+#endif
 	default:
 		i = -EINVAL;
 		break;
@@ -2205,6 +3001,29 @@ static ssize_t sec_bat_store(struct device *dev,
 	struct sec_bat_info *info = dev_get_drvdata(dev->parent);
 
 	switch (off) {
+	case BATT_CURRENT_NOW:
+		if (sscanf(buf, "%d\n", &x) == 1) {
+			ret = count;
+			if ((info->charging_status == POWER_SUPPLY_STATUS_CHARGING) ||
+				(info->charging_status == POWER_SUPPLY_STATUS_FULL)) {
+				struct power_supply *psy =
+					get_power_supply_by_name(info->sub_charger_name);
+				union power_supply_propval value;
+
+				if (!psy) {
+					pr_err("%s: fail to get battery ps\n", __func__);
+					return -ENODEV;
+				}
+
+				value.intval = x;	/* charging current */
+				psy->set_property(psy, POWER_SUPPLY_PROP_CURRENT_NOW, &value);
+
+				value.intval = true;	/* reflect changing current */
+				psy->set_property(psy, POWER_SUPPLY_PROP_ONLINE, &value);
+			} else
+				pr_err("%s: NOT charging status\n", __func__);
+		}
+		break;
 	case BATT_VIDEO:
 		/* TODO */
 		if (sscanf(buf, "%d\n", &x) == 1) {
@@ -2212,7 +3031,7 @@ static ssize_t sec_bat_store(struct device *dev,
 			ret = count;
 #if defined(CONFIG_TARGET_LOCALE_NAATT)
 			sec_bat_check_event_status(info, x, OFFSET_VIDEO_PLAY);
-#elif CONFIG_TARGET_LOCALE_NA
+#elif defined(CONFIG_TARGET_LOCALE_NA)
 			info->use_video = x;
 			sec_bat_check_event_status(info, x,	USE_VIDEO);
 #endif
@@ -2225,12 +3044,196 @@ static ssize_t sec_bat_store(struct device *dev,
 			ret = count;
 #if defined(CONFIG_TARGET_LOCALE_NAATT)
 			sec_bat_check_event_status(info, x, OFFSET_MP3_PLAY);
-#elif CONFIG_TARGET_LOCALE_NA
+#elif defined(CONFIG_TARGET_LOCALE_NA)
 			info->use_music = x;
 			sec_bat_check_event_status(info, x,	USE_MUSIC);
 #endif
 		}
 		break;
+
+
+	#if defined(CONFIG_MACH_C1_KDDI_REV00)  && defined (BATT_SYSFS_TEST_MODE)
+	case BATT_SYSFS_TESTMODE:
+		if (sscanf(buf, "%d\n", &x) == 1) 
+		{
+			dev_info(info->dev, "%s: SYSFS_TESTMODE(%d)\n", __func__, x);
+			sysfs_set_testmode_status(x);
+			ret = count;
+		}
+	break;
+	
+	case BATT_SYSFS_EVENT_BLOCK_TEMP_RADC:
+		if (sscanf(buf, "%d\n", &x) == 1) 
+		{
+			#ifdef EVENT_BLOCK_TEMP_ADC 
+			#undef EVENT_BLOCK_TEMP_ADC
+			#define EVENT_BLOCK_TEMP_ADC  (x)
+			#endif
+			dev_info(info->dev, "%s: EVENT_BLOCK_TEMP(%d)\n", __func__, EVENT_BLOCK_TEMP_ADC);
+			ret = count;
+		}
+	break;
+
+	case BATT_SYSFS_HIGH_BLOCK_TEMP_RADC:
+		if (sscanf(buf, "%d\n", &x) == 1) 
+		{
+			#ifdef HIGH_BLOCK_TEMP_ADC 
+			#undef HIGH_BLOCK_TEMP_ADC
+			#define HIGH_BLOCK_TEMP_ADC  (x)
+			#endif
+			dev_info(info->dev, "%s: HIGH_BLOCK_TEMP(%d)\n", __func__, HIGH_BLOCK_TEMP_ADC);
+			ret = count;
+		}
+	break;
+
+	case BATT_SYSFS_LOW_BLOCK_TEMP_RADC:
+		if (sscanf(buf, "%d\n", &x) == 1) 
+		{
+			#ifdef LOW_BLOCK_TEMP_ADC 
+			#undef LOW_BLOCK_TEMP_ADC
+			#define LOW_BLOCK_TEMP_ADC  (x)
+			#endif
+			dev_info(info->dev, "%s: LOW_BLOCK_TEMP(%d)\n", __func__, LOW_BLOCK_TEMP_ADC);
+			ret = count;
+		}
+	break;
+
+	case BATT_SYSFS_HIGH_RECOVER_TEMP_RADC:
+		if (sscanf(buf, "%d\n", &x) == 1) 
+		{
+			#ifdef HIGH_RECOVER_TEMP_ADC 
+			#undef HIGH_RECOVER_TEMP_ADC
+			#define HIGH_RECOVER_TEMP_ADC  (x)
+			#endif
+			dev_info(info->dev, "%s: HIGH_RECOVER_TEMP(%d)\n", __func__, HIGH_RECOVER_TEMP_ADC);
+			ret = count;
+		}
+	break;
+
+	case BATT_SYSFS_LOW_RECOVER_TEMP_RADC:
+		if (sscanf(buf, "%d\n", &x) == 1) 
+		{
+			#ifdef LOW_RECOVER_TEMP_ADC 
+			#undef LOW_RECOVER_TEMP_ADC
+			#define LOW_RECOVER_TEMP_ADC  (x)
+			#endif
+			dev_info(info->dev, "%s: LOW_RECOVER_TEMP(%d)\n", __func__, LOW_RECOVER_TEMP_ADC);
+			ret = count;
+		}
+	break;
+
+	case BATT_SYSFS_HIGH_BLOCK_TEMP_RADC_LPM:
+		if (sscanf(buf, "%d\n", &x) == 1) 
+		{
+			#ifdef HIGH_BLOCK_TEMP_ADC_LPM 
+			#undef HIGH_BLOCK_TEMP_ADC_LPM
+			#define HIGH_BLOCK_TEMP_ADC_LPM  (x)
+			#endif
+			dev_info(info->dev, "%s: HIGH_BLOCK_TEMP_ADC_LPM(%d)\n", __func__, HIGH_BLOCK_TEMP_ADC_LPM);
+			ret = count;
+		}
+	break;
+
+	case BATT_SYSFS_LOW_BLOCK_TEMP_RADC_LPM:
+		if (sscanf(buf, "%d\n", &x) == 1) 
+		{
+			#ifdef LOW_BLOCK_TEMP_ADC_LPM 
+			#undef LOW_BLOCK_TEMP_ADC_LPM
+			#define LOW_BLOCK_TEMP_ADC_LPM  (x)
+			#endif
+			dev_info(info->dev, "%s: LOW_BLOCK_TEMP_ADC_LPM(%d)\n", __func__, LOW_BLOCK_TEMP_ADC_LPM);
+			ret = count;
+		}
+	break;
+
+	case BATT_SYSFS_HIGH_RECOVER_TEMP_RADC_LPM:
+		if (sscanf(buf, "%d\n", &x) == 1) 
+		{
+			#ifdef HIGH_RECOVER_TEMP_ADC_LPM 
+			#undef HIGH_RECOVER_TEMP_ADC_LPM
+			#define HIGH_RECOVER_TEMP_ADC_LPM  (x)
+			#endif
+			dev_info(info->dev, "%s: HIGH_RECOVER_TEMP_ADC_LPM(%d)\n", __func__, HIGH_RECOVER_TEMP_ADC_LPM);
+			ret = count;
+		}
+	break;
+
+	case BATT_SYSFS_LOW_RECOVER_TEMP_RADC_LPM:
+		if (sscanf(buf, "%d\n", &x) == 1) 
+		{
+			#ifdef LOW_RECOVER_TEMP_ADC_LPM 
+			#undef LOW_RECOVER_TEMP_ADC_LPM
+			#define LOW_RECOVER_TEMP_ADC_LPM  (x)
+			#endif
+			dev_info(info->dev, "%s: LOW_RECOVER_TEMP_ADC_LPM(%d)\n", __func__, LOW_RECOVER_TEMP_ADC_LPM);
+			ret = count;
+		}
+	break;
+	
+	case BATT_TEMP:
+		// User will set the desired temp.  corresponding adc has to be brought from the array.
+		if (sscanf(buf, "%d\n", &x) == 1) 
+		{
+			int testmode_status = sysfs_get_testmode_status();
+
+			pr_err("%s: BATT_TEMP -- sysfs_test_mode status = %x\n", __func__, testmode_status);
+			if (testmode_status == (SYSFS_TEST_MODE_ON | SYSFS_TEST_MODE_TEMP))
+			{
+				pr_err("%s: Batt_temp use sysfs & overwrite original.\n", __func__);
+				info->batt_temp = x;
+			}
+			else 	if (testmode_status == SYSFS_TEST_MODE_OFF) 
+			{
+				pr_err("%s: Sysfs Test mode is set to OFF \n", __func__);				
+			}
+			ret = count;
+		}
+	break;
+
+	case BATT_SOC:
+	{
+		if (sscanf(buf, "%d\n", &x) == 1) 
+		{
+			int testmode_status = sysfs_get_testmode_status();
+
+			pr_err("%s: BATT_SOC -- sysfs_test_mode status = %x\n", __func__, testmode_status);
+			if (testmode_status == (SYSFS_TEST_MODE_ON | SYSFS_TEST_MODE_SOC))
+			{
+				pr_err("%s: batt_temp_adc use sysfs & overwrite original.\n", __func__);
+				info->batt_soc = x;
+			}
+			else 	if (testmode_status == SYSFS_TEST_MODE_OFF) 
+			{
+				pr_err("%s: Sysfs Test mode is set to OFF \n", __func__);				
+			}
+			ret = count;
+		}
+	}
+	break;
+
+	case BATT_TEMP_ADC:
+	{
+		if (sscanf(buf, "%d\n", &x) == 1) 
+		{
+			int testmode_status = sysfs_get_testmode_status();
+
+			pr_err("%s: BATT_TEMP_ADC -- sysfs_test_mode status = %x\n", __func__, testmode_status);
+			if (testmode_status == (SYSFS_TEST_MODE_ON | SYSFS_TEST_MODE_ADC))
+			{
+				info->batt_temp_adc = x;
+				pr_err("%s: batt_temp_adc use sysfs[%d] & overwrite original.\n", __func__, info->batt_temp_adc);
+			}
+			else 	if (testmode_status == SYSFS_TEST_MODE_OFF) 
+			{
+				pr_err("%s: Sysfs Test mode is set to OFF \n", __func__);				
+			}
+			ret = count;
+		}
+	}
+	break;
+
+	#endif
+		
 	case BATT_TEST_VALUE:
 		if (sscanf(buf, "%d\n", &x) == 1) {
 			info->test_value = x;
@@ -2305,6 +3308,14 @@ static ssize_t sec_bat_store(struct device *dev,
 			dev_info(info->dev, "%s: camera(%d)\n", __func__, x);
 			ret = count;
 			sec_bat_check_event_status(info, x, OFFSET_CAMERA_ON);
+		}
+		break;
+	case BATT_RECORDING:
+		/* TODO */
+		if (sscanf(buf, "%d\n", &x) == 1) {
+			dev_info(info->dev, "%s: recording(%d)\n", __func__, x);
+			ret = count;
+			sec_bat_check_event_status(info, x, OFFSET_RECORDING_ON);
 		}
 		break;
 #endif
@@ -2390,7 +3401,7 @@ succeed:
 
 static int sec_bat_is_charging(struct sec_bat_info *info)
 {
-	struct power_supply *psy = power_supply_get_by_name(info->charger_name);
+	struct power_supply *psy = get_power_supply_by_name(info->charger_name);
 	union power_supply_propval value;
 	int ret;
 
@@ -2499,7 +3510,11 @@ static __devinit int sec_bat_probe(struct platform_device *pdev)
 	info->fuel_gauge_name = pdata->fuel_gauge_name;
 	info->charger_name = pdata->charger_name;
 	info->sub_charger_name = pdata->sub_charger_name;
-	if (system_rev >= HWREV_FOR_BATTERY) {
+#if defined(CONFIG_MACH_C1_NA_SPR_EPIC2_REV00)
+	if (system_rev <= HWREV_FOR_BATTERY) {
+#else
+	 if (system_rev >= HWREV_FOR_BATTERY) {
+#endif
 		dev_info(&pdev->dev, "%s: use sub-charger\n", __func__);
 		info->adc_arr_size = pdata->adc_sub_arr_size;
 		info->adc_table = pdata->adc_sub_table;
@@ -2512,10 +3527,10 @@ static __devinit int sec_bat_probe(struct platform_device *pdev)
 		info->adc_channel = pdata->adc_channel;
 		info->use_sub_charger = false;
 	}
+	info->get_lpcharging_state = pdata->get_lpcharging_state;
 #if defined(CONFIG_TARGET_LOCALE_NAATT)
 	info->vf_adc_channel = pdata->adc_vf_channel;
 #endif
-	info->get_lpcharging_state = pdata->get_lpcharging_state;
 
 	info->psy_bat.name = "battery",
 	    info->psy_bat.type = POWER_SUPPLY_TYPE_BATTERY,
@@ -2545,7 +3560,7 @@ static __devinit int sec_bat_probe(struct platform_device *pdev)
 	wake_lock_init(&info->cable_wake_lock, WAKE_LOCK_SUSPEND,
 		       "sec-battery-cable");
 
-	psy = power_supply_get_by_name(info->charger_name);
+	psy = get_power_supply_by_name(info->charger_name);
 
 	if (!psy) {
 		dev_err(info->dev, "%s: fail to get charger\n", __func__);
@@ -2567,9 +3582,13 @@ static __devinit int sec_bat_probe(struct platform_device *pdev)
 	else
 	info->batt_health = POWER_SUPPLY_HEALTH_GOOD;
 
+#if defined(CONFIG_MACH_Q1_REV02)
+	info->charging_status = POWER_SUPPLY_STATUS_DISCHARGING;
+#else
 	info->charging_status = sec_bat_is_charging(info);
 	if (info->charging_status < 0)
 		info->charging_status = POWER_SUPPLY_STATUS_DISCHARGING;
+#endif
 
 	info->present_count = 0;
 	info->charging_int_full_count = 0;
@@ -2592,7 +3611,7 @@ static __devinit int sec_bat_probe(struct platform_device *pdev)
 	info->batt_vf_adc = 0;
 	info->batt_event_status = 0;
 	info->event_end_time = 0xFFFFFFFF;
-#elif CONFIG_TARGET_LOCALE_NA
+#elif defined(CONFIG_TARGET_LOCALE_NA)
 	info->use_call = 0;
 	info->use_video =0 ;
 	info->use_music =0;
@@ -2606,9 +3625,21 @@ static __devinit int sec_bat_probe(struct platform_device *pdev)
 #endif
 	if (info->get_lpcharging_state) {
 		if (info->get_lpcharging_state())
+		{
+			#if defined (CONFIG_MACH_C1_KDDI_REV00)
+			info->polling_interval = POLLING_INTERVAL*2;
+			#else
 			info->polling_interval = POLLING_INTERVAL / 4;
+			#endif
+		}
 		else
+		{
+			#if defined (CONFIG_MACH_C1_KDDI_REV00)
+			info->polling_interval = POLLING_INTERVAL*2;
+			#else
 			info->polling_interval = POLLING_INTERVAL;
+			#endif
+		}
 	}
 
 	info->test_value = 0;
@@ -2658,14 +3689,27 @@ static __devinit int sec_bat_probe(struct platform_device *pdev)
 	INIT_WORK(&info->monitor_work, sec_bat_monitor_work);
 	INIT_WORK(&info->cable_work, sec_bat_cable_work);
 
-	INIT_DELAYED_WORK_DEFERRABLE(&info->polling_work,
-		sec_bat_polling_work);
+	INIT_DELAYED_WORK_DEFERRABLE(&info->polling_work, sec_bat_polling_work);
 	schedule_delayed_work(&info->polling_work, 0);
+
+#if defined(RTC_USE_FOR_WAKEUP_TIMER)
+	sec_bat_alarm_init(info);
+	printk("[ssong] %s: info=0x%x \n",__func__,(int)info);
+#endif
+
+#ifdef CONFIG_TARGET_LOCALE_NA
+	pchg = info ; // using pointer - for wimax
+#endif
 
 #ifdef SEC_BATTERY_INDEPEDENT_VF_CHECK
 	INIT_DELAYED_WORK_DEFERRABLE(&info->vf_check_work,
 		sec_bat_vf_check_work);
 	schedule_delayed_work(&info->vf_check_work, 0);
+#endif
+
+#if defined(CONFIG_MACH_Q1_REV02)
+	if (pdata->initial_check)
+		pdata->initial_check();
 #endif
 
 	dev_info(info->dev, "%s: SEC Battery Driver Loaded\n", __func__);
@@ -2681,6 +3725,7 @@ err_wake_lock:
 	wake_lock_destroy(&info->vbus_wake_lock);
 	wake_lock_destroy(&info->monitor_wake_lock);
 	wake_lock_destroy(&info->cable_wake_lock);
+	s3c_adc_release(info->padc);
 	mutex_destroy(&info->adclock);
 err_kfree:
 	kfree(info);
@@ -2722,6 +3767,7 @@ static int sec_bat_suspend(struct device *dev)
 {
 	struct sec_bat_info *info = dev_get_drvdata(dev);
 
+	wake_unlock(&info->monitor_wake_lock);
 	cancel_work_sync(&info->monitor_work);
 	cancel_delayed_work(&info->polling_work);
 #ifdef SEC_BATTERY_INDEPEDENT_VF_CHECK
@@ -2749,6 +3795,74 @@ static int sec_bat_resume(struct device *dev)
 	return 0;
 }
 
+#if defined(CONFIG_TARGET_LOCALE_NA)
+static void sec_bat_shutdown(struct device *dev)
+{
+	struct sec_bat_info *info = dev_get_drvdata(dev);
+	struct power_supply *psy_main, *psy_sub;
+	union power_supply_propval val_type;
+	int ret;
+
+	if (!info->use_sub_charger)
+		return;
+
+	psy_main = get_power_supply_by_name(info->charger_name);
+	psy_sub = get_power_supply_by_name(info->sub_charger_name);
+
+	if (!psy_main || !psy_sub) {
+		dev_err(info->dev, "%s: fail to get charger ps\n", __func__);
+		return;
+	}
+
+	val_type.intval = POWER_SUPPLY_STATUS_CHARGING;
+	ret = psy_main->set_property(psy_main, POWER_SUPPLY_PROP_STATUS, &val_type);
+	if (ret) {
+		dev_err(info->dev, "%s: fail to set charging status(%d)\n",
+			__func__, ret);
+		return;
+	}
+
+	val_type.intval = POWER_SUPPLY_STATUS_DISCHARGING;
+	ret = psy_sub->set_property(psy_sub, POWER_SUPPLY_PROP_STATUS, &val_type);
+	if (ret) {
+		dev_err(info->dev, "%s: fail to set charging status(%d)\n",
+			__func__, ret);
+		return;
+	}
+#if defined(RTC_USE_FOR_WAKEUP_TIMER)
+	sec_bat_rtc_set(info,false);
+#endif
+}
+#elif defined(CONFIG_MACH_Q1_REV02)
+static void sec_bat_shutdown(struct device *dev)
+{
+	struct sec_bat_info *info = dev_get_drvdata(dev);
+#if defined(CONFIG_SMB328_CHARGER)
+	struct power_supply *psy_sub =
+		get_power_supply_by_name("smb328-charger");
+	union power_supply_propval value;
+	int ret;
+
+	if (!psy_sub) {
+		dev_err(info->dev, "%s: fail to get charger ps\n", __func__);
+		return;
+	}
+
+	value.intval = false;
+	ret = psy_sub->set_property(psy_sub,
+					POWER_SUPPLY_PROP_CHARGE_TYPE, /* only for OTG */
+					&value);
+	if (ret) {
+		dev_info(info->dev, "%s: fail to set OTG (%d)\n",
+			__func__, ret);
+		return;
+	}
+#endif
+}
+#else
+#define sec_bat_shutdown	NULL
+#endif
+
 static const struct dev_pm_ops sec_bat_pm_ops = {
 	.suspend = sec_bat_suspend,
 	.resume = sec_bat_resume,
@@ -2759,6 +3873,7 @@ static struct platform_driver sec_bat_driver = {
 		   .name = "sec-battery",
 		   .owner = THIS_MODULE,
 		   .pm = &sec_bat_pm_ops,
+		   .shutdown = sec_bat_shutdown,
 		   },
 	.probe = sec_bat_probe,
 	.remove = __devexit_p(sec_bat_remove),

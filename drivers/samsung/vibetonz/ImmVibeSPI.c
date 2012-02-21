@@ -47,9 +47,15 @@
 
 #define PWM_DUTY_MAX    579 /* 13MHz / (579 + 1) = 22.4kHz */
 #if defined (CONFIG_TARGET_LOCALE_KOR) || defined (CONFIG_TARGET_LOCALE_NA)
+#if defined (CONFIG_MACH_C1_KDDI_REV00)
+#define FREQ_COUNT 38022 /*ssong111015. This should be 38109, because 1/38109ns=26.2405KHz, 26.2405KHz/128=205.004Hz*/
+#else
 #define FREQ_COUNT	44643
+#endif
 #elif defined (CONFIG_TARGET_LOCALE_NTT)
 #define FREQ_COUNT      44138
+#elif defined (CONFIG_MACH_Q1_REV02)
+#define FREQ_COUNT	38296	/* 128 * 204 = 26.112 */
 #else
 #define FREQ_COUNT	38022
 #endif
@@ -132,12 +138,17 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_AmpDisable(VibeUInt8 nActuatorIndex
 #endif
 
 	if (g_bAmpEnabled) {
+#ifndef CONFIG_MACH_Q1_REV02
 		struct regulator *regulator;
+#endif
 
 		g_bAmpEnabled = false;
 		_pwm_config(Immvib_pwm, freq_count/2, freq_count);
 
 		if (regulator_hapticmotor_enabled == 1) {
+#ifdef CONFIG_MACH_Q1_REV02
+			gpio_direction_output(GPIO_MOTOR_EN, 0);
+#else
 			regulator = regulator_get(NULL, "vmotor");
 
 			if (IS_ERR(regulator)) {
@@ -147,7 +158,7 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_AmpDisable(VibeUInt8 nActuatorIndex
 
 			regulator_force_disable(regulator);
 			regulator_put(regulator);
-
+#endif
 			regulator_hapticmotor_enabled = 0;
 
 			printk(KERN_DEBUG "tspdrv: %s (%d)\n", __func__, regulator_hapticmotor_enabled);
@@ -179,13 +190,17 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_AmpEnable(VibeUInt8 nActuatorIndex)
 #endif
 
 	if (!g_bAmpEnabled) {
+#ifndef CONFIG_MACH_Q1_REV02
 		struct regulator *regulator;
+#endif
 
 		g_bAmpEnabled = true;
 
 		_pwm_config(Immvib_pwm, freq_count/2, freq_count);
 		vibe_control_max8997(Immvib_pwm, 1);
-
+#ifdef CONFIG_MACH_Q1_REV02
+			gpio_direction_output(GPIO_MOTOR_EN, 1);
+#else
 		regulator = regulator_get(NULL, "vmotor");
 
 		if (IS_ERR(regulator)) {
@@ -195,7 +210,7 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_AmpEnable(VibeUInt8 nActuatorIndex)
 
 		regulator_enable(regulator);
 		regulator_put(regulator);
-
+#endif
 		regulator_hapticmotor_enabled = 1;
 
 		printk(KERN_DEBUG "tspdrv: %s (%d)\n", __func__, regulator_hapticmotor_enabled);

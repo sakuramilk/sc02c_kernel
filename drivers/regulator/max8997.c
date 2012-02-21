@@ -70,6 +70,11 @@ static const struct vol_cur_map_desc flash_vol_cur_map_desc = {
 static const struct vol_cur_map_desc movie_vol_cur_map_desc = {
 	.min = 15625,	.step = 15625,	.max = 250000,
 };
+#ifdef MAX8997_SUPPORT_TORCH
+static const struct vol_cur_map_desc torch_vol_cur_map_desc = {
+	.min = 15625,	.step = 15625,	.max = 250000,
+};
+#endif /* MAX8997_SUPPORT_TORCH */
 
 static const struct vol_cur_map_desc *ldo_vol_cur_map[] = {
 	NULL,
@@ -106,6 +111,9 @@ static const struct vol_cur_map_desc *ldo_vol_cur_map[] = {
 	NULL,				/* ESAFEOUT2 */
 	&flash_vol_cur_map_desc,	/* FLASH_EN */
 	&movie_vol_cur_map_desc,	/* MOVIE_EN */
+#ifdef MAX8997_SUPPORT_TORCH
+	&torch_vol_cur_map_desc,	/* TORCH */
+#endif /* MAX8997_SUPPORT_TORCH */
 };
 
 static inline int max8997_get_ldo(struct regulator_dev *rdev)
@@ -645,6 +653,9 @@ static int max8997_flash_is_enabled(struct regulator_dev *rdev)
 	case MAX8997_FLASH_CUR:
 		mask = MAX8997_FLASH_EN_MASK;
 		break;
+#ifdef MAX8997_SUPPORT_TORCH
+	case MAX8997_FLASH_TORCH:
+#endif /* MAX8997_FLASH_TORCH */
 	case MAX8997_MOVIE_CUR:
 		mask = MAX8997_MOVIE_EN_MASK;
 		break;
@@ -679,6 +690,12 @@ static int max8997_flash_enable(struct regulator_dev *rdev)
 		ret = max8997_update_reg(i2c, MAX8997_REG_LED_CNTL,
 			7 << MAX8997_MOVIE_EN_SHIFT, MAX8997_MOVIE_EN_MASK);
 		break;
+#ifdef MAX8997_SUPPORT_TORCH
+	case MAX8997_FLASH_TORCH:
+		ret = max8997_update_reg(i2c, MAX8997_REG_LED_CNTL,
+			3 << MAX8997_MOVIE_EN_SHIFT, MAX8997_MOVIE_EN_MASK);
+		break;
+#endif /* MAX8997_SUPPORT_TORCH */
 	default:
 		return -EINVAL;
 	}
@@ -702,6 +719,9 @@ static int max8997_flash_disable(struct regulator_dev *rdev)
 		ret = max8997_update_reg(i2c, MAX8997_REG_LED_CNTL,
 			0 << MAX8997_FLASH_EN_SHIFT, MAX8997_FLASH_EN_MASK);
 		break;
+#ifdef MAX8997_SUPPORT_TORCH
+	case MAX8997_FLASH_TORCH:
+#endif /* MAX8997_SUPPORT_TORCH */
 	case MAX8997_MOVIE_CUR:
 		ret = max8997_update_reg(i2c, MAX8997_REG_LED_CNTL,
 			0 << MAX8997_MOVIE_EN_SHIFT, MAX8997_MOVIE_EN_MASK);
@@ -730,6 +750,9 @@ static int max8997_flash_get_current(struct regulator_dev *rdev)
 		ret = max8997_read_reg(i2c, MAX8997_REG_FLASH1_CUR, &val);
 		shift = 3;
 		break;
+#ifdef MAX8997_SUPPORT_TORCH
+	case MAX8997_FLASH_TORCH:
+#endif /* MAX8997_SUPPORT_TORCH */
 	case MAX8997_MOVIE_CUR:
 		ret = max8997_read_reg(i2c, MAX8997_REG_MOVIE_CUR, &val);
 		shift = 4;
@@ -792,6 +815,11 @@ static int max8997_flash_set_current(struct regulator_dev *rdev,
 				0xf << 2);
 #endif
 		break;
+#ifdef MAX8997_SUPPORT_TORCH
+	case MAX8997_FLASH_TORCH:
+		ret = max8997_write_reg(i2c, MAX8997_REG_MOVIE_CUR, i << 4);
+		break;
+#endif /* MAX8997_SUPPORT_TORCH */
 	default:
 		return -EINVAL;
 	}
@@ -1038,6 +1066,14 @@ static struct regulator_desc regulators[] = {
 		.ops		= &max8997_flash_ops,
 		.type		= REGULATOR_CURRENT,
 		.owner		= THIS_MODULE,
+#ifdef MAX8997_SUPPORT_TORCH
+	}, {
+		.name		= "FLASH_TORCH",
+		.id		= MAX8997_FLASH_TORCH,
+		.ops		= &max8997_flash_ops,
+		.type		= REGULATOR_CURRENT,
+		.owner		= THIS_MODULE,
+#endif /* MAX8997_SUPPORT_TORCH */
 	}
 };
 

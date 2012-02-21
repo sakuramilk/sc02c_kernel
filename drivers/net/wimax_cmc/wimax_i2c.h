@@ -5,13 +5,12 @@
  */
 #ifndef __WIMAX_I2C_H__
 #define __WIMAX_I2C_H__
-//#define DRIVER_BIT_BANG
 
 /* Write WiMAX boot image to EEPROM */
-void eeprom_write_boot(void);
+int eeprom_write_boot(void);
 
 /* Write HW rev to EEPROM */
-void eeprom_write_rev(void);
+int eeprom_write_rev(void);
 
 /* Erase WiMAX certification */
 void eeprom_erase_cert(void);
@@ -28,8 +27,21 @@ void eeprom_read_boot(void);
 /* Read entire EEPROM data */
 void eeprom_read_all(void);
 
+/* Read RDB data */
+void eeprom_read_RDB(void);
+
+/* Store RDB data */
+void eeprom_store_RDB(void);
+
+/* Read CERTI data */
+void eeprom_read_CERTI(void);
+
 /* Erase entire EEPROM data */
 void eeprom_erase_all(void);
+
+extern struct image_data g_wimax_image;
+
+void wimax_i2c_reset(void);
 
 #ifndef DRIVER_BIT_BANG
 
@@ -42,3 +54,4 @@ void wmxeeprom_exit(void);
 #endif
 
 #endif	/* __WIMAX_I2C_H__ */
+

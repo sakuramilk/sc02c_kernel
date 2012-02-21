@@ -143,6 +143,7 @@ struct s3cfb_lcd_timing {
 	int	v_sw;
 #ifdef CONFIG_FB_S3C_MIPI_LCD
 	int	cmd_allow_len;
+	int	stable_vfp;
 	void	(*cfg_gpio)(struct platform_device *dev);
 	int	(*backlight_on)(struct platform_device *dev);
 	int	(*reset_lcd)(struct platform_device *dev);
@@ -208,6 +209,7 @@ struct s3cfb_fimd_desc {
 
 struct s3cfb_global {
 	void __iomem		*regs;
+	void __iomem		*regs_org;
 	struct mutex		lock;
 	struct device		*dev;
 	struct clk		*clock;
@@ -224,7 +226,7 @@ struct s3cfb_global {
 	struct vcm		*s5p_vcm;
 #endif
 
-	int 			system_state;
+	int			system_state;
 #ifdef CONFIG_HAS_WAKELOCK
 	struct early_suspend	early_suspend;
 	struct wake_lock	idle_lock;
@@ -361,6 +363,7 @@ extern int s3cfb_display_on(struct s3cfb_global *ctrl);
 extern int s3cfb_display_off(struct s3cfb_global *ctrl);
 extern int s3cfb_set_clock(struct s3cfb_global *ctrl);
 extern int s3cfb_set_polarity(struct s3cfb_global *ctrl);
+extern int s3cfb_set_polarity_only(struct s3cfb_global *ctrl);
 extern int s3cfb_set_timing(struct s3cfb_global *ctrl);
 extern int s3cfb_set_lcd_size(struct s3cfb_global *ctrl);
 extern int s3cfb_set_global_interrupt(struct s3cfb_global *ctrl, int enable);
@@ -384,6 +387,8 @@ extern int s3cfb_channel_localpath_off(struct s3cfb_global *ctrl, int id);
 #ifdef CONFIG_FB_S3C_MIPI_LCD
 extern void s3cfb_set_trigger(struct s3cfb_global *ctrl);
 #endif
+extern int s3cfb_check_vsync_status(struct s3cfb_global *ctrl);
+extern int s3cfb_vsync_status_check(void);
 
 #ifdef CONFIG_HAS_WAKELOCK
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -394,5 +399,17 @@ extern void s3cfb_late_resume(struct early_suspend *h);
 
 /* LCD */
 extern void s3cfb_set_lcd_info(struct s3cfb_global *ctrl);
+
+#ifdef CONFIG_FB_S3C_MIPI_LCD
+extern void s5p_dsim_hs_toggle(void);
+extern void s5p_dsim_early_suspend(void);
+extern void s5p_dsim_late_resume(void);
+extern int s5p_dsim_fifo_clear(void);
+#endif
+
+#ifdef CONFIG_FB_S3C_S6E8AA0
+extern void s6e8ax0_early_suspend(void);
+extern void s6e8ax0_late_resume(void);
+#endif
 
 #endif /* _S3CFB_H */

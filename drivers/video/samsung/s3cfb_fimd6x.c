@@ -40,6 +40,16 @@ void s3cfb_check_line_count(struct s3cfb_global *ctrl)
 	}
 }
 
+int s3cfb_check_vsync_status(struct s3cfb_global *ctrl)
+{
+	u32 cfg = (readl(ctrl->regs + S3C_VIDCON1) & S3C_VIDCON1_VSTATUS_MASK);
+
+	if (cfg != S3C_VIDCON1_VSTATUS_ACTIVE && cfg != S3C_VIDCON1_VSTATUS_BACK)
+		return 1;
+	else
+		return 0;
+}
+
 int s3cfb_set_output(struct s3cfb_global *ctrl)
 {
 	u32 cfg;
@@ -257,21 +267,47 @@ int s3cfb_display_on(struct s3cfb_global *ctrl)
 	return 0;
 }
 
+#ifndef CONFIG_FB_S3C_MIPI_LCD
 int s3cfb_display_off(struct s3cfb_global *ctrl)
 {
 	u32 cfg;
 
 	cfg = readl(ctrl->regs + S3C_VIDCON0);
-	cfg &= ~S3C_VIDCON0_ENVID_ENABLE;
+	cfg &= ~S3C_VIDCON0_ENVID_F_ENABLE;
 	writel(cfg, ctrl->regs + S3C_VIDCON0);
 
-	cfg &= ~S3C_VIDCON0_ENVID_F_ENABLE;
+	do {
+		cfg = readl(ctrl->regs + S3C_VIDCON0);
+	} while ((cfg & S3C_VIDCON0_ENVID_F_ENABLE) == S3C_VIDCON0_ENVID_F_ENABLE);
+
+	cfg &= ~S3C_VIDCON0_ENVID_ENABLE;
 	writel(cfg, ctrl->regs + S3C_VIDCON0);
 
 	dev_dbg(ctrl->dev, "global display is off\n");
 
 	return 0;
 }
+#else
+int s3cfb_display_off(struct s3cfb_global *ctrl)
+{
+	u32 cfg, fimd_count = 0;
+
+	cfg = readl(ctrl->regs + S3C_VIDCON0);
+	cfg |= S3C_VIDCON0_ENVID_ENABLE;	
+	cfg &= ~S3C_VIDCON0_ENVID_F_ENABLE;
+
+	writel(cfg, ctrl->regs + S3C_VIDCON0);
+
+	do { 
+		if(++fimd_count>2000000){
+			printk("FIMD off fail\n");
+			return 1;
+		}			
+		if ( !(readl(ctrl->regs + S3C_VIDCON0) & 0x1) )
+	return 0;
+	} while(1);
+}
+#endif
 
 int s3cfb_frame_off(struct s3cfb_global *ctrl)
 {
@@ -300,7 +336,7 @@ int s3cfb_set_clock(struct s3cfb_global *ctrl)
 		cfg &= ~(S3C_VIDCON0_CLKVALUP_MASK |
 			S3C_VIDCON0_VCLKEN_MASK);
 		cfg |= (S3C_VIDCON0_CLKVALUP_START_FRAME |
-			S3C_VIDCON0_VCLKEN_NORMAL);
+			S3C_VIDCON0_VCLKEN_FREERUN);
 
 		src_clk = clk_get_rate(ctrl->clock);
 		printk(KERN_INFO "FIMD src sclk = %d\n", src_clk);
@@ -312,6 +348,18 @@ int s3cfb_set_clock(struct s3cfb_global *ctrl)
 		cfg |= (S3C_VIDCON0_CLKVALUP_START_FRAME |
 			S3C_VIDCON0_VCLKEN_NORMAL |
 			S3C_VIDCON0_CLKDIR_DIVIDED);
+
+		if (strcmp(pdata->clk_name, "sclk_fimd") == 0) {
+			cfg |= S3C_VIDCON0_CLKSEL_SCLK;
+			src_clk = clk_get_rate(ctrl->clock);
+			printk(KERN_INFO "FIMD src sclk = %d\n", src_clk);
+
+		} else {
+			cfg |= S3C_VIDCON0_CLKSEL_HCLK;
+			src_clk = ctrl->clock->parent->rate;
+			printk(KERN_INFO "FIMD src hclk = %d\n", src_clk);
+		}
+	}
 #else
 	if (pdata->hw_ver == 0x70) {
 		cfg &= ~(S3C_VIDCON0_CLKVALUP_MASK |
@@ -329,7 +377,7 @@ int s3cfb_set_clock(struct s3cfb_global *ctrl)
 		cfg |= (S3C_VIDCON0_CLKVALUP_ALWAYS |
 			S3C_VIDCON0_VCLKEN_NORMAL |
 			S3C_VIDCON0_CLKDIR_DIVIDED);
-#endif
+
 		if (strcmp(pdata->clk_name, "sclk_fimd") == 0) {
 			cfg |= S3C_VIDCON0_CLKSEL_SCLK;
 			src_clk = clk_get_rate(ctrl->clock);
@@ -341,6 +389,7 @@ int s3cfb_set_clock(struct s3cfb_global *ctrl)
 			printk(KERN_INFO "FIMD src hclk = %d\n", src_clk);
 		}
 	}
+#endif
 
 	vclk = PICOS2KHZ(ctrl->fb[pdata->default_win]->var.pixclock) * 1000;
 
@@ -351,10 +400,14 @@ int s3cfb_set_clock(struct s3cfb_global *ctrl)
 	}
 
 	div = src_clk / vclk;
-#ifndef CONFIG_FB_S3C_MIPI_LCD
-	if (src_clk % vclk)
+
+	if ((src_clk % vclk) >= (vclk >> 1))
 		div++;
-#endif
+
+	if (div == 0) {
+		dev_err(ctrl->dev, "div(%d) should be non-zero\n", div);
+		div = 1;
+	}
 
 	if ((src_clk/div) > maxclk)
 		dev_info(ctrl->dev, "vclk(%d) should be smaller than %d Hz\n",
@@ -363,7 +416,7 @@ int s3cfb_set_clock(struct s3cfb_global *ctrl)
 	cfg |= S3C_VIDCON0_CLKVAL_F(div - 1);
 	writel(cfg, ctrl->regs + S3C_VIDCON0);
 
-	dev_dbg(ctrl->dev, "parent clock: %d, vclk: %d, vclk div: %d\n",
+	dev_info(ctrl->dev, "parent clock: %d, vclk: %d, vclk div: %d\n",
 			src_clk, vclk, div);
 
 	return 0;
@@ -379,7 +432,32 @@ int s3cfb_set_polarity(struct s3cfb_global *ctrl)
 
 	/* Set VCLK hold scheme */
 	cfg &= S3C_VIDCON1_FIXVCLK_MASK;
-	cfg |= S3C_VIDCON1_FIXVCLK_VCLK_RUN;
+	cfg |= S3C_VIDCON1_FIXVCLK_VCLK_RUN_VDEN_DIS;
+
+	if (pol->rise_vclk)
+		cfg |= S3C_VIDCON1_IVCLK_RISING_EDGE;
+
+	if (pol->inv_hsync)
+		cfg |= S3C_VIDCON1_IHSYNC_INVERT;
+
+	if (pol->inv_vsync)
+		cfg |= S3C_VIDCON1_IVSYNC_INVERT;
+
+	if (pol->inv_vden)
+		cfg |= S3C_VIDCON1_IVDEN_INVERT;
+
+	writel(cfg, ctrl->regs + S3C_VIDCON1);
+
+	return 0;
+}
+
+int s3cfb_set_polarity_only(struct s3cfb_global *ctrl)
+{
+	struct s3cfb_lcd_polarity *pol;
+	u32 cfg = 0;
+
+	pol = &ctrl->lcd->polarity;
+	cfg |= S3C_VIDCON1_FIXVCLK_VCLK_RUN_VDEN_DIS;
 
 	if (pol->rise_vclk)
 		cfg |= S3C_VIDCON1_IVCLK_RISING_EDGE;

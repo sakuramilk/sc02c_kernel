@@ -22,11 +22,13 @@
 #include <linux/input.h>
 #include <linux/interrupt.h>
 #include <asm/div64.h>
-#include <linux/input/k3g.h>
 #include <linux/delay.h>
+#include <linux/completion.h>
+#include <linux/input/k3g.h>
 
 /* k3g chip id */
 #define DEVICE_ID	0xD3
+
 /* k3g gyroscope registers */
 #define WHO_AM_I	0x0F
 #define CTRL_REG1	0x20  /* power control reg */
@@ -45,8 +47,10 @@
 #define ENABLE_ALL_AXES	0x07
 #define BYPASS_MODE	0x00
 #define FIFO_MODE	0x20
-
 #define FIFO_EMPTY	0x20
+#define AC		(1 << 7) /* register auto-increment bit */
+
+/* odr settings */
 #define FSS_MASK	0x1F
 #define ODR_MASK	0xF0
 #define ODR105_BW12_5	0x00  /* ODR = 105Hz; BW = 12.5Hz */
@@ -64,9 +68,25 @@
 #define ODR840_BW50	0xE0  /* ODR = 840Hz; BW = 50Hz   */
 #define ODR840_BW110	0xF0  /* ODR = 840Hz; BW = 110Hz  */
 
+/* full scale selection */
+#define DPS250		250
+#define DPS500		500
+#define DPS2000		2000
+#define FS_MASK		0x30
+#define FS_250DPS	0x00
+#define FS_500DPS	0x10
+#define FS_2000DPS	0x20
+#define DEFAULT_DPS	DPS500
+#define FS_DEFULAT_DPS	FS_500DPS
+
+/* self tset settings */
 #define MIN_ST		175
 #define MAX_ST		875
-#define AC		(1 << 7) /* register auto-increment bit */
+#define FIFO_TEST_WTM	0x1F
+#define MIN_ZERO_RATE	-1714
+#define MAX_ZERO_RATE	1714
+
+/* max and min entry */
 #define MAX_ENTRY	20
 #define MAX_DELAY	(MAX_ENTRY * 9523809LL)
 
@@ -112,10 +132,14 @@ struct k3g_data {
 	struct hrtimer timer;
 	struct class *k3g_gyro_dev_class;
 	struct device *dev;
+	struct completion data_ready;
 	bool enable;
 	bool drop_next_event;
+	bool fifo_test;		/* is self_test or not? */
 	bool interruptible;	/* interrupt or polling? */
 	int entries;		/* number of fifo entries */
+	int dps;		/* scale selection */
+	u8 fifo_data[sizeof(struct k3g_t) * 32]; /* fifo data entries */
 	u8 ctrl_regs[5];	/* saving register settings */
 	u32 time_to_read;	/* time needed to read one entry */
 	ktime_t polling_delay;	/* polling time for timer */
@@ -171,9 +195,10 @@ static int k3g_read_gyro_values(struct i2c_client *client,
 				struct k3g_t *data, int total_read)
 {
 	int err;
+	int len = sizeof(*data) * (total_read ? (total_read - 1) : 1);
+	struct k3g_data *k3g_data = i2c_get_clientdata(client);
 	struct i2c_msg msg[2];
 	u8 reg_buf;
-	u8 gyro_data[sizeof(*data) * (total_read ? (total_read - 1) : 1)];
 
 	msg[0].addr = client->addr;
 	msg[0].buf = &reg_buf;
@@ -182,11 +207,11 @@ static int k3g_read_gyro_values(struct i2c_client *client,
 
 	msg[1].addr = client->addr;
 	msg[1].flags = I2C_M_RD;
-	msg[1].buf = gyro_data;
+	msg[1].buf = k3g_data->fifo_data;
 
 	if (total_read > 1) {
 		reg_buf = AXISDATA_REG | AC;
-		msg[1].len = sizeof(gyro_data);
+		msg[1].len = len;
 
 		err = i2c_transfer(client->adapter, msg, 2);
 		if (err != 2)
@@ -205,9 +230,9 @@ static int k3g_read_gyro_values(struct i2c_client *client,
 	if (err != 2)
 		return (err < 0) ? err : -EIO;
 
-	data->y = (gyro_data[1] << 8) | gyro_data[0];
-	data->z = (gyro_data[3] << 8) | gyro_data[2];
-	data->x = (gyro_data[5] << 8) | gyro_data[4];
+	data->y = (k3g_data->fifo_data[1] << 8) | k3g_data->fifo_data[0];
+	data->z = (k3g_data->fifo_data[3] << 8) | k3g_data->fifo_data[2];
+	data->x = (k3g_data->fifo_data[5] << 8) | k3g_data->fifo_data[4];
 
 	return 0;
 }
@@ -281,11 +306,71 @@ static irqreturn_t k3g_interrupt_thread(int irq, void *k3g_data_p)
 {
 	int res;
 	struct k3g_data *k3g_data = k3g_data_p;
+
+	if (unlikely(k3g_data->fifo_test)) {
+		disable_irq_nosync(irq);
+		complete(&k3g_data->data_ready);
+		return IRQ_HANDLED;
+	}
+
 	res = k3g_report_gyro_values(k3g_data);
 	if (res < 0)
 		pr_err("%s: failed to report gyro values\n", __func__);
 
 	return IRQ_HANDLED;
+}
+
+static ssize_t k3g_selftest_dps_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct k3g_data *k3g_data = dev_get_drvdata(dev);
+	return sprintf(buf, "%d\n", k3g_data->dps);
+}
+
+static ssize_t k3g_selftest_dps_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct k3g_data *k3g_data = dev_get_drvdata(dev);
+	int new_dps = 0;
+	int err;
+	u8 ctrl;
+
+	sscanf(buf, "%d", &new_dps);
+
+	/* check out dps validity */
+	if (new_dps != DPS250 && new_dps != DPS500 && new_dps != DPS2000) {
+		pr_err("%s: wrong dps(%d)\n", __func__, new_dps);
+		return -1;
+	}
+
+	ctrl = (k3g_data->ctrl_regs[3] & ~FS_MASK);
+
+	if (new_dps == DPS250)
+		ctrl |= FS_250DPS;
+	else if (new_dps == DPS500)
+		ctrl |= FS_500DPS;
+	else if (new_dps == DPS2000)
+		ctrl |= FS_2000DPS;
+	else
+		ctrl |= FS_DEFULAT_DPS;
+
+	/* apply new dps */
+	mutex_lock(&k3g_data->lock);
+	k3g_data->ctrl_regs[3] = ctrl;
+
+	err = i2c_smbus_write_byte_data(k3g_data->client, CTRL_REG4, ctrl);
+	if (err < 0) {
+		pr_err("%s: updating dps failed\n", __func__);
+		mutex_unlock(&k3g_data->lock);
+		return err;
+	}
+	mutex_unlock(&k3g_data->lock);
+
+	k3g_data->dps = new_dps;
+	pr_err("%s: %d dps stored\n", __func__, k3g_data->dps);
+
+	return count;
 }
 
 static ssize_t k3g_show_enable(struct device *dev,
@@ -316,7 +401,6 @@ static ssize_t k3g_set_enable(struct device *dev,
 
 	mutex_lock(&k3g_data->lock);
 	if (new_enable) {
-		/* turning on */
 		err = i2c_smbus_write_i2c_block_data(k3g_data->client,
 			CTRL_REG1 | AC, sizeof(k3g_data->ctrl_regs),
 						k3g_data->ctrl_regs);
@@ -427,11 +511,6 @@ static ssize_t k3g_set_delay(struct device *dev,
 						CTRL_REG1, ctrl);
 	}
 
-	/* we see a noise in the first sample or two after we
-	 * change rates. this delay helps eliminate that noise.
-	 */
-	msleep((u32)delay_ns * 2 / NSEC_PER_MSEC);
-
 	/* (re)start fifo */
 	k3g_restart_fifo(k3g_data);
 
@@ -478,40 +557,17 @@ static int device_init(struct k3g_data *data)
 	return err;
 }
 
-/* TEST */
-/* #define POWER_ON_TEST */
 static ssize_t k3g_power_on(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
 	struct k3g_data *data = dev_get_drvdata(dev);
 	int err;
-#ifdef POWER_ON_TEST
-	s16 raw[3];
-	u8 gyro_data[6];
-#endif
 
 	err = device_init(data);
 	if (err < 0) {
 		pr_err("%s: device_init() failed\n", __func__);
 		return 0;
 	}
-
-#ifdef POWER_ON_TEST /* For Test */
-	err = i2c_smbus_read_i2c_block_data(data->client, AXISDATA_REG | AC,
-						sizeof(gyro_data), gyro_data);
-	if (err < 0) {
-		pr_err("%s: CTRL_REGs i2c reading failed\n", __func__);
-		return 0;
-	}
-
-	raw[0] = (gyro_data[1]) << 8 | gyro_data[0];
-	raw[1] = (gyro_data[3]) << 8 | gyro_data[2];
-	raw[2] = (gyro_data[5]) << 8 | gyro_data[4];
-
-	printk(KERN_INFO "[gyro_self_test] raw[0] = %d\n", raw[0]);
-	printk(KERN_INFO "[gyro_self_test] raw[1] = %d\n", raw[1]);
-	printk(KERN_INFO "[gyro_self_test] raw[2] = %d\n\n", raw[2]);
-#endif
 
 	printk(KERN_INFO "[%s] result of device init = %d\n", __func__, err);
 
@@ -534,52 +590,35 @@ static ssize_t k3g_get_temp(struct device *dev,
 
 	return sprintf(buf, "%d\n", temp);
 }
-
-static ssize_t k3g_self_test(struct device *dev,
-				struct device_attribute *attr, char *buf)
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+static int k3g_fifo_self_test(struct k3g_data *k3g_data,s16 *zero_rate_data)
+#else
+static int k3g_fifo_self_test(struct k3g_data *k3g_data)
+#endif
 {
-	struct k3g_data *data = dev_get_drvdata(dev);
-	int NOST[3], ST[3];
-	int differ_x = 0, differ_y = 0, differ_z = 0;
+	struct k3g_t raw_data;
 	int err;
 	int i, j;
-	s16 raw[3];
-	u8 temp;
-	u8 gyro_data[6];
-	u8 backup_regs[5];
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+	s16 *raw = zero_rate_data;
+#else
+	s16 raw[3] = { 0, };
+#endif
 	u8 reg[5];
-	u8 bZYXDA = 0;
-	u8 pass = 2;
+	u8 fifo_pass = 2;
+	u8 status_reg;
 
-	memset(NOST, 0, sizeof(NOST));
-	memset(ST, 0, sizeof(ST));
+	k3g_data->fifo_test = true;
 
-	/* before starting self-test, backup register */
-	for (i = 0; i < 10; i++) {
-		err = i2c_smbus_read_i2c_block_data(data->client,
-			CTRL_REG1 | AC,	sizeof(backup_regs), backup_regs);
-		if (err >= 0)
-			break;
-	}
-	if (err < 0) {
-		pr_err("%s: CTRL_REGs i2c reading failed\n", __func__);
-		goto exit;
-	}
-
-	for (i = 0; i < 5; i++)
-		printk(KERN_INFO "[gyro_self_test] "
-			"backup reg[%d] = %2x\n", i, backup_regs[i]);
-
-	/* Initialize Sensor, turn on sensor, enable P/R/Y */
-	/* Set BDU=1, Set ODR=200Hz, Cut-Off Frequency=50Hz, FS=2000dps */
-	reg[0] = 0x6f;
+	/* fifo mode, enable interrupt, 500dps */
+	reg[0] = 0x6F;
 	reg[1] = 0x00;
-	reg[2] = 0x00;
-	reg[3] = 0xA0;
-	reg[4] = 0x02;
+	reg[2] = 0x04;
+	reg[3] = 0x90;
+	reg[4] = 0x40;
 
 	for (i = 0; i < 10; i++) {
-		err = i2c_smbus_write_i2c_block_data(data->client,
+		err = i2c_smbus_write_i2c_block_data(k3g_data->client,
 			CTRL_REG1 | AC,	sizeof(reg), reg);
 		if (err >= 0)
 			break;
@@ -592,11 +631,146 @@ static ssize_t k3g_self_test(struct device *dev,
 	/* Power up, wait for 800ms for stable output */
 	msleep(800);
 
+	for (i = 0; i < 10; i++) {
+		err = i2c_smbus_write_byte_data(k3g_data->client,
+				FIFO_CTRL_REG, BYPASS_MODE);
+		if (err >= 0)
+			break;
+	}
+	if (err < 0) {
+		pr_err("%s : failed to set bypass_mode\n", __func__);
+		goto exit;
+	}
+
+	for (i = 0; i < 10; i++) {
+		err = i2c_smbus_write_byte_data(k3g_data->client,
+				FIFO_CTRL_REG, FIFO_MODE | FIFO_TEST_WTM);
+		if (err >= 0)
+			break;
+	}
+	if (err < 0) {
+		pr_err("%s: failed to set fifo_mode\n", __func__);
+		goto exit;
+	}
+
+	/* if interrupt mode */
+	if (!k3g_data->enable && k3g_data->interruptible) {
+		enable_irq(k3g_data->client->irq);
+		err = wait_for_completion_timeout(&k3g_data->data_ready, 5*HZ);
+		msleep(200);
+		if (err <= 0) {
+			disable_irq(k3g_data->client->irq);
+			if (!err)
+				pr_err("%s: wait timed out\n", __func__);
+			goto exit;
+		}
+	/* if polling mode */
+	} else
+		msleep(200);
+
+	/* check out watermark status */
+	status_reg = i2c_smbus_read_byte_data(k3g_data->client, FIFO_SRC_REG);
+	if (!(status_reg & 0x80)) {
+		pr_err("%s: Watermark level is not enough\n", __func__);
+		goto exit;
+	}
+
+	/* read fifo entries */
+	err = k3g_read_gyro_values(k3g_data->client,
+				&raw_data, FIFO_TEST_WTM + 2);
+	if (err < 0) {
+		pr_err("%s: k3g_read_gyro_values() failed\n", __func__);
+		goto exit;
+	}
+
+	/* print out fifo data */
+	printk(KERN_INFO "[gyro_self_test] fifo data\n");
+	for (i = 0; i < sizeof(raw_data) * (FIFO_TEST_WTM + 1);
+		i += sizeof(raw_data)) {
+		raw[0] = (k3g_data->fifo_data[i+1] << 8)
+				| k3g_data->fifo_data[i];
+		raw[1] = (k3g_data->fifo_data[i+3] << 8)
+				| k3g_data->fifo_data[i+2];
+		raw[2] = (k3g_data->fifo_data[i+5] << 8)
+				| k3g_data->fifo_data[i+4];
+		pr_err("%2dth: %8d %8d %8d\n", i/6, raw[0], raw[1], raw[2]);
+
+		for (j = 0; j < 3; j++) {
+			if (raw[j] < MIN_ZERO_RATE || raw[j] > MAX_ZERO_RATE) {
+				pr_err("%s: %dth data(%d) is out of zero-rate",
+					__func__, i/6, raw[j]);
+				pr_err("%s: fifo test failed\n", __func__);
+				fifo_pass = 0;
+				goto exit;
+			}
+		}
+	}
+	
+	fifo_pass = 1;
+
+exit:
+	k3g_data->fifo_test = false;
+
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+	raw[0] = raw[0] * MIN_ST/10000;
+	raw[1] = raw[1] * MIN_ST/10000;
+	raw[2] = raw[2] * MIN_ST/10000;
+#endif
+	/* 1: success, 0: fail, 2: retry */
+	return fifo_pass;
+}
+
+static int k3g_bypass_self_test(struct k3g_data *k3g_data,
+				int NOST[3], int ST[3])
+{
+	int differ_x = 0, differ_y = 0, differ_z = 0;
+	int err;
+	int i, j;
+	s16 raw[3] = { 0, };
+	s32 temp;
+	u8 gyro_data[6] = { 0, };
+	u8 reg[5];
+	u8 bZYXDA = 0;
+	u8 bypass_pass = 2;
+
+	/* Initialize Sensor, turn on sensor, enable P/R/Y */
+	/* Set BDU=1, Set ODR=200Hz, Cut-Off Frequency=50Hz, FS=2000dps */
+	reg[0] = 0x6f;
+	reg[1] = 0x00;
+	reg[2] = 0x00;
+	reg[3] = 0xA0;
+	reg[4] = 0x02;
+
+	for (i = 0; i < 10; i++) {
+		err = i2c_smbus_write_i2c_block_data(k3g_data->client,
+			CTRL_REG1 | AC,	sizeof(reg), reg);
+		if (err >= 0)
+			break;
+	}
+	if (err < 0) {
+		pr_err("%s: CTRL_REGs i2c writing failed\n", __func__);
+		goto exit;
+	}
+
+	for (i = 0; i < 10; i++) {
+		err = i2c_smbus_write_byte_data(k3g_data->client,
+				FIFO_CTRL_REG, BYPASS_MODE);
+		if (err >= 0)
+			break;
+	}
+	if (err < 0) {
+		pr_err("%s : failed to set bypass_mode\n", __func__);
+		goto exit;
+	}
+
+	/* Power up, wait for 800ms for stable output */
+	msleep(800);
+
 	/* Read 5 samples output before self-test on */
 	for (i = 0; i < 5; i++) {
 		/* check ZYXDA ready bit */
 		for (j = 0; j < 10; j++) {
-			temp = i2c_smbus_read_byte_data(data->client,
+			temp = i2c_smbus_read_byte_data(k3g_data->client,
 							STATUS_REG);
 			if (temp >= 0) {
 				bZYXDA = temp & 0x08;
@@ -616,7 +790,7 @@ static ssize_t k3g_self_test(struct device *dev,
 		}
 
 		for (j = 0; j < 10; j++) {
-			err = i2c_smbus_read_i2c_block_data(data->client,
+			err = i2c_smbus_read_i2c_block_data(k3g_data->client,
 						AXISDATA_REG | AC,
 						sizeof(gyro_data), gyro_data);
 			if (err >= 0)
@@ -655,7 +829,7 @@ static ssize_t k3g_self_test(struct device *dev,
 	/* Enable Self Test */
 	reg[0] = 0xA2;
 	for (i = 0; i < 10; i++) {
-		err = i2c_smbus_write_byte_data(data->client,
+		err = i2c_smbus_write_byte_data(k3g_data->client,
 						CTRL_REG4, reg[0]);
 		if (err >= 0)
 			break;
@@ -671,7 +845,7 @@ static ssize_t k3g_self_test(struct device *dev,
 	for (i = 0; i < 5; i++) {
 		/* check ZYXDA ready bit */
 		for (j = 0; j < 10; j++) {
-			temp = i2c_smbus_read_byte_data(data->client,
+			temp = i2c_smbus_read_byte_data(k3g_data->client,
 							STATUS_REG);
 			if (temp >= 0) {
 				bZYXDA = temp & 0x08;
@@ -692,7 +866,7 @@ static ssize_t k3g_self_test(struct device *dev,
 		}
 
 		for (j = 0; j < 10; j++) {
-			err = i2c_smbus_read_i2c_block_data(data->client,
+			err = i2c_smbus_read_i2c_block_data(k3g_data->client,
 						AXISDATA_REG | AC,
 						sizeof(gyro_data), gyro_data);
 			if (err >= 0)
@@ -750,14 +924,74 @@ static ssize_t k3g_self_test(struct device *dev,
 	if ((MIN_ST <= differ_x && differ_x <= MAX_ST)
 		&& (MIN_ST <= differ_y && differ_y <= MAX_ST)
 		&& (MIN_ST <= differ_z && differ_z <= MAX_ST))
-		pass = 1;
+		bypass_pass = 1;
 	else
-		pass = 0;
+		bypass_pass = 0;
+
+exit:
+	return bypass_pass;
+}
+
+static ssize_t k3g_self_test(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct k3g_data *data = dev_get_drvdata(dev);
+	int NOST[3] = { 0, }, ST[3] = { 0, };
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+	s16 zero_rate_data[3] = { 0, };
+#endif
+	int err;
+	int i;
+	u8 backup_regs[5];
+	u8 fifo_pass = 2;
+	u8 bypass_pass = 2;
+
+	/* before starting self-test, backup register */
+	for (i = 0; i < 10; i++) {
+		err = i2c_smbus_read_i2c_block_data(data->client,
+			CTRL_REG1 | AC,	sizeof(backup_regs), backup_regs);
+		if (err >= 0)
+			break;
+	}
+	if (err < 0) {
+		pr_err("%s: CTRL_REGs i2c reading failed\n", __func__);
+		goto exit;
+	}
+
+	for (i = 0; i < 5; i++)
+		printk(KERN_INFO "[gyro_self_test] "
+			"backup reg[%d] = %2x\n", i, backup_regs[i]);
+
+	/* fifo self test */
+	printk(KERN_INFO "\n[gyro_self_test] fifo self-test\n");
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+	fifo_pass = k3g_fifo_self_test(data, zero_rate_data);
+#else
+	fifo_pass = k3g_fifo_self_test(data);
+#endif
+	if (fifo_pass)
+		printk(KERN_INFO "[gyro_self_test] fifo self-test success\n");
+	else if (!fifo_pass)
+		printk(KERN_INFO "[gyro_self_test] fifo self-test fail\n");
+	else
+		printk(KERN_INFO "[gyro_self_test] fifo self-test restry\n");
+
+	/* bypass self test */
+	printk(KERN_INFO "\n[gyro_self_test] bypass self-test\n");
+
+	bypass_pass = k3g_bypass_self_test(data, NOST, ST);
+	if (bypass_pass)
+		printk(KERN_INFO "[gyro_self_test] bypass self-test success\n\n");
+	else if (!fifo_pass)
+		printk(KERN_INFO "[gyro_self_test] bypass self-test fail\n\n");
+	else
+		printk(KERN_INFO "[gyro_self_test] bypass self-test restry\n\n");
 
 	/* restore backup register */
 	for (i = 0; i < 10; i++) {
 		err = i2c_smbus_write_i2c_block_data(data->client,
-			CTRL_REG1 | AC, sizeof(backup_regs), backup_regs);
+			CTRL_REG1 | AC, sizeof(backup_regs),
+			backup_regs);
 		if (err >= 0)
 			break;
 	}
@@ -765,15 +999,32 @@ static ssize_t k3g_self_test(struct device *dev,
 		pr_err("%s: CTRL_REGs i2c writing failed\n", __func__);
 
 exit:
-	if (pass == 2)
+	if (!data->enable) {
+		/* If k3g is not enabled, make it go to the power down mode. */
+		err = i2c_smbus_write_byte_data(data->client,
+						CTRL_REG1, 0x00);
+		if (err < 0)
+			pr_err("%s: CTRL_REGs i2c writing failed\n", __func__);
+	}
+
+	if (fifo_pass == 2 && bypass_pass == 2)
 		printk(KERN_INFO "[gyro_self_test] self-test result : retry\n");
 	else
 		printk(KERN_INFO "[gyro_self_test] self-test result : %s\n",
-			pass ? "pass" : "fail");
-
-	return sprintf(buf, "%d,%d,%d,%d,%d,%d,%d\n",
-		NOST[0], NOST[1], NOST[2], ST[0], ST[1], ST[2], pass);
+			fifo_pass & bypass_pass ? "pass" : "fail");
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+	return sprintf(buf, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+		NOST[0], NOST[1], NOST[2], ST[0], ST[1], ST[2],
+		fifo_pass & bypass_pass, fifo_pass,
+		zero_rate_data[0],zero_rate_data[1],zero_rate_data[2]);
+#else
+	return sprintf(buf, "%d,%d,%d,%d,%d,%d,%d,%d\n",
+		NOST[0], NOST[1], NOST[2], ST[0], ST[1], ST[2],
+		fifo_pass & bypass_pass, fifo_pass);
+#endif
 }
+
+
 
 static DEVICE_ATTR(gyro_power_on, 0664,
 	k3g_power_on, NULL);
@@ -781,6 +1032,8 @@ static DEVICE_ATTR(gyro_get_temp, 0664,
 	k3g_get_temp, NULL);
 static DEVICE_ATTR(gyro_selftest, 0664,
 	k3g_self_test, NULL);
+static DEVICE_ATTR(gyro_selftest_dps, 0664,
+	k3g_selftest_dps_show, k3g_selftest_dps_store);
 
 static const struct file_operations k3g_fops = {
 	.owner = THIS_MODULE,
@@ -825,6 +1078,7 @@ static int k3g_probe(struct i2c_client *client,
 	}
 
 	mutex_init(&data->lock);
+	init_completion(&data->data_ready);
 
 	/* allocate gyro input_device */
 	input_dev = input_allocate_device();
@@ -855,6 +1109,9 @@ static int k3g_probe(struct i2c_client *client,
 	}
 
 	memcpy(&data->ctrl_regs, &default_ctrl_regs, sizeof(default_ctrl_regs));
+
+	i2c_set_clientdata(client, data);
+	dev_set_drvdata(&input_dev->dev, data);
 
 	if (data->client->irq >= 0) { /* interrupt */
 		data->interruptible = true;
@@ -905,9 +1162,6 @@ static int k3g_probe(struct i2c_client *client,
 		goto err_device_create_file2;
 	}
 
-	i2c_set_clientdata(client, data);
-	dev_set_drvdata(&input_dev->dev, data);
-
 	/* register a char dev */
 	err = register_chrdev(K3G_MAJOR, "k3g", &k3g_fops);
 	if (err < 0) {
@@ -950,10 +1204,19 @@ static int k3g_probe(struct i2c_client *client,
 			dev_attr_gyro_selftest.attr.name);
 		goto device_create_file5;
 	}
+
+	if (device_create_file(data->dev, &dev_attr_gyro_selftest_dps) < 0) {
+		pr_err("%s: Failed to create device file(%s)!\n", __func__,
+			dev_attr_gyro_selftest_dps.attr.name);
+		goto device_create_file6;
+	}
+
 	dev_set_drvdata(data->dev, data);
 
 	return 0;
 
+device_create_file6:
+	device_remove_file(data->dev, &dev_attr_gyro_selftest);
 device_create_file5:
 	device_remove_file(data->dev, &dev_attr_gyro_get_temp);
 device_create_file4:
@@ -991,6 +1254,8 @@ static int k3g_remove(struct i2c_client *client)
 	int err = 0;
 	struct k3g_data *k3g_data = i2c_get_clientdata(client);
 
+	device_remove_file(k3g_data->dev, &dev_attr_gyro_selftest_dps);
+	device_remove_file(k3g_data->dev, &dev_attr_gyro_selftest);
 	device_remove_file(k3g_data->dev, &dev_attr_gyro_get_temp);
 	device_remove_file(k3g_data->dev, &dev_attr_gyro_power_on);
 	device_destroy(k3g_data->k3g_gyro_dev_class, MKDEV(K3G_MAJOR, 0));

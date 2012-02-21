@@ -35,13 +35,18 @@ static void pdp_tx_worker(struct work_struct *work)
 	struct pdp_parent *parent = priv->parent;
 	struct net_device *ndev = priv->ndev;
 	struct sk_buff *skb;
-	struct sipc4_tx_data tx_data;
+	struct sipc4_tx_data tx_data = {NULL, '\0'};
 	int err;
 
 	skb = skb_dequeue(&priv->tx_skb_queue);
 	while (skb) {
-		if (skb->protocol != htons(ETH_P_IP))
+		switch (skb->protocol) {
+		case htons(ETH_P_IP):
+		case htons(ETH_P_IPV6):
+			break;
+		default:
 			goto drop;
+		}
 
 		tx_data.skb = skb;
 		tx_data.res = SIPC4_RES(SIPC4_RAW, PDP_CH_SVNET(priv->ch));
@@ -414,7 +419,11 @@ int pdp_netif_rx(struct net_device *parent_ndev, struct sk_buff *skb,
 	if (!ndev)
 		return NET_RX_DROP;
 
-	skb->protocol = htons(ETH_P_IP);
+	/* Get the ethertype from the version in the IP header. */
+	if (skb->data[0] >> 4 == 6)
+		skb->protocol = htons(ETH_P_IPV6);
+	else
+		skb->protocol = htons(ETH_P_IP);
 
 	skb->dev = ndev;
 	ndev->stats.rx_packets++;

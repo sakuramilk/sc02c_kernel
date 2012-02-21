@@ -147,6 +147,7 @@ static int os_allocate(void* ctx, ump_dd_mem * descriptor)
 		}
 		if (NULL == new_page)
 		{
+			MSG_ERR(("Failed to alloc_page, NULL == new_page\n"));
 			break;
 		}
 

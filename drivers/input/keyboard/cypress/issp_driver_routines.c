@@ -25,7 +25,7 @@
 // Cypress does not authorize its products for use as critical components in
 // life-support systems where a malfunction or failure may reasonably be
 // expected to result in significant injury to the user. The inclusion of
-// Cypressï¿½ product in a life-support systems application implies that the
+// Cypressï¿?product in a life-support systems application implies that the
 // manufacturer assumes all risk of such use and in doing so indemnifies
 // Cypress against all charges.
 //
@@ -80,7 +80,11 @@ extern unsigned char abTargetDataOUT[TARGET_DATABUFF_LEN];
 
 unsigned int nBlockCount = 1;	// test, KIMC
 
+#if defined(CONFIG_MACH_Q1_REV02) || defined(CONFIG_MACH_C1_KDDI_REV00)
+extern unsigned char *firmware_data;
+#else
 extern unsigned char firmware_data[];
+#endif
 
 // ((((((((((((((((((((((( DEMO ISSP SUBROUTINE SECTION )))))))))))))))))))))))
 // ((((( Demo Routines can be deleted in final ISSP project if not used   )))))

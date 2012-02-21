@@ -843,7 +843,123 @@ static int do_read(struct fsg_common *common)
 }
 
 
+/* [ADD START] 2011/04/15 KDDI : vender read command */
 /*-------------------------------------------------------------------------*/
+static int do_read_buffer(struct fsg_common *common)
+{
+	struct fsg_lun		*curlun = common->curlun;
+	struct fsg_buffhd	*bh;
+	int			rc;
+	u32			amount_left;
+	loff_t			file_offset;
+	unsigned int		amount;
+	struct op_desc		*desc = 0;
+
+	file_offset = get_unaligned_be32(&common->cmnd[2]);
+
+	/* Get the starting Logical Block Address and check that it's
+	 * not too big */
+//	printk("%s: cmd=%d\n", __func__, common->cmnd[0]);
+	desc = curlun->op_desc[common->cmnd[0]-SC_VENDOR_START];
+	if (!desc->buffer){
+		printk("%s: cmd=%d not ready\n", __func__, common->cmnd[0]);
+		curlun->sense_data =
+				SS_LOGICAL_BLOCK_ADDRESS_OUT_OF_RANGE;
+		curlun->sense_data_info = file_offset;
+		curlun->info_valid = 1;
+/* [ADD START] 2011/09/30 KDDI : no response set */
+		bh = common->next_buffhd_to_fill;
+		bh->inreq->length = 0;
+		bh->state = BUF_STATE_FULL;
+/* [ADD END] 2011/09/30 KDDI : no responsea set */
+		return -EIO;		/* No default reply */
+	}
+
+
+	/* Carry out the file reads */
+	amount_left = common->data_size_from_cmnd;
+
+/* [ADD START] 2011/09/30 KDDI : check offset before read data */
+	if (file_offset + amount_left > desc->len) {
+		printk("[fms_CR7]%s: vendor buffer out of range offset=0x%x read-len=0x%x buf-len=0x%x\n",
+		__func__, (unsigned int)file_offset, amount_left, desc->len);
+		curlun->sense_data =
+				SS_LOGICAL_BLOCK_ADDRESS_OUT_OF_RANGE;
+		curlun->sense_data_info = file_offset;
+		curlun->info_valid = 1;
+		bh = common->next_buffhd_to_fill;
+		bh->inreq->length = 0;
+		bh->state = BUF_STATE_FULL;
+		return -EIO;		/* No default reply */
+	}
+/* [ADD END] 2011/09/30 KDDI : check offset before read data */
+
+//	printk("[fms_CR7]%s: amount_left=%x\n", __func__, amount_left);
+	if (unlikely(amount_left == 0))
+		return -EIO;		/* No default reply */
+
+//	printk("%s: buf_size=%x\n", __func__, common->buf_size);
+
+	for (;;) {
+//		printk("%s: file_offset=%x\n", __func__, (unsigned int)file_offset);
+
+		/* Figure out how much we need to read:
+		 * Try to read the remaining amount.
+		 * But don't read more than the buffer size.
+		 * And don't try to read past the end of the file.
+		 * Finally, if we're not at a page boundary, don't read past
+		 *	the next page.
+		 * If this means reading 0 then we were asked to read past
+		 *	the end of file. */
+		amount = min(amount_left, FSG_BUFLEN);
+		amount = min((loff_t) amount, desc->len - file_offset);
+//		printk("%s: amount=%x\n", __func__, amount);
+
+		/* Wait for the next buffer to become available */
+		bh = common->next_buffhd_to_fill;
+		while (bh->state != BUF_STATE_EMPTY) {
+			rc = sleep_thread(common);
+			if (rc)
+				return rc;
+		}
+//		printk("%s: wait buffer ok\n", __func__);
+
+		/* If we were asked to read past the end of file,
+		 * end with an empty buffer. */
+		if (amount == 0) {
+			curlun->sense_data =
+					SS_LOGICAL_BLOCK_ADDRESS_OUT_OF_RANGE;
+			curlun->sense_data_info = file_offset;
+			curlun->info_valid = 1;
+			bh->inreq->length = 0;
+			bh->state = BUF_STATE_FULL;
+			break;
+		}
+
+		memcpy((char __user *) bh->buf, desc->buffer + file_offset, amount);
+
+		file_offset  += amount;
+		amount_left  -= amount;
+		common->residue -= amount;
+		bh->inreq->length = amount;
+		bh->state = BUF_STATE_FULL;
+
+		if (amount_left == 0)
+			break;		/* No more left to read */
+
+		/* Send this buffer and go read some more */
+		START_TRANSFER_OR(common, bulk_in, bh->inreq,
+				&bh->inreq_busy, &bh->state)
+			/* Don't know what to do if
+			 * common->fsg is NULL */
+			return -EIO;
+		common->next_buffhd_to_fill = bh->next;
+	}
+	return -EIO;		/* No default reply */
+}
+
+/*-------------------------------------------------------------------------*/
+/* [ADD END] 2011/04/15 KDDI : vender read command*/
 
 static int do_write(struct fsg_common *common)
 {
@@ -1038,7 +1154,152 @@ static int do_write(struct fsg_common *common)
 }
 
 
+/* [ADD START] 2011/04/15 KDDI : vender write command */
+/* [CHANGE START] 2011/05/27 KDDI : [offset]use change */
 /*-------------------------------------------------------------------------*/
+
+static int do_write_buffer(struct fsg_common *common)
+{
+	struct fsg_lun		*curlun = common->curlun;
+	struct fsg_buffhd	*bh;
+	int			get_some_more;
+	u32			amount_left_to_req, amount_left_to_write;
+	loff_t			file_offset;
+	unsigned int		amount;
+	int			rc;
+	struct op_desc		*desc = 0;
+
+	get_some_more = 1;
+	file_offset = get_unaligned_be32(&common->cmnd[2]);
+
+//	printk("%s: cmd=%d\n", __func__, common->cmnd[0]);
+	desc = curlun->op_desc[common->cmnd[0]-SC_VENDOR_START];
+	if (!desc->buffer){
+		printk("%s: cmd=%d not ready\n", __func__, common->cmnd[0]);
+		curlun->sense_data =
+				SS_LOGICAL_BLOCK_ADDRESS_OUT_OF_RANGE;
+		curlun->sense_data_info = file_offset;
+		curlun->info_valid = 1;
+		return -EIO;		/* No default reply */
+	}
+
+	amount_left_to_req = amount_left_to_write = common->data_size_from_cmnd;
+//	printk("%s: amount_left_to_write=%d\n", __func__, amount_left_to_write);
+//	printk("%s: file_offset=%x\n", __func__, (unsigned int)file_offset);
+//	printk("%s: desc->len=%x\n", __func__, desc->len);
+	if (file_offset + amount_left_to_write > desc->len) {
+		printk("%s: vendor buffer out of range offset=0x%x write-len=0x%x buf-len=0x%x\n",
+			__func__, (unsigned int)file_offset, amount_left_to_req, desc->len);
+		curlun->sense_data =
+				SS_LOGICAL_BLOCK_ADDRESS_OUT_OF_RANGE;
+		curlun->sense_data_info = file_offset;
+		curlun->info_valid = 1;
+		return -EIO;		/* No default reply */
+	}
+
+	while (amount_left_to_write > 0) {
+
+		/* Queue a request for more data from the host */
+		bh = common->next_buffhd_to_fill;
+		if (bh->state == BUF_STATE_EMPTY && get_some_more) {
+
+			/* Figure out how much we want to get:
+			 * Try to get the remaining amount.
+			 * But don't get more than the buffer size.
+			 * And don't try to go past the end of the file.
+			 * If we're not at a page boundary,
+			 *	don't go past the next page.
+			 * If this means getting 0, then we were asked
+			 *	to write past the end of file.
+			 * Finally, round down to a block boundary. */
+			amount = min(amount_left_to_req, FSG_BUFLEN);
+//	printk("%s: (2)amount=0x%x\n", __func__, amount);
+
+			/* Get the next buffer */
+			common->usb_amount_left -= amount;
+			amount_left_to_req -= amount;
+			if (amount_left_to_req == 0)
+				get_some_more = 0;
+
+//	printk("%s: (3)amount=0x%x\n", __func__, amount);
+//	printk("%s: (3)amount_left_to_req=0x%x\n", __func__, amount_left_to_req);
+//	printk("%s: (3)get_some_more=%d bh->state =%d \n", __func__,get_some_more,bh->state);
+
+			/* amount is always divisible by 512, hence by
+			 * the bulk-out maxpacket size */
+			bh->outreq->length = bh->bulk_out_intended_length =
+					amount;
+			START_TRANSFER_OR(common, bulk_out, bh->outreq,
+					&bh->outreq_busy, &bh->state)
+				/* Don't know what to do if
+				 * common->fsg is NULL */
+				return -EIO;
+			common->next_buffhd_to_fill = bh->next;
+			continue;
+		}
+
+		/* Write the received data to the backing file */
+		bh = common->next_buffhd_to_drain;
+		if (bh->state == BUF_STATE_EMPTY && !get_some_more){
+			break;			/* We stopped early */
+		}
+		if (bh->state == BUF_STATE_FULL) {
+			smp_rmb();
+			common->next_buffhd_to_drain = bh->next;
+			bh->state = BUF_STATE_EMPTY;
+
+			/* Did something go wrong with the transfer? */
+			if (bh->outreq->status != 0) {
+				curlun->sense_data = SS_COMMUNICATION_FAILURE;
+				curlun->sense_data_info = file_offset >> 9;
+				curlun->info_valid = 1;
+				break;
+			}
+
+			amount = bh->outreq->actual;
+			if (desc->len - file_offset < amount) {
+				LERROR(curlun,
+	"write %u @ %llu beyond end %llu\n",
+	amount, (unsigned long long) file_offset,
+	(unsigned long long) desc->len);
+				amount = desc->len - file_offset;
+			}
+
+			/* Perform the write */
+//	printk("%s: (4)buf-write offset=0x%x size=0x%x \n", __func__,(unsigned int)file_offset,amount);
+			memcpy(desc->buffer + file_offset, (char __user *) bh->buf,amount);
+			file_offset += amount;
+			amount_left_to_write -= amount;
+			common->residue -= amount;
+
+#ifdef MAX_UNFLUSHED_BYTES
+			curlun->unflushed_bytes += amount;
+			if (curlun->unflushed_bytes >= MAX_UNFLUSHED_BYTES) {
+				fsync_sub(curlun);
+				curlun->unflushed_bytes = 0;
+			}
+#endif
+			/* Did the host decide to stop early? */
+			if (bh->outreq->actual != bh->outreq->length) {
+				common->short_packet_received = 1;
+				break;
+			}
+			continue;
+		}
+
+		/* Wait for something to happen */
+		rc = sleep_thread(common);
+		if (rc)
+			return rc;
+	}
+
+	return -EIO;		/* No default reply */
+}
+
+
+/*-------------------------------------------------------------------------*/
+/* [ADD END] 2011/04/15 KDDI : vender write command */
+/* [CHANGE END] 2011/05/27 KDDI : [offset]use change */
 
 static int do_synchronize_cache(struct fsg_common *common)
 {
@@ -1187,7 +1448,12 @@ static int do_inquiry(struct fsg_common *common, struct fsg_buffhd *bh)
 	buf[1] = curlun->removable ? 0x80 : 0;
 	buf[2] = 2;		/* ANSI SCSI level 2 */
 	buf[3] = 2;		/* SCSI-2 INQUIRY data format */
-	buf[4] = 31;		/* Additional length */
+
+/* [CHANGE START] 2011/07/27 KDDI : inquiry command extend ,[Lun0] only */
+	if ( strcmp(dev_name(&curlun->dev),"lun0") == 0 ){
+/* [CHANGE START] 2011/04/15 KDDI : return data size */
+	buf[4] = 31 + INQUIRY_VENDOR_SPECIFIC_SIZE;		/* Additional length */
+/* [CHANGE END] 2011/04/15 KDDI : return data size */
 	buf[5] = 0;		/* No special options */
 	buf[6] = 0;
 	buf[7] = 0;
@@ -1216,7 +1482,20 @@ static int do_inquiry(struct fsg_common *common, struct fsg_buffhd *bh)
 #endif
 
 	memcpy(buf + 8, common->inquiry_string, sizeof common->inquiry_string);
-	return 36;
+/* [CHANGE START] 2011/05/26 KDDI : return data set */
+	memcpy(buf + 8 + sizeof common->inquiry_string - 1,
+		   curlun->inquiry_vendor, INQUIRY_VENDOR_SPECIFIC_SIZE);
+	return 36 + INQUIRY_VENDOR_SPECIFIC_SIZE;
+/* [CHANGE END] 2011/05/26 KDDI : return data set */
+	} else {
+		buf[4] = 31;		/* Additional length */
+		buf[5] = 0;		/* No special options */
+		buf[6] = 0;
+		buf[7] = 0;
+		memcpy(buf + 8, common->inquiry_string, sizeof common->inquiry_string);
+		return 36;
+	}
+/* [CHANGE END] 2011/07/27 KDDI : inquiry command extend ,[Lun0] only */
 }
 
 
@@ -1952,6 +2231,9 @@ static int do_scsi_command(struct fsg_common *common)
 	int			reply = -EINVAL;
 	int			i;
 	static char		unknown[16];
+/* [ADD START] 2011/04/15 KDDI : for vendor command */
+	struct op_desc	*desc;
+/* [ADD END] 2011/04/15 KDDI : for vendor command */
 
 	dump_cdb(common);
 
@@ -2172,6 +2454,68 @@ static int do_scsi_command(struct fsg_common *common)
 		if (reply == 0)
 			reply = do_write(common);
 		break;
+
+/* [ADD START] 2011/04/15 KDDI : add case vendor command */
+	case SC_VENDOR_START ... SC_VENDOR_END:
+/* [ADD START] 2011/05/30 KDDI : mutex_lock */
+		mutex_lock(&sysfs_lock);
+/* [ADD END] 2011/05/30 KDDI : mutex_lock */
+
+/* [CHANGE START] 2011/09/30 KDDI : check[Lun0] BugFix , log add */
+/* [ADD START] 2011/07/27 KDDI : inquiry command extend ,[Lun0] only */
+		if (common->lun != 0){
+			printk("[fms_CR7]%s e4 command receive but not[lun0]! \n", __func__);
+			goto cmd_error;
+		}
+/* [ADD END] 2011/07/27 KDDI : inquiry command extend ,[Lun0] only */
+		desc = common->luns[common->lun].op_desc[common->cmnd[0] - SC_VENDOR_START];
+		if (!desc){
+			printk("[fms_CR7]%s  opcode-%02x not ready! \n", __func__,common->cmnd[0]);
+			goto cmd_error;
+		}
+/* [CHANGE END] 2011/09/30 KDDI : check[Lun0] BugFix , log add */
+
+		common->data_size_from_cmnd = get_unaligned_be32(&common->cmnd[6]);
+		if (common->data_size_from_cmnd == 0)
+				goto cmd_error;
+		if (~common->cmnd[1] & 0x10) {
+			if ((reply = check_command(common, 10, DATA_DIR_FROM_HOST,
+					(1<<1) | (0xf<<2) | (0xf<<6),
+					0, "VENDOR WRITE BUFFER")) == 0) {
+				reply = do_write_buffer(common);
+				desc->update = jiffies;
+				schedule_work(&desc->work);
+			} else
+				goto cmd_error;
+/* [ADD START] 2011/05/30 KDDI : mutex_unlock */
+				mutex_unlock(&sysfs_lock);
+/* [ADD END] 2011/05/30 KDDI : mutex_unlock */
+			break;
+		} else {
+			if ((reply = check_command(common, 10, DATA_DIR_TO_HOST,
+					(1<<1) | (0xf<<2) | (0xf<<6),
+					0, "VENDOR READ BUFFER")) == 0)
+				reply = do_read_buffer(common);
+			else
+				goto cmd_error;
+/* [ADD START] 2011/05/30 KDDI : mutex_unlock */
+				mutex_unlock(&sysfs_lock);
+/* [ADD END] 2011/05/30 KDDI : mutex_unlock */
+			break;
+		}
+		cmd_error:
+/* [ADD START] 2011/05/30 KDDI : mutex_unlock */
+			mutex_unlock(&sysfs_lock);
+/* [ADD END] 2011/05/30 KDDI : mutex_unlock */
+			common->data_size_from_cmnd = 0;
+			sprintf(unknown, "Unknown x%02x", common->cmnd[0]);
+			if ((reply = check_command(common, common->cmnd_size,
+					DATA_DIR_UNKNOWN, 0x3ff, 0, unknown)) == 0) { /* 2011/04/27 KDDI : ff->3ff(10Byte support) */
+				common->curlun->sense_data = SS_INVALID_COMMAND;
+				reply = -EINVAL;
+			}
+		break;
+/* [ADD END] 2011/04/15 KDDI : add case vendor command */
 
 	/* Some mandatory commands that we recognize but don't implement.
 	 * They don't mean much in this setting.  It's left as an exercise
@@ -2677,6 +3021,526 @@ static int fsg_main_thread(void *common_)
 static DEVICE_ATTR(ro, 0644, fsg_show_ro, fsg_store_ro);
 static DEVICE_ATTR(file, 0644, fsg_show_file, fsg_store_file);
 
+/* [ADD START] 2011/04/15 KDDI : functions to handle vendor command */
+/*************************** VENDOR SCSI OPCODE ***************************/
+
+/* setting notify change buffer */
+static void buffer_notify_sysfs(struct work_struct *work)
+{
+	struct op_desc	*desc;
+//printk("%s\n", __func__);
+	desc = container_of(work, struct op_desc, work);
+	sysfs_notify_dirent(desc->value_sd);
+}
+
+/* check vendor command code */
+static int vendor_cmd_is_valid(unsigned cmd)
+{
+	if(cmd < SC_VENDOR_START)
+		return 0;
+	if(cmd > SC_VENDOR_END)
+		return 0;
+	return 1;
+}
+
+/* read vendor command buffer */
+static ssize_t
+vendor_cmd_read_buffer(struct file* f, struct kobject *kobj, struct bin_attribute *attr,
+                char *buf, loff_t off, size_t count)
+{
+	ssize_t	status;
+	struct op_desc	*desc = attr->private;
+
+//printk("%s: buf=%p off=%lx count=%x\n", __func__, buf, (unsigned long)off, count);
+	mutex_lock(&sysfs_lock);
+
+	if (!test_bit(FLAG_EXPORT, &desc->flags))
+		status = -EIO;
+	else {
+		size_t srclen, n;
+		void *src;
+		size_t nleft = count;
+		src = desc->buffer;
+		srclen = desc->len;
+
+		if (off < srclen) {
+			n = min(nleft, srclen - (size_t) off);
+			memcpy(buf, src + off, n);
+			nleft -= n;
+			buf += n;
+			off = 0;
+		} else {
+			off -= srclen;
+		}
+		status = count - nleft;
+	}
+
+	mutex_unlock(&sysfs_lock);
+	return status;
+}
+
+/* write vendor commn buffer */
+static ssize_t
+vendor_cmd_write_buffer(struct file* f, struct kobject *kobj, struct bin_attribute *attr,
+                char *buf, loff_t off, size_t count)
+{
+	ssize_t	status;
+	struct op_desc	*desc = attr->private;
+
+//printk("%s: buf=%p off=%lx count=%x\n", __func__, buf, (unsigned long)off, count);
+	mutex_lock(&sysfs_lock);
+
+	if (!test_bit(FLAG_EXPORT, &desc->flags))
+		status = -EIO;
+	else {
+		size_t dstlen, n;
+		size_t nleft = count;
+		void *dst;
+
+		dst = desc->buffer;
+		dstlen = desc->len;
+
+		if (off < dstlen) {
+			n = min(nleft, dstlen - (size_t) off);
+			memcpy(dst + off, buf, n);
+			nleft -= n;
+			buf += n;
+			off = 0;
+		} else {
+			off -= dstlen;
+		}
+		status = count - nleft;
+	}
+
+	desc->update = jiffies;
+	schedule_work(&desc->work);
+
+	mutex_unlock(&sysfs_lock);
+	return status;
+}
+
+/* memory mapping vendor commn buffer */
+static int
+vendor_cmd_mmap_buffer(struct file *f, struct kobject *kobj, struct bin_attribute *attr,
+		struct vm_area_struct *vma)
+{
+        int rc = -EINVAL;
+	unsigned long pgoff, delta;
+	ssize_t size = vma->vm_end - vma->vm_start;
+	struct op_desc	*desc = attr->private;
+
+printk("%s\n", __func__);
+/* [ADD START] 2011/05/30 KDDI : mutex_lock */
+	mutex_lock(&sysfs_lock);
+/* [ADD END] 2011/05/30 KDDI : mutex_lock */
+
+	if (vma->vm_pgoff != 0) {
+		printk("mmap failed: page offset %lx\n", vma->vm_pgoff);
+		goto done;
+	}
+
+	pgoff = __pa(desc->buffer);
+	delta = PAGE_ALIGN(pgoff) - pgoff;
+printk("%s size=%x delta=%lx pgoff=%lx\n", __func__, size, delta, pgoff);
+
+        if (size + delta > desc->len) {
+                printk("mmap failed: size %d\n", size);
+		goto done;
+        }
+
+        pgoff += delta;
+        vma->vm_flags |= VM_RESERVED;
+
+	rc = io_remap_pfn_range(vma, vma->vm_start, pgoff >> PAGE_SHIFT,
+		size, vma->vm_page_prot);
+
+	if (rc < 0)
+                printk("mmap failed: remap error %d\n", rc);
+done:
+/* [ADD START] 2011/05/30 KDDI : mutex_unlock */
+	mutex_unlock(&sysfs_lock);
+/* [ADD END] 2011/05/30 KDDI : mutex_unlock */
+	return rc;
+}
+
+/* set 'size'file */
+static ssize_t vendor_size_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct op_desc	*desc = dev_to_desc(dev);
+	ssize_t		status;
+
+	mutex_lock(&sysfs_lock);
+
+	if (!test_bit(FLAG_EXPORT, &desc->flags))
+		status = -EIO;
+	else
+		status = sprintf(buf, "%d\n", desc->len);
+
+	mutex_unlock(&sysfs_lock);
+	return status;
+}
+
+/* when update 'size'file */
+static ssize_t vendor_size_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size)
+{
+	long len;
+	char* buffer;
+	struct op_desc	*desc = dev_to_desc(dev);
+	ssize_t		status;
+/* [ADD START] 2011/08/26 KDDI : check init alloc */
+	long cmd;
+	char cmd_buf[16]="0x";
+	struct fsg_lun	*curlun = fsg_lun_from_dev(&desc->dev);
+/* [ADD END] 2011/08/26 KDDI : check init alloc */
+
+	mutex_lock(&sysfs_lock);
+
+	if (!test_bit(FLAG_EXPORT, &desc->flags))
+		status = -EIO;
+	else {
+		struct bin_attribute* dev_bin_attr_buffer = &desc->dev_bin_attr_buffer;
+		status = strict_strtol(buf, 0, &len);
+		if (status < 0) {
+			status = -EINVAL;
+			goto done;
+		}
+		if ( desc->len == len ) {
+			status = 0;
+			goto done;
+		}
+		
+/* [CHANGE START] 2011/08/26 KDDI : check init alloc */
+		strict_strtol(strcat(cmd_buf,dev_name(&desc->dev)+7), 0, &cmd);
+		printk("[fms_CR7]%s cmd=0x%x old_size=0x%x new_size=0x%x \n", __func__, (unsigned int)cmd, (unsigned int)desc->len, (unsigned int)len);
+
+		if ( cmd-SC_VENDOR_START < ALLOC_CMD_CNT && len == ALLOC_INI_SIZE){
+			printk("[fms_CR7]%s buffer alreay malloc \n",__func__);
+			buffer = curlun->reserve_buf[cmd-SC_VENDOR_START];
+		} else {
+			printk("[fms_CR7]%s malloc buffer \n",__func__);
+		buffer = kzalloc(len, GFP_KERNEL);
+		if(!buffer) {
+			status = -ENOMEM;
+			goto done;
+		}
+		}
+		if ( cmd-SC_VENDOR_START+1 > ALLOC_CMD_CNT || desc->len != ALLOC_INI_SIZE){
+			printk("[fms_CR7]%s free old buffer \n",__func__);
+			kfree(desc->buffer);
+		}
+		desc->len = len;
+/* [CHANGE END] 2011/08/26 KDDI : check init alloc */
+		desc->buffer = buffer;
+		device_remove_bin_file(&desc->dev, dev_bin_attr_buffer);
+		dev_bin_attr_buffer->size = len;
+		status = device_create_bin_file(&desc->dev, dev_bin_attr_buffer);
+	}
+
+done:
+	mutex_unlock(&sysfs_lock);
+	return status ? : size;
+}
+/* define 'size'file */
+static DEVICE_ATTR(size, 0606, vendor_size_show, vendor_size_store); /* 2011/04/19 KDDI : permission change 0600->0606 */
+
+/* set 'update'file */
+static ssize_t vendor_update_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct op_desc	*desc = dev_to_desc(dev);
+	ssize_t		status;
+
+	mutex_lock(&sysfs_lock);
+
+	if (!test_bit(FLAG_EXPORT, &desc->flags))
+		status = -EIO;
+	else
+		status = sprintf(buf, "%lu\n", desc->update);
+
+	mutex_unlock(&sysfs_lock);
+	return status;
+}
+/* define 'update'file */
+static DEVICE_ATTR(update, 0404, vendor_update_show, 0); /* 2011/04/19 KDDI : permission change 0400->0404 */
+
+/* vendor command create */
+static int vendor_cmd_export(struct device *dev, unsigned cmd, int init)
+{
+	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
+	struct op_desc	*desc;
+	int		status = -EINVAL;
+	struct bin_attribute* dev_bin_attr_buffer;
+
+	if (!vendor_cmd_is_valid(cmd))
+		goto done;
+
+	desc = curlun->op_desc[cmd-SC_VENDOR_START];
+	if (!desc) {
+		desc = kzalloc(sizeof(struct op_desc), GFP_KERNEL);
+		if(!desc) {
+			status = -ENOMEM;
+			goto done;
+		}
+		curlun->op_desc[cmd-SC_VENDOR_START] = desc;
+	}
+
+	status = 0;
+	if (test_bit(FLAG_EXPORT, &desc->flags)) {
+		goto done;
+	}
+
+/* [CHANGE START] 2011/08/26 KDDI : check init alloc */
+	if ( cmd-SC_VENDOR_START+1 > ALLOC_CMD_CNT ){
+	desc->buffer = kzalloc(2048, GFP_KERNEL);
+	if(!desc->buffer) {
+		status = -ENOMEM;
+		goto done;
+	}
+	desc->len = 2048;
+	}else{
+		desc->buffer = curlun->reserve_buf[cmd-SC_VENDOR_START];
+		printk("[fms_CR7]%s opcode:%02x bufcopy bufsize:%08x \n", __func__, cmd, ALLOC_INI_SIZE);
+		desc->len = ALLOC_INI_SIZE;
+	}
+/* [CHANGE END] 2011/08/26 KDDI : check init alloc */
+
+	dev_bin_attr_buffer = &desc->dev_bin_attr_buffer;
+	desc->dev.release = op_release;
+	desc->dev.parent = &curlun->dev;
+	dev_set_drvdata(&desc->dev, curlun);
+	dev_set_name(&desc->dev,"opcode-%02x", cmd);
+	status = device_register(&desc->dev);
+	if (status != 0) {
+		printk(KERN_INFO"failed to register opcode%d: %d\n", cmd, status);
+		goto done;
+	}
+
+	dev_bin_attr_buffer->attr.name = "buffer";
+
+/* [ADD START] 2011/08/26 KDDI : at initialization, change the attributes */
+	if (init)
+		dev_bin_attr_buffer->attr.mode = 0660;
+	else
+		dev_bin_attr_buffer->attr.mode = 0606;
+/* [ADD END] 2011/08/26 KDDI : at initialization, change the attributes */
+
+	dev_bin_attr_buffer->read = vendor_cmd_read_buffer;
+	dev_bin_attr_buffer->write = vendor_cmd_write_buffer;
+	dev_bin_attr_buffer->mmap = vendor_cmd_mmap_buffer;
+/* [CHANGE START] 2011/08/26 KDDI : check init alloc */
+	if ( cmd-SC_VENDOR_START+1 > ALLOC_CMD_CNT ){
+	dev_bin_attr_buffer->size = 2048;
+	}else{
+		dev_bin_attr_buffer->size = ALLOC_INI_SIZE;
+	}
+/* [CHANGE END] 2011/08/26 KDDI : check init alloc */
+	dev_bin_attr_buffer->private = desc;
+	status = device_create_bin_file(&desc->dev, dev_bin_attr_buffer);
+
+	if (status != 0) {
+		device_remove_bin_file(&desc->dev, dev_bin_attr_buffer);
+		kfree(desc->buffer);
+		desc->buffer = 0;
+		desc->len = 0;
+		device_unregister(&desc->dev);
+		goto done;
+	}
+
+/* [ADD START] 2011/08/26 KDDI : at initialization, change the attributes */
+	if (init){
+		dev_attr_size.attr.mode = 0660;
+		dev_attr_update.attr.mode = 0440;
+	} else {
+		dev_attr_size.attr.mode = 0606;
+		dev_attr_update.attr.mode = 0404;
+	}
+/* [ADD END] 2011/08/26 KDDI : at initialization, change the attributes */
+
+	status = device_create_file(&desc->dev, &dev_attr_size);
+	if (status == 0) status = device_create_file(&desc->dev, &dev_attr_update);
+	if (status != 0) {
+		printk(KERN_INFO"device_create_file failed: %d\n", status);
+		device_remove_file(&desc->dev, &dev_attr_update);
+		device_remove_file(&desc->dev, &dev_attr_size);
+		device_remove_bin_file(&desc->dev, dev_bin_attr_buffer);
+/* [CHANGE START] 2011/08/26 KDDI : check init alloc */
+		if ( cmd-SC_VENDOR_START+1 > ALLOC_CMD_CNT )
+		kfree(desc->buffer);
+/* [CHANGE END] 2011/08/26 KDDI : check init alloc */
+		desc->buffer = 0;
+		desc->len = 0;
+		device_unregister(&desc->dev);
+		goto done;
+	}
+
+	desc->value_sd = sysfs_get_dirent(desc->dev.kobj.sd, NULL, "update");
+	INIT_WORK(&desc->work, buffer_notify_sysfs);
+
+	if (status == 0)
+		set_bit(FLAG_EXPORT, &desc->flags);
+
+/* [ADD START] 2011/05/26 KDDI : init 'update' */
+	desc->update = 0;
+/* [ADD END] 2011/05/26 KDDI : init 'update' */
+
+
+done:
+	if (status)
+		pr_debug("%s: opcode%d status %d\n", __func__, cmd, status);
+	return status;
+}
+
+/* vendor command delete */
+static void vendor_cmd_unexport(struct device *dev, unsigned cmd)
+{
+	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
+	struct op_desc *desc;
+	int status = -EINVAL;
+
+	if (!vendor_cmd_is_valid(cmd))
+		goto done;
+
+	desc = curlun->op_desc[cmd-SC_VENDOR_START];
+	if (!desc) {
+		status = -ENODEV;
+		goto done;
+	}
+
+	if (test_bit(FLAG_EXPORT, &desc->flags)) {
+		struct bin_attribute* dev_bin_attr_buffer = &desc->dev_bin_attr_buffer;
+		clear_bit(FLAG_EXPORT, &desc->flags);
+		cancel_work_sync(&desc->work);
+		device_remove_file(&desc->dev, &dev_attr_update);
+		device_remove_file(&desc->dev, &dev_attr_size);
+		device_remove_bin_file(&desc->dev, dev_bin_attr_buffer);
+/* [CHANGE START] 2011/08/26 KDDI : check init alloc */
+		if ( cmd-SC_VENDOR_START+1 > ALLOC_CMD_CNT || desc->len != ALLOC_INI_SIZE){
+		kfree(desc->buffer);
+			printk("[fms_CR7]%s opcode:%02x free buff\n", __func__, cmd);
+		}else{
+			printk("[fms_CR7]%s opcode:%02x not free buff\n", __func__, cmd);
+		}
+/* [CHANGE END] 2011/08/26 KDDI : check init alloc */
+		desc->buffer = 0;
+		desc->len = 0;
+		status = 0;
+		device_unregister(&desc->dev);
+		kfree(desc);
+		curlun->op_desc[cmd-SC_VENDOR_START] = 0;
+	} else
+		status = -ENODEV;
+
+done:
+	if (status)
+		pr_debug("%s: opcode%d status %d\n", __func__, cmd, status);
+}
+
+
+/* when 'export'file update */
+static ssize_t vendor_export_store(struct device *dev,
+                struct device_attribute *attr, const char *buf, size_t len)
+{
+	long cmd;
+	int status;
+
+	status = strict_strtol(buf, 0, &cmd);
+	if (status < 0)
+		goto done;
+
+	status = -EINVAL;
+
+	if (!vendor_cmd_is_valid(cmd))
+		goto done;
+
+	mutex_lock(&sysfs_lock);
+
+/* [CHANGE START] 2011/08/26 KDDI : at initialization, change the attributes */
+	status = vendor_cmd_export(dev, cmd, 0);
+/* [CHANGE END] 2011/08/26 KDDI : at initialization, change the attributes */
+	if (status < 0)
+		vendor_cmd_unexport(dev, cmd);
+
+	mutex_unlock(&sysfs_lock);
+done:
+	if (status)
+		pr_debug(KERN_INFO"%s: status %d\n", __func__, status);
+	return status ? : len;
+}
+
+/* define 'export'file */
+//static DEVICE_ATTR(export, 0202, 0, vendor_export_store); /* 2011/04/19 KDDI : permission change 0200->0202 */    
+static DEVICE_ATTR(export, 0220, 0, vendor_export_store); /* 2011/08/10 KDDI : permission change 0202->0220 */  
+
+/* when 'unexport'file update */
+static ssize_t vendor_unexport_store(struct device *dev,
+                struct device_attribute *attr, const char *buf, size_t len)
+{
+	long cmd;
+	int status;
+
+	status = strict_strtol(buf, 0, &cmd);
+	if (status < 0)
+		goto done;
+
+	status = -EINVAL;
+
+	if (!vendor_cmd_is_valid(cmd))
+		goto done;
+
+	mutex_lock(&sysfs_lock);
+
+	status = 0;
+	vendor_cmd_unexport(dev, cmd);
+
+	mutex_unlock(&sysfs_lock);
+done:
+	if (status)
+		pr_debug(KERN_INFO"%s: status %d\n", __func__, status);
+	return status ? : len;
+}
+/* define 'unexport'file */
+//static DEVICE_ATTR(unexport, 0202, 0, vendor_unexport_store); /* 2011/04/19 KDDI : permission change 0200->0202 */
+static DEVICE_ATTR(unexport, 0220, 0, vendor_unexport_store); /* 2011/08/10 KDDI : permission change 0202->0220 */
+
+/* set 'inquiry'file */
+static ssize_t vendor_inquiry_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct fsg_lun *curlun = fsg_lun_from_dev(dev);
+	ssize_t status;
+
+	mutex_lock(&sysfs_lock);
+	status = sprintf(buf, "\"%s\"\n", curlun->inquiry_vendor);
+
+	mutex_unlock(&sysfs_lock);
+	return status;
+}
+
+/* get 'inquiry'file */
+static ssize_t vendor_inquiry_store(struct device *dev,
+                struct device_attribute *attr, const char *buf, size_t len)
+{
+	struct fsg_lun *curlun = fsg_lun_from_dev(dev);
+
+	mutex_lock(&sysfs_lock);
+	strncpy(curlun->inquiry_vendor, buf,
+					sizeof curlun->inquiry_vendor);
+	curlun->inquiry_vendor[sizeof curlun->inquiry_vendor - 1] = '\0';
+
+	mutex_unlock(&sysfs_lock);
+	return 0;
+}
+
+/* define 'inquiry'file */
+//static DEVICE_ATTR(inquiry, 0606, vendor_inquiry_show, vendor_inquiry_store); /* 2011/04/19 KDDI : permission change 0600->0606 */
+static DEVICE_ATTR(inquiry, 0660, vendor_inquiry_show, vendor_inquiry_store); /* 2011/08/10 KDDI : permission change 0606->0660 */
+
+static void op_release(struct device *dev)
+{
+}
+/* [ADD END] 2011/04/15 KDDI : functions to handle vendor command */
 
 /****************************** FSG COMMON ******************************/
 
@@ -2707,6 +3571,9 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 	struct fsg_lun *curlun;
 	struct fsg_lun_config *lcfg;
 	int nluns, i, rc;
+/* [ADD START] 2011/10/11 KDDI : "LUN1" is not created */
+	int j;
+/* [ADD END] 2011/10/11 KDDI : "LUN1" is not created */
 	char *pathbuf;
 
 	/* Find out how many LUNs there should be */
@@ -2786,6 +3653,49 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 		rc = device_create_file(&curlun->dev, &dev_attr_file);
 		if (rc)
 			goto error_luns;
+
+/* [CHANGE START] 2011/07/27 KDDI : 'export' file create ,[Lun0] only */
+		if ( i==0 ){
+/* [ADD START] 2011/04/15 KDDI : create file for vendor command */
+		rc = device_create_file(&curlun->dev, &dev_attr_export);
+		if (rc)
+			goto error_luns;
+		rc = device_create_file(&curlun->dev, &dev_attr_unexport);
+		if (rc)
+			goto error_luns;
+		rc = device_create_file(&curlun->dev, &dev_attr_inquiry);
+		if (rc)
+			goto error_luns;
+/* [CHANGE START] 2011/05/26 KDDI : initital inquiry response */
+		memset(curlun->inquiry_vendor, 0, sizeof curlun->inquiry_vendor);
+		strcpy(curlun->inquiry_vendor, INQUIRY_VENDOR_INIT);
+/* [CHANGE END] 2011/05/26 KDDI : initital inquiry response */
+/* [ADD END] 2011/04/15 KDDI : create file for vendor command */
+
+/* [ADD START] 2011/08/26 KDDI : alloc for commn buffer ,and make e4-buffer*/
+/* [CHANGE START] 2011/10/11 KDDI : "LUN1" is not created */
+			for (j=0; j < ALLOC_CMD_CNT; j++){
+				curlun->reserve_buf[j] = kzalloc(ALLOC_INI_SIZE, GFP_KERNEL);
+				printk("[fms_CR7]%s alloc buf[%d]\n", __func__,j);
+				if(!curlun->reserve_buf[j]){
+					printk("[fms_CR7]%s Error : buffer malloc fail! cmd_idx=%d \n", __func__, j);
+/* [CHANGE END] 2011/10/11 KDDI : "LUN1" is not created */
+					rc = -ENOMEM;
+					goto error_release;
+				}
+			}
+
+/* [CHANGE START] 2011/08/26 KDDI : at initialization, change the attributes */
+			rc = vendor_cmd_export(&curlun->dev, 0xe4, 1);
+/* [CHANGE END] 2011/08/26 KDDI : at initialization, change the attributes */
+			if (rc < 0){
+				vendor_cmd_unexport(&curlun->dev, 0xe4);
+				goto error_release;
+			}
+/* [ADD END] 2011/08/26 KDDI : alloc for commn buffer ,and make e4-buffer*/
+		
+		}
+/* [CHANGE END] 2011/07/27 KDDI : 'export' file create ,[Lun0] only */
 
 		if (lcfg->filename) {
 			rc = fsg_lun_open(curlun, lcfg->filename);
@@ -2928,8 +3838,30 @@ static void fsg_common_release(struct kref *ref)
 		struct fsg_lun *lun = common->luns;
 		unsigned i = common->nluns;
 
+/* [ADD START] 2011/04/15 KDDI : delete file for vendor command */
+		unsigned j;
+/* [ADD END] 2011/04/15 KDDI : delete file for vendor command */
+
 		/* In error recovery common->nluns may be zero. */
 		for (; i; --i, ++lun) {
+/* [CHANGE START] 2011/07/27 KDDI : 'export' file create ,[Lun0] only */
+			if (i == common->nluns){
+/* [ADD START] 2011/04/15 KDDI : delete file for vendor command */
+			for (j=SC_VENDOR_START; j < SC_VENDOR_END + 1; j++) {
+				vendor_cmd_unexport(&lun->dev, j);
+/* [ADD START] 2011/08/26 KDDI : check init alloc */
+					if ( j-SC_VENDOR_START < ALLOC_CMD_CNT ){
+						printk("[fms_CR7]%s kfree buf[%d]\n", __func__,j-SC_VENDOR_START);
+						kfree(lun->reserve_buf[j-SC_VENDOR_START]);
+					}
+/* [ADD END] 2011/08/26 KDDI : check init alloc */
+			}
+			device_remove_file(&lun->dev, &dev_attr_export);
+			device_remove_file(&lun->dev, &dev_attr_unexport);
+			device_remove_file(&lun->dev, &dev_attr_inquiry);
+/* [ADD END] 2011/04/15 KDDI : delete file for vendor command */
+			}
+/* [CHANGE END] 2011/07/27 KDDI : 'export' file create ,[Lun0] only */
 			device_remove_file(&lun->dev, &dev_attr_ro);
 			device_remove_file(&lun->dev, &dev_attr_file);
 			fsg_lun_close(lun);

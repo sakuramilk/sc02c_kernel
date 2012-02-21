@@ -53,7 +53,7 @@ struct usbsvn_devdata {
 	unsigned int		tx_pipe;
 	unsigned int		rx_pipe;
 	u8			disconnected;
-	struct sipc_rx_hdr 	rx_hdr;
+	struct sipc_rx_hdr	rx_hdr;
 };
 
 struct usbsvn {
@@ -72,9 +72,9 @@ struct usbsvn {
 	unsigned int		dev_count;
 	unsigned int		suspended;
 #ifdef CONFIG_HAS_WAKELOCK
-	struct wake_lock 	wlock;
-	struct wake_lock 	dormancy_lock;
-	long 			wake_time;
+	struct wake_lock	wlock;
+	struct wake_lock	dormancy_lock;
+	long			wake_time;
 #endif
 	int resume_debug;
 	int dpm_suspending;
@@ -608,7 +608,7 @@ static void usbsvn_tx_worker(struct work_struct *work)
 	struct usbsvn *svn = container_of(work, struct usbsvn, tx_work);
 	struct net_device *dev = svn->netdev;
 	struct sk_buff *skb;
-	struct sipc4_tx_data tx_data;
+	struct sipc4_tx_data tx_data = {NULL, '\0'};
 	int err;
 
 	skb = skb_dequeue(&svn->tx_skb_queue);

@@ -1171,6 +1171,8 @@ void fimc_wait_disable_capture(struct fimc_control *ctrl)
 {
 #ifdef CONFIG_VIDEO_S5K5BBGX
 	unsigned long timeo = jiffies + 60; /* more 40 ms */
+#elif defined (CONFIG_MACH_C1_KDDI_REV00) 
+	unsigned long timeo = jiffies + 25; /* timeout of 100 ms */
 #else
 	unsigned long timeo = jiffies + 20; /* timeout of 100 ms */
 #endif

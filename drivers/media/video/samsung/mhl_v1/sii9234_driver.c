@@ -2,7 +2,7 @@
 
 * 
 
-*   SiI9244 - MHL Transmitter Driver
+*   SiI9244 ? MHL Transmitter Driver
 
 *
 
@@ -18,7 +18,7 @@
 
 *
 
-* This program is distributed ¡°as is¡± WITHOUT ANY WARRANTY of any
+* This program is distributed Â¡Â°as isÂ¡Â± WITHOUT ANY WARRANTY of any
 
 * kind, whether express or implied; without even the implied warranty
 
@@ -30,19 +30,6 @@
 
 *****************************************************************************/
 
-
-/*===========================================================================
-
-  EDIT HISTORY FOR FILE
-
-  when              who                         what, where, why
-  --------        ---                        ----------------------------------------------------------
-  2010/10/25    Daniel Lee(Philju)      Initial version of file, SIMG Korea 
-  ===========================================================================*/
-
-/*===========================================================================
-  INCLUDE FILES FOR MODULE
-  ===========================================================================*/
 
 
 #include <linux/interrupt.h>
@@ -997,7 +984,11 @@ void WriteInitialRegisterValues ( void )
 //	I2C_WriteByte(SA_TX_Page0_Primary, 0xA3, 0xEE);
 	I2C_WriteByte(SA_TX_Page0_Primary, 0xA3, 0xEB); // changed by yoking.im
 #else
-	I2C_WriteByte(SA_TX_Page0_Primary, 0xA3, 0xEB);
+#ifdef CONFIG_MACH_C1_NA_SPR_EPIC2_REV00
+	I2C_WriteByte(SA_TX_Page0_Primary, 0xA3, 0xF8);
+#else
+	I2C_WriteByte(SA_TX_Page0_Primary, 0xA3, 0xEE);//0xEB -> 0xEE //DALI KDDI
+#endif
 #endif
 	I2C_WriteByte(SA_TX_Page0_Primary, 0xA6, 0x0C);
 
@@ -1473,7 +1464,7 @@ static void For_check_resen_int (void)
 //	I2C_WriteByte(SA_TX_Page0_Primary, 0xA3, 0xED); // changed by yoking.im
 	I2C_WriteByte(SA_TX_Page0_Primary, 0xA3, 0xEB); // changed by yoking.im
 #else
-	I2C_WriteByte(SA_TX_Page0_Primary, 0xA3, 0xEB);
+	I2C_WriteByte(SA_TX_Page0_Primary, 0xA3, 0xEE);//0xEB -> 0xEE //DALI KDDI
 #endif
 	I2C_WriteByte(SA_TX_Page0_Primary, 0xA6, 0x0C);
 
@@ -2392,6 +2383,8 @@ bool SiiMhlTxReadDevcap( byte offset )
 	//
 	req.command     = mhlTxConfig.mscLastCommand = MHL_READ_DEVCAP;
 	req.offsetData  = mhlTxConfig.mscLastOffset  = offset;
+	req.msgData[0]  = 0U;
+	req.msgData[1]  = 0U;
 	return(SiiMhlTxDrvSendCbusCommand( &req  ));
 }
 
@@ -2417,8 +2410,7 @@ static bool MhlTxSendMscMsg ( byte command, byte cmdData )
 	req.command     = MHL_MSC_MSG;
 	req.msgData[0]  = mhlTxConfig.mscMsgLastCommand = command;
 	req.msgData[1]  = mhlTxConfig.mscMsgLastData    = cmdData;
-
-
+	req.offsetData  = 0U;
 
 	ccode = SiiMhlTxDrvSendCbusCommand( &req  );
 	return( (bool) ccode );

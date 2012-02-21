@@ -46,11 +46,7 @@ struct s3c_platform_fb *to_fb_plat(struct device *dev)
 }
 
 #ifndef CONFIG_FRAMEBUFFER_CONSOLE
-#define LPDDR0_BASE_ADDR		0x40000000
-#define LPDDR0_SIZE				0x10000000	/* 256MB */
 #define LPDDR1_BASE_ADDR		0x50000000
-#define LPDDR1_SIZE				0x10000000	/* 256MB */
-#define SDRAM_SIZE				(LPDDR0_SIZE + LPDDR1_SIZE)
 #define BOOT_FB_BASE_ADDR		(LPDDR1_BASE_ADDR   + 0x0EC00000)	/* 0x5EC00000 from Bootloader */
 
 static unsigned int bootloaderfb;
@@ -100,26 +96,23 @@ int s3cfb_draw_logo(struct fb_info *fb)
 		}
 	}
 
-#else // #ifdef RGB_BOOTSCREEN
+#else /* #ifdef RGB_BOOTSCREEN */
+	u8 *logo_virt_buf;
 
-	if (bootloaderfb) {
-		printk("Bootloader sent 'bootloaderfb' to Kernel Successfully : %d", bootloaderfb);
-	}
+	if (bootloaderfb)
+		printk(KERN_INFO "Bootloader sent 'bootloaderfb' to Kernel Successfully : %d", bootloaderfb);
 	else {
 		bootloaderfb = BOOT_FB_BASE_ADDR;
-		printk("Fail to get 'bootloaderfb' from Bootloader. so we must set  this value as %d", bootloaderfb);
+		printk(KERN_ERR "Fail to get 'bootloaderfb' from Bootloader. so we must set  this value as %d", bootloaderfb);
 	}
 
-	{
-		u8 *logo_virt_buf;
-		logo_virt_buf = ioremap_nocache(bootloaderfb, fb->var.yres * fb->fix.line_length);
-		memcpy(fb->screen_base, logo_virt_buf, fb->var.yres * fb->fix.line_length);
-		iounmap(logo_virt_buf);
-	}
+	logo_virt_buf = ioremap_nocache(bootloaderfb, fb->var.yres * fb->fix.line_length);
+	memcpy(fb->screen_base, logo_virt_buf, fb->var.yres * fb->fix.line_length);
+	iounmap(logo_virt_buf);
 
-#endif // #ifdef RGB_BOOTSCREEN	
-#endif // 0
-#endif // #ifdef CONFIG_FB_S3C_SPLASH_SCREEN
+#endif /* #ifdef RGB_BOOTSCREEN */
+#endif /* 0 */
+#endif /* #ifdef CONFIG_FB_S3C_SPLASH_SCREEN */
 
 	return 0;
 }
@@ -1001,6 +994,11 @@ int s3cfb_blank(int blank_mode, struct fb_info *fb)
 
 		enabled_win = atomic_read(&fbdev->enabled_win);
 		if (enabled_win == 0) {
+			if (fbdev->regs_org)
+				fbdev->regs = fbdev->regs_org;
+			else
+				/* fbdev->regs should be non-zero value */
+				BUG();
 			pdata->clk_on(pdev, &fbdev->clock);
 			s3cfb_init_global(fbdev);
 			s3cfb_set_clock(fbdev);
@@ -1042,6 +1040,11 @@ int s3cfb_blank(int blank_mode, struct fb_info *fb)
 		enabled_win = atomic_read(&fbdev->enabled_win);
 		if (enabled_win == 0) {
 			pdata->clk_on(pdev, &fbdev->clock);
+			if (fbdev->regs_org)
+				fbdev->regs = fbdev->regs_org;
+			else
+				/* fbdev->regs should be non-zero value */
+				BUG();
 			s3cfb_init_global(fbdev);
 			s3cfb_set_clock(fbdev);
 
@@ -1091,6 +1094,12 @@ int s3cfb_blank(int blank_mode, struct fb_info *fb)
 			if (pdata->lcd_off)
 				pdata->lcd_off(pdev);
 			s3cfb_display_off(fbdev);
+			if (fbdev->regs) {
+				fbdev->regs_org = fbdev->regs;
+				fbdev->regs = 0;
+			} else
+				/* fbdev->regs should be non-zero value */
+				BUG();
 			pdata->clk_off(pdev, &fbdev->clock);
 		}
 
@@ -1419,11 +1428,12 @@ int s3cfb_direct_ioctl(int id, unsigned int cmd, unsigned long arg)
 	struct platform_device *pdev = to_platform_device(fbdev->dev);
 	void *argp = (void *)arg;
 	int ret = 0;
+	bool local_poweroff = false;
 
 #ifdef CONFIG_S5PV310_DEV_PD
 	/* enable the power domain */
-	if (fbdev->system_state == POWER_OFF) {
-		/* This IOCTLs are came from fimc irq.
+	if (fbdev->system_state == POWER_OFF && fbdev->regs == 0) {
+		/* This IOCTLs are came from fimc irq, fimc release.
 		 * To avoid scheduling problem in irq mode,
 		 * runtime get/put sync shold be not called.
 		 */
@@ -1438,9 +1448,22 @@ int s3cfb_direct_ioctl(int id, unsigned int cmd, unsigned long arg)
 			win->enabled = 1;
 
 			return ret;
+
+		case S3CFB_SET_WIN_OFF:
+			if (win->enabled)
+				atomic_dec(&fbdev->enabled_win);
+			win->enabled = 0;
+
+			return ret;
 		}
 
 		pm_runtime_get_sync(&pdev->dev);
+		if (fbdev->regs_org)
+			fbdev->regs = fbdev->regs_org ;
+		else
+			/* fbdev->regs should be non-zero value */
+			BUG();
+		local_poweroff = true;
 	}
 #endif
 
@@ -1573,8 +1596,15 @@ int s3cfb_direct_ioctl(int id, unsigned int cmd, unsigned long arg)
 
 #ifdef CONFIG_S5PV310_DEV_PD
 	/* disable the power domain */
-	if (fbdev->system_state == POWER_OFF)
+	if (local_poweroff) {
 		pm_runtime_put(&pdev->dev);
+		if (fbdev->regs) {
+			fbdev->regs_org = fbdev->regs;
+			fbdev->regs = 0;
+		} else
+			/* fbdev->regs should be non-zero value */
+			BUG();
+	}
 #endif
 
 	return ret;

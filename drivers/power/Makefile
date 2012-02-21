@@ -52,4 +52,11 @@ obj-$(CONFIG_FUELGAUGE_MAX17042) += max17042-fuelgauge.o
 endif
 
 obj-$(CONFIG_MAX8997_CHARGER)	+= max8997-charger.o
+ifeq ($(CONFIG_MACH_C1_NA_SPR_EPIC2_REV00),y)
+obj-$(CONFIG_MAX8903_CHARGER)	+= max8903_charger.o
+else
 obj-$(CONFIG_MAX8922_CHARGER)	+= max8922-charger.o
+endif
+obj-$(CONFIG_SMB136_CHARGER)	+= smb136_charger.o
+obj-$(CONFIG_SMB328_CHARGER)	+= smb328_charger.o
+

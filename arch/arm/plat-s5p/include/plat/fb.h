@@ -44,38 +44,11 @@ struct s3c_platform_fb {
 	int		swap;
 	void		*lcd;
 #ifdef CONFIG_FB_S3C_MIPI_LCD
-	unsigned int	sub_lcd_enabled;
-	unsigned int	machine_is_cypress;
-	unsigned int	machine_is_p1p2;
-	unsigned int	mdnie_is_enabled;
 	unsigned int	mipi_is_enabled;
 	unsigned int	interface_mode;
-
-	void		*single_lcd;
-	void		*dual_lcd;
-
-	void		(*set_display_path)(unsigned int mode);
-	int		(*reset_lcd)(void);
-
-	/* variables and interface for mDNIe */
-	char		mdnie_clk_name[20];
-	void		*mdnie_clk;
-	unsigned int	mdnie_phy_base;
-	unsigned int	ielcd_phy_base;
-	void __iomem	*mdnie_mmio_base;
-	void __iomem	*ielcd_mmio_base;
-	unsigned char	mdnie_mode;
-
-	void		(*set_mdnie_clock)(void *mdnie_clk, unsigned char enable);
-	void		(*init_mdnie)(unsigned int mdnie_base,
-				unsigned int hsize, unsigned int vsize);
-	void		(*mdnie_set_mode)(unsigned int mdnie_base, unsigned char mode);
-
-	void		(*start_ielcd_logic)(unsigned int ielcd_base);
-	void		(*init_ielcd)(unsigned int ielcd_base, void *l, void *c);
 #endif
 	void		(*cfg_gpio)(struct platform_device *dev);
-	void		(*cfg_gpio_sleep)(struct platform_device *dev);	
+	void		(*cfg_gpio_sleep)(struct platform_device *dev);
 	int		(*backlight_on)(struct platform_device *dev);
 	int		(*backlight_off)(struct platform_device *dev);
 	int		(*lcd_on)(struct platform_device *dev);

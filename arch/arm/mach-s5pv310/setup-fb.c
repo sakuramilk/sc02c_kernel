@@ -18,6 +18,7 @@
 #include <linux/platform_device.h>
 #include <linux/types.h>
 #include <plat/clock.h>
+#include <plat/clock-clksrc.h>
 #include <plat/gpio-cfg.h>
 #include <mach/regs-clock.h>
 #include <mach/regs-gpio.h>
@@ -180,7 +181,6 @@ int s3cfb_mipi_clk_on(void)
 	clk_set_parent(sclk, mout_mpll);
 
 	rate = clk_round_rate(sclk, 70000000);
-	printk(KERN_INFO "set mipi sclk rate to %d\n", rate);
 
 	if (!rate)
 		rate = 70000000;
@@ -194,13 +194,10 @@ int s3cfb_mipi_clk_on(void)
 
 	return 0;
 
-err_clk1:
-	clk_put(mout_mpll);
 err_clk2:
 	clk_put(sclk);
+err_clk1:
 err_clk0:
-	clk_put(dsim_clk);
-
 	return -EINVAL;
 }
 #endif
@@ -234,7 +231,7 @@ int s3cfb_mdnie_clk_on(void)
 	clk_set_parent(sclk, mout_mpll);
 
 #ifdef CONFIG_FB_S3C_MIPI_LCD
-		rate = 61600000;
+	rate = 61600000;
 #else
 	rate = clk_round_rate(sclk, 50000000);
 	//printk(KERN_INFO "set mdnie sclk rate to %d\n", rate);
@@ -252,13 +249,10 @@ int s3cfb_mdnie_clk_on(void)
 
 	return 0;
 
-err_clk1:
-	clk_put(mout_mpll);
 err_clk2:
 	clk_put(sclk);
+err_clk1:
 err_clk0:
-	clk_put(mdnie_clk);
-
 	return -EINVAL;
 
 }
@@ -273,7 +267,7 @@ int s3cfb_mdnie_pwm_clk_on(void)
 	sclk = clk_get(NULL, "sclk_mdnie_pwm");
 	if (IS_ERR(sclk)) {
 		printk(KERN_ERR "failed to get sclk for mdnie_pwm\n");
-		goto err_clk1;
+		goto err_clk0;
 	}
 
 	mout_mpll = clk_get(NULL, "mout_mpll");
@@ -285,7 +279,7 @@ int s3cfb_mdnie_pwm_clk_on(void)
 	clk_set_parent(sclk, mout_mpll);
 
 #ifdef CONFIG_FB_S3C_MIPI_LCD
-		rate = 61600000;
+	rate = 61600000;
 #else
 	rate = clk_round_rate(sclk, 50000000);
 	//printk(KERN_INFO "set mdnie_pwm sclk rate to %d\n", rate);
@@ -303,9 +297,8 @@ int s3cfb_mdnie_pwm_clk_on(void)
 	return 0;
 
 err_clk1:
-	clk_put(mout_mpll);
 	clk_put(sclk);
-
+err_clk0:
 	return -EINVAL;
 
 }
@@ -315,6 +308,8 @@ int s3cfb_clk_on(struct platform_device *pdev, struct clk **s3cfb_clk)
 	struct clk *sclk = NULL;
 	struct clk *mout_mpll = NULL;
 	struct clk *lcd_clk = NULL;
+	struct clksrc_clk *src_clk = NULL;
+	u32 clkdiv = 0;
 
 	u32 rate = 0;
 
@@ -340,7 +335,7 @@ int s3cfb_clk_on(struct platform_device *pdev, struct clk **s3cfb_clk)
 
 	clk_set_parent(sclk, mout_mpll);
 #ifdef CONFIG_FB_S3C_MIPI_LCD
-		rate = 61600000;
+	rate = 61600000;
 #else
 	rate = clk_round_rate(sclk, 50000000);
 	dev_dbg(&pdev->dev, "set fimd sclk rate to %d\n", rate);
@@ -365,6 +360,11 @@ int s3cfb_clk_on(struct platform_device *pdev, struct clk **s3cfb_clk)
 	s3cfb_mdnie_clk_on();
 	s3cfb_mdnie_pwm_clk_on();
 #endif
+
+	src_clk = container_of(sclk, struct clksrc_clk, clk);
+	clkdiv = __raw_readl(src_clk->reg_div.reg);
+
+	dev_info(&pdev->dev, "set fimd sclk rate to %d, clkdiv=0x%x\n", rate, clkdiv);
 
 	return 0;
 
@@ -748,7 +748,7 @@ int s3cfb_lcd_off(struct platform_device *pdev)
 	return 0;
 }
 
-#elif defined(CONFIG_FB_S3C_LD9040)
+#elif defined(CONFIG_FB_S3C_LD9040) || defined(CONFIG_FB_S3C_S6E63M0)
 void s3cfb_cfg_gpio(struct platform_device *pdev)
 {
 	int i;
@@ -865,32 +865,7 @@ int s3cfb_lcd_off(struct platform_device *pdev)
 #elif defined(CONFIG_FB_S3C_MIPI_LCD)
 void s3cfb_cfg_gpio(struct platform_device *pdev)
 {
-	int i;
 	u32 reg;
-
-	for (i = 0; i < 8; i++) {
-		s3c_gpio_cfgpin(S5PV310_GPF0(i), S3C_GPIO_SFN(2));
-		s3c_gpio_setpull(S5PV310_GPF0(i), S3C_GPIO_PULL_NONE);
-		s5p_gpio_set_drvstr(S5PV310_GPF0(i), S5P_GPIO_DRVSTR_LV4);
-	}
-
-	for (i = 0; i < 8; i++) {
-		s3c_gpio_cfgpin(S5PV310_GPF1(i), S3C_GPIO_SFN(2));
-		s3c_gpio_setpull(S5PV310_GPF1(i), S3C_GPIO_PULL_NONE);
-		s5p_gpio_set_drvstr(S5PV310_GPF1(i), S5P_GPIO_DRVSTR_LV4);
-	}
-
-	for (i = 0; i < 8; i++) {
-		s3c_gpio_cfgpin(S5PV310_GPF2(i), S3C_GPIO_SFN(2));
-		s3c_gpio_setpull(S5PV310_GPF2(i), S3C_GPIO_PULL_NONE);
-		s5p_gpio_set_drvstr(S5PV310_GPF2(i), S5P_GPIO_DRVSTR_LV4);
-	}
-
-	for (i = 0; i < 4; i++) {
-		s3c_gpio_cfgpin(S5PV310_GPF3(i), S3C_GPIO_SFN(2));
-		s3c_gpio_setpull(S5PV310_GPF3(i), S3C_GPIO_PULL_NONE);
-		s5p_gpio_set_drvstr(S5PV310_GPF3(i), S5P_GPIO_DRVSTR_LV4);
-	}
 
 	/* Set FIMD0 bypass */
 #ifdef CONFIG_FB_S3C_MDNIE

@@ -19,6 +19,10 @@
 #define HWREV_FOR_BATTERY	0x06
 #elif defined(CONFIG_TARGET_LOCALE_NTT)
 #define HWREV_FOR_BATTERY	0x0C
+#elif defined(CONFIG_MACH_C1_NA_SPR_EPIC2_REV00)
+#define HWREV_FOR_BATTERY	0x06
+#elif defined(CONFIG_MACH_Q1_REV02)
+#define HWREV_FOR_BATTERY	0x02
 #else	/*U1 EUR OPEN */
 #define HWREV_FOR_BATTERY	0x08
 #endif
@@ -26,7 +30,11 @@
 /*soc level for 3.6V */
 #define SEC_BATTERY_SOC_3_6	7
 
+/* #define SEC_BATTERY_TOPOFF_BY_CHARGER */
 #define SEC_BATTERY_INDEPEDENT_VF_CHECK
+#if defined(CONFIG_MACH_Q1_REV02)
+#define SEC_BATTERY_1ST_2ND_TOPOFF
+#endif
 
 /**
  * struct sec_bat_adc_table_data - adc to temperature table for sec battery
@@ -60,11 +68,13 @@ struct sec_bat_platform_data {
 	unsigned int adc_sub_arr_size;
 	struct sec_bat_adc_table_data *adc_sub_table;
 	unsigned int adc_sub_channel;
-#if defined(CONFIG_TARGET_LOCALE_NAATT)
-	int adc_vf_channel;
-#endif
 	unsigned int (*get_lpcharging_state) (void);
 	void (*no_bat_cb) (void);
+	void (*initial_check) (void);
+#if defined(CONFIG_TARGET_LOCALE_NAATT)
+	bool (*get_recording_state) (void);
+	int adc_vf_channel;
+#endif
 };
 
 #endif /* __MACH_SEC_BATTERY_H */

@@ -254,6 +254,12 @@ config LEDS_REGULATOR
 	help
 	  This option enables support for regulator driven LEDs.
 
+config LEDS_MAX8997
+	tristate "MAX8997 LED support"
+	default n
+	help
+	  This option enables support for LEDs of MAX8997.
+
 config LEDS_BD2802
 	tristate "LED driver for BD2802 RGB LED"
 	depends on I2C

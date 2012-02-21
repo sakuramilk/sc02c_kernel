@@ -41,15 +41,32 @@ obj-$(CONFIG_S5PV310_PM_HOTPLUG)	+= pm-hotplug.o
 obj-$(CONFIG_BT)		+= c1-rfkill.o
 obj-$(CONFIG_MACH_SMDKC210)	+= mach-smdkc210.o button-smdkc210.o
 obj-$(CONFIG_MACH_SMDKV310)	+= mach-smdkv310.o button-smdkv310.o
+ifeq ($(CONFIG_TARGET_LOCALE_EUR),y)
 obj-$(CONFIG_MACH_C1)		+= mach-c1.o
-obj-$(CONFIG_MACH_C1)		+= c1-gpio.o
-obj-$(CONFIG_MACH_UNIVERSAL_C210)	+= mach-universal_c210.o
-ifeq ($(CONFIG_TARGET_LOCALE_NA),y)
-obj-$(CONFIG_MACH_C1)		+= c1-na-spr-panel.o
 else
-obj-$(CONFIG_MACH_C1)		+= c1-panel.o
+obj-$(CONFIG_MACH_C1)		+= mach-c1-local.o
+endif
+obj-$(CONFIG_MACH_C1)		+= c1-tsp.o
+obj-$(CONFIG_MACH_C1)		+= c1-camera.o
+
+ifeq ($(CONFIG_MACH_Q1_REV02),y)
+obj-$(CONFIG_MACH_C1)		+= q1-gpio.o
+else
+obj-$(CONFIG_MACH_C1)		+= c1-gpio.o
+endif
+obj-$(CONFIG_MACH_UNIVERSAL_C210)	+= mach-universal_c210.o
+
+obj-$(CONFIG_PANEL_C1)		+= c1-panel.o c1-panel_a2.o c1-panel_m2.o
+obj-$(CONFIG_PANEL_C1_NA_SPR)	+= c1-na-spr-panel.o
+obj-$(CONFIG_PANEL_EPIC2)	+= epic2-panel.o
+
+ifeq ($(CONFIG_TARGET_LOCALE_NA),y)
+obj-$(CONFIG_MACH_C1)		+= dev-c1-phone.o
+else
 obj-$(CONFIG_MACH_C1)		+= mach-c1-gps.o
 endif
+
+obj-$(CONFIG_MACH_C1_NA_SPR_EPIC2_REV00)	+= epic2-panel.o
 obj-$(CONFIG_MACH_C1)		+= c1-wlan.o
 obj-$(CONFIG_MACH_C1)		+= c1-regulator-consumer.o
 obj-$(CONFIG_SAMSUNG_PHONE_SVNET)	+= c1-modem.o
@@ -90,3 +107,4 @@ endif
 obj-$(CONFIG_DEV_THERMAL)		+= tmu.o
 obj-$(CONFIG_SEC_DEBUG)			+= sec_debug.o sec_getlog.o sec_gaf.o
 obj-$(CONFIG_S5PV310_WATCHDOG_RESET)	+= c1-watchdog.o
+obj-$(CONFIG_SEC_THERMISTOR)		+= sec_thermistor.o

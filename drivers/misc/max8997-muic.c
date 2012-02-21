@@ -57,8 +57,10 @@
 /* MAX8997 CDETCTRL register */
 #define CHGDETEN_SHIFT			0
 #define CHGTYPM_SHIFT			1
+#define DCHKTM_SHIFT			4
 #define CHGDETEN_MASK			(0x1 << CHGDETEN_SHIFT)
 #define CHGTYPM_MASK			(0x1 << CHGTYPM_SHIFT)
+#define DCHKTM_MASK			(0x1 << DCHKTM_SHIFT)
 
 /* MAX8997 CONTROL1 register */
 #define COMN1SW_SHIFT			0
@@ -407,6 +409,33 @@ static void max8997_muic_set_adcdbset(struct max8997_muic_info *info,
 	if (ret < 0)
 		dev_err(info->dev, "%s: fail to update reg\n", __func__);
 }
+
+#if defined(CONFIG_MACH_Q1_REV00) || defined(CONFIG_MACH_Q1_REV02)
+static void max8997_muic_set_dchktm(struct max8997_muic_info *info,
+				int value)
+{
+	int ret;
+	u8 val;
+
+	if (value > 1) {
+		dev_err(info->dev, "%s: invalid value(%d)\n", __func__, value);
+		return;
+	}
+
+	if (!info->muic) {
+		dev_err(info->dev, "%s: no muic i2c client\n", __func__);
+		return;
+	}
+
+	val = value << DCHKTM_SHIFT;
+	dev_info(info->dev, "%s: DCHKTM(0x%02x)\n", __func__, val);
+
+	ret = max8997_update_reg(info->muic, MAX8997_MUIC_REG_CDETCTRL, val,
+			DCHKTM_MASK);
+	if (ret < 0)
+		dev_err(info->dev, "%s: fail to update reg\n", __func__);
+}
+#endif
 
 static ssize_t max8997_muic_show_adc_debounce_time(struct device *dev,
 				struct device_attribute *attr, char *buf)
@@ -925,7 +954,6 @@ static int max8997_muic_handle_attach(struct max8997_muic_info *info,
 	 * New MUIC : ADC value is not set(Open), ADCLow:1, ADCError:1
 	 */
 
-#if defined(CONFIG_TARGET_LOCALE_NAATT)
 	if (adclow && adcerr) {
 		if (info->cable_type == CABLE_TYPE_JIG_UART_OFF) {
 			dev_info(info->dev, "%s: current state is jig_uart_off,"
@@ -936,20 +964,9 @@ static int max8997_muic_handle_attach(struct max8997_muic_info *info,
 			return 0;
 		}
 	}
-#else
-	if (adclow && adcerr) {
-		max8997_muic_attach_mhl(info, chgtyp);
-		return 0;
-	}
-#endif
 
 	switch (adc) {
 	case ADC_GND:
-		if (adclow) {
-			max8997_muic_attach_mhl(info, chgtyp);
-			break;
-		}
-
 		if (chgtyp == CHGTYP_NO_VOLTAGE) {
 			if (info->cable_type == CABLE_TYPE_OTG) {
 				dev_info(info->dev,
@@ -972,15 +989,13 @@ static int max8997_muic_handle_attach(struct max8997_muic_info *info,
 			ret = max8997_muic_set_charging_type(info, false);
 		}
 		break;
-	case ADC_MHL:
-		max8997_muic_attach_mhl(info, chgtyp);
-		break;
 	case ADC_JIG_UART_OFF:
 		max8997_muic_handle_jig_uart(info, vbvolt);
 		break;
 	case ADC_JIG_USB_OFF:
 	case ADC_JIG_USB_ON:
-		ret = max8997_muic_attach_usb_type(info, adc);
+		if (vbvolt & STATUS2_VBVOLT_MASK)
+			ret = max8997_muic_attach_usb_type(info, adc);
 		break;
 	case ADC_DESKDOCK:
 	case ADC_CARDOCK:
@@ -1208,9 +1223,11 @@ static void max8997_muic_detect_dev(struct max8997_muic_info *info, int irq)
 	dev_info(info->dev, "%s: STATUS1:0x%x, 2:0x%x\n", __func__,
 			status[0], status[1]);
 
+#if !defined(CONFIG_MACH_Q1_REV00) && !defined(CONFIG_MACH_Q1_REV02)
 	if ((irq == info->irq_adc) &&
-			max8997_muic_handle_dock_vol_key(info, status[0]))
+	    max8997_muic_handle_dock_vol_key(info, status[0]))
 		return;
+#endif
 
 	adc = status[0] & STATUS1_ADC_MASK;
 	adcerr = status[0] & STATUS1_ADCERR_MASK;
@@ -1230,6 +1247,19 @@ static void max8997_muic_detect_dev(struct max8997_muic_info *info, int irq)
 				intr = INT_DETACH;
 		}
 	}
+
+#if defined(CONFIG_MACH_Q1_REV00) || defined(CONFIG_MACH_Q1_REV02)
+	switch (adc) {
+	case (ADC_MHL) ... (ADC_CEA936ATYPE1_CHG - 1):
+	case (ADC_CARDOCK + 1):
+		dev_warn(info->dev, "%s: unsupported ADC(0x%02x)\n", __func__,
+				adc);
+		intr = INT_DETACH;
+		break;
+	default:
+		break;
+	}
+#endif
 
 	if (intr == INT_ATTACH) {
 		dev_info(info->dev, "%s: ATTACHED\n", __func__);
@@ -1475,6 +1505,11 @@ static int __devinit max8997_muic_probe(struct platform_device *pdev)
 
 	/* Set ADC debounce time: 25ms */
 	max8997_muic_set_adcdbset(info, 2);
+
+#if defined(CONFIG_MACH_Q1_REV00) || defined(CONFIG_MACH_Q1_REV02)
+	/* Set Charger-Detection Check Time: 625ms */
+	max8997_muic_set_dchktm(info, 1);
+#endif
 
 	ret = max8997_muic_irq_init(info);
 	if (ret < 0) {

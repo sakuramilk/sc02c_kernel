@@ -105,9 +105,7 @@ void s5p_i2s_set_clk_enabled(struct snd_soc_dai *dai, bool state)
 		if (dai->id == 0) {     /* I2S V5.1? */
 			/*clk_enable(i2s->iis_cclk);*/
 			clk_enable(i2s->iis_pclk);
-#ifdef CONFIG_SND_S5P_RP
 			clk_enable(i2s->audss_srp);
-#endif
 		}
 		audio_clk_gated = 0;
 	} else {
@@ -116,9 +114,7 @@ void s5p_i2s_set_clk_enabled(struct snd_soc_dai *dai, bool state)
 			return;
 		}
 		if (dai->id == 0) {     /* I2S V5.1? */
-#ifdef CONFIG_SND_S5P_RP
 			clk_disable(i2s->audss_srp);
-#endif
 			clk_disable(i2s->iis_pclk);
 			/*clk_disable(i2s->iis_cclk);*/
 		}

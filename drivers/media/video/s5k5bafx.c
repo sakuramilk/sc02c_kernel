@@ -60,6 +60,8 @@ static s32 large_file;
 				return x; \
 			}
 
+#define NELEMS(array) (sizeof(array) / sizeof(array[0]))
+
 #ifdef S5K5BAFX_USLEEP
 /*
  * Use msleep() if the sleep time is over 1000 us.
@@ -540,7 +542,7 @@ s5k5bafx_burst_write:
 		if (unlikely(state->vt_mode))
 			if (!(num%200))
 				s5k5bafx_usleep(3);
-#endif		
+#endif
 	}
 
 	if (unlikely(ret < 0)) {
@@ -572,7 +574,7 @@ static int s5k5bafx_get_exif(struct v4l2_subdev *sd)
 	s5k5bafx_read_reg(sd, REG_PAGE_ISO, REG_ADDR_ISO, &val);
 	cam_dbg("val = %d\n", val);
 	gain = val * 10 / 256;
-	for (index = 0; index < sizeof(iso_gain_table); index++) {
+	for (index = 0; index < NELEMS(iso_gain_table); index++) {
 		if (gain < iso_gain_table[index])
 			break;
 	}
@@ -626,7 +628,7 @@ static int s5k5bafx_debug_sensor_status(struct v4l2_subdev *sd)
 	/* Read REG_TC_GP_EnableCaptureChanged. */
 	err = s5k5bafx_read_reg(sd, 0x7000, 0x01F6, &val);
 	CHECK_ERR(err);
-	
+
 	switch(val) {
 	case 0:
 		cam_info("In normal mode(0)\n");
@@ -676,7 +678,7 @@ static inline int s5k5bafx_check_esd(struct v4l2_subdev *sd)
 		return err;
 	}
 
-	return 0;	
+	return 0;
 }
 
 static int s5k5bafx_set_preview_start(struct v4l2_subdev *sd)
@@ -822,6 +824,13 @@ static int s5k5bafx_s_fmt(struct v4l2_subdev *sd, struct v4l2_format *fmt)
 	 * set the most appropriate one according to the request from FIMC
 	 */
 	memcpy(&state->req_fmt, &fmt->fmt.pix, sizeof(fmt->fmt.pix));
+
+#ifdef CONFIG_VIDEO_CONFERENCE_CALL
+	if (state->vt_mode == 3) {
+		state->req_fmt.width = fmt->fmt.pix.height;
+		state->req_fmt.height = fmt->fmt.pix.width;
+	}
+#endif
 
 	switch (state->req_fmt.priv) {
 	case V4L2_PIX_FMT_MODE_PREVIEW:
@@ -969,23 +978,23 @@ static int s5k5bafx_set_60hz_antibanding(struct v4l2_subdev *sd)
 	FUNC_ENTR();
 
 	u32 s5k5bafx_antibanding60hz[] = {
-	0xFCFCD000,
-	0x00287000,
-	// Anti-Flicker //
-	// End user init script
-	0x002A0400,
-	0x0F12005F,  //REG_TC_DBG_AutoAlgEnBits //Auto Anti-Flicker is enabled bit[5] = 1.
-	0x002A03DC,
-	0x0F120002,  //02 REG_SF_USER_FlickerQuant //Set flicker quantization(0: no AFC, 1: 50Hz, 2: 60 Hz)
-	0x0F120001,
+		0xFCFCD000,
+		0x00287000,
+		/* Anti-Flicker //
+		// End user init script */
+		0x002A0400,
+		0x0F12005F,	/* REG_TC_DBG_AutoAlgEnBits //Auto Anti-Flicker is enabled bit[5] = 1. */
+		0x002A03DC,
+		0x0F120002,	/* 02 REG_SF_USER_FlickerQuant //Set flicker quantization(0: no AFC, 1: 50Hz, 2: 60 Hz) */
+		0x0F120001,
 	};
 
 	err = s5k5bafx_write_regs(sd, s5k5bafx_antibanding60hz,
-				       	sizeof(s5k5bafx_antibanding60hz) / sizeof(s5k5bafx_antibanding60hz[0]));
-	printk("%s:  setting 60hz antibanding \n", __func__);
-	if (unlikely(err))
-	{
-		printk("%s: failed to set 60hz antibanding \n", __func__);
+				  sizeof(s5k5bafx_antibanding60hz) /
+				  sizeof(s5k5bafx_antibanding60hz[0]));
+	pr_info("%s: setting 60hz antibanding\n", __func__);
+	if (unlikely(err)) {
+		pr_info("%s: failed to set 60hz antibanding\n", __func__);
 		return err;
 	}
 
@@ -1071,7 +1080,11 @@ static int s5k5bafx_init(struct v4l2_subdev *sd, u32 val)
 				sizeof(s5k5bafx_common) / \
 				sizeof(s5k5bafx_common[0]));
 		} else {
+#ifdef CONFIG_VIDEO_CONFERENCE_CALL
+			if (state->vt_mode == 1 || state->vt_mode == 3) {
+#else
 			if (state->vt_mode == 1) {
+#endif
 				cam_info("load camera VT call setting\n");
 				err = s5k5bafx_write_regs(sd, s5k5bafx_vt_common,
 					sizeof(s5k5bafx_vt_common) / \
@@ -1471,7 +1484,7 @@ static int s5k5bafx_check_dataline_stop(struct v4l2_subdev *sd)
 	s5k5bafx_write(client, 0xFCFCD000);
 	s5k5bafx_write(client, 0x0028D000);
 	s5k5bafx_write(client, 0x002A3100);
-    	s5k5bafx_write(client, 0x0F120000);
+	s5k5bafx_write(client, 0x0F120000);
 
    //	err =  s5k5bafx_write_regs(sd, s5k5bafx_pattern_off,	sizeof(s5k5bafx_pattern_off) / sizeof(s5k5bafx_pattern_off[0]));
 	printk("%s: sensor reset\n", __func__);
@@ -1601,6 +1614,17 @@ static const struct v4l2_subdev_ops s5k5bafx_ops = {
 	.video = &s5k5bafx_video_ops,
 };
 
+ssize_t s5k5bafx_camera_type_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	cam_info("%s\n", __func__);
+	char *cam_type = "SLSI_S5K5BAFX";
+
+	return sprintf(buf, "%s\n", cam_type);
+}
+
+static DEVICE_ATTR(camera_type, S_IRUGO, s5k5bafx_camera_type_show, NULL);
+
 /*
  * s5k5bafx_probe
  * Fetching platform data is being done with s_config subdev call.
@@ -1623,6 +1647,11 @@ static int s5k5bafx_probe(struct i2c_client *client,
 
 	/* Registering subdev */
 	v4l2_i2c_subdev_init(sd, client, &s5k5bafx_ops);
+
+	if (device_create_file(&client->dev, &dev_attr_camera_type) < 0) {
+		cam_warn("failed to create device file, %s\n",
+				dev_attr_camera_type.attr.name);
+	}
 
 	cam_dbg("probed!!\n");
 

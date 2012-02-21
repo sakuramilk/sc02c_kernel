@@ -338,6 +338,7 @@ static int pn544_probe(struct i2c_client *client,
 		return  -ENODEV;
 	}
 
+#if !defined(CONFIG_MACH_C1_KDDI_REV00)
 	ret = gpio_request(platform_data->irq_gpio, "nfc_int");
 	if (ret)
 		return  -ENODEV;
@@ -347,6 +348,7 @@ static int pn544_probe(struct i2c_client *client,
 	ret = gpio_request(platform_data->firm_gpio, "nfc_firm");
 	if (ret)
 		goto err_firm;
+#endif
 
 	pn544_dev = kzalloc(sizeof(*pn544_dev), GFP_KERNEL);
 	if (pn544_dev == NULL) {
@@ -383,7 +385,9 @@ static int pn544_probe(struct i2c_client *client,
 	 */
 	pr_info("%s : requesting IRQ %d\n", __func__, client->irq);
 	pn544_dev->irq_enabled = true;
+#if !defined(CONFIG_MACH_C1_KDDI_REV00)
 	gpio_direction_input(pn544_dev->irq_gpio);
+#endif
 	ret = request_irq(client->irq, pn544_dev_irq_handler,
 			  IRQF_TRIGGER_RISING, "pn544", pn544_dev);
 	if (ret) {
@@ -391,11 +395,23 @@ static int pn544_probe(struct i2c_client *client,
 		goto err_request_irq_failed;
 	}
 	pn544_disable_irq(pn544_dev);
-#ifdef CONFIG_TARGET_LOCALE_KOR
+#if defined(CONFIG_TARGET_LOCALE_KOR) || defined(CONFIG_MACH_C1_KDDI_REV00)
 	enable_irq_wake(client->irq);	
 #endif	
 	i2c_set_clientdata(client, pn544_dev);
-
+	
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+	extern int sec_isLpmMode(void);
+	//for power supply charging mode
+	if (sec_isLpmMode())
+	{
+		gpio_set_value(pn544_dev->firm_gpio, 0);
+		msleep(10);
+		gpio_set_value(pn544_dev->ven_gpio, 1);
+		msleep(10);
+	}	
+#endif
+	
 	return 0;
 
 err_request_irq_failed:

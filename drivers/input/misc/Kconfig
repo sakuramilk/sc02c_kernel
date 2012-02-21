@@ -418,5 +418,35 @@ config OPTICAL_CM3663
 	default n
 	help
 	  This option enables proximity & light sensors using cm3663 driver.
-	
+
+config OPTICAL_GP2A
+	depends on I2C && GENERIC_GPIO
+	tristate "GP2A ambient light and proximity input device"
+	default n
+	help
+	  This option enables proximity & light sensors using gp2a driver.
+
+config OPTICAL_GP2AP020
+	depends on I2C && GENERIC_GPIO
+	tristate "GP2AP020 ambient light and proximity input device"
+	default n
+	help
+	  This option enables proximity & light sensors using gp2a driver.
+
+config INPUT_LPS331AP
+        depends on I2C
+        tristate "LPS331AP digital output barometer"
+        help
+          If you say yes here you get support for the STMicroelectronics
+          LPS331AP digital absolute digital output barometer.
+
+config INPUT_BMP180
+        depends on I2C && SYSFS
+        tristate "BMP180 digital pressure sensor"
+        help
+          If you say yes here you get support for the Bosch Sensortec
+          BMP180 digital pressure sensor.
+
+          To compile this driver as a module, choose M here: the
+          module will be called bmp180.
 endif

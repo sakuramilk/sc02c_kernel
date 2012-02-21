@@ -25,60 +25,63 @@
 
 /* wimax mode */
 enum {
-        SDIO_MODE = 0,
-        WTM_MODE,
-        MAC_IMEI_WRITE_MODE,
-        USIM_RELAY_MODE,
-        DM_MODE,
-        USB_MODE,
-        AUTH_MODE
+	SDIO_MODE = 0,
+	WTM_MODE,
+	MAC_IMEI_WRITE_MODE,
+	USIM_RELAY_MODE,
+	DM_MODE,
+	USB_MODE,
+	AUTH_MODE
 };
 
 /* wimax state */
 enum {
-        WIMAX_STATE_NOT_READY,
-        WIMAX_STATE_READY,
-        WIMAX_STATE_VIRTUAL_IDLE,
-        WIMAX_STATE_NORMAL,
-        WIMAX_STATE_IDLE,
-  WIMAX_STATE_RESET_REQUESTED,
-        WIMAX_STATE_RESET_ACKED,
-        WIMAX_STATE_AWAKE_REQUESTED,
+	WIMAX_STATE_NOT_READY,
+	WIMAX_STATE_READY,
+	WIMAX_STATE_VIRTUAL_IDLE,
+	WIMAX_STATE_NORMAL,
+	WIMAX_STATE_IDLE,
+	WIMAX_STATE_RESET_REQUESTED,
+	WIMAX_STATE_RESET_ACKED,
+	WIMAX_STATE_AWAKE_REQUESTED,
 };
 
 struct wimax_cfg{
 	int                     uart_sel;
-        int                     uart_sel1;
-        int                     temp_tgid;      /* handles unexpected close */
-        struct wake_lock        wimax_wake_lock;        /* resume wake lock */
-        struct wake_lock        wimax_rxtx_lock;/* sdio wake lock */
-        struct wake_lock        wimax_tx_lock;/* sdio tx lock */
-        struct mutex suspend_mutex;
+	int                     uart_sel1;
+	int                     temp_tgid;      /* handles unexpected close */
+	struct wake_lock        wimax_wake_lock;        /* resume wake lock */
+	struct wake_lock        wimax_rxtx_lock;/* sdio wake lock */
+	struct wake_lock        wimax_tx_lock;/* sdio tx lock */
+	struct mutex			power_mutex;
+	struct mutex			rx_lock;
 	u_char          enable_dump_msg;
-        u8              wimax_status;
-        u8              wimax_mode;/* wimax mode (SDIO, USB, etc..) */
-        u8              sleep_mode;/* suspend mode (0: VI, 1: IDLE) */
-        u8              card_removed;/*
-                                                 * set if host has acknowledged
-                                                 * card removal
-                                                 */
+	u8              wimax_status;
+	u8              wimax_mode;/* wimax mode (SDIO, USB, etc..) */
+	u8              sleep_mode;/* suspend mode (0: VI, 1: IDLE) */
+	u8              card_removed;/*
+	* set if host has acknowledged
+	* card removal
+	*/
+	u8		powerup_done;
+	int		wimax_suspend_prepare;
 };
 
 struct wimax732_platform_data {
-	struct class *wimax_class; 
-        int (*power) (int);
-        void (*set_mode) (void);
-        void (*signal_ap_active) (int);
-        int (*get_sleep_mode) (void);
-        int (*is_modem_awake) (void);
-        void (*wakeup_assert) (int);
-	void (*uart_wimax)(void); 
-	void (*uart_ap)(void); 
+	struct class *wimax_class;
+	int (*power) (int);
+	void (*set_mode) (void);
+	void (*signal_ap_active) (int);
+	int (*is_modem_awake) (void);
+	void (*wakeup_assert) (int);
+	void (*uart_wimax)(void);
+	void (*uart_ap)(void);
 	void (*restore_uart_path)(void);
 	void (*gpio_display) (void);
-        struct wimax_cfg *g_cfg;
-        struct miscdevice swmxctl_dev;
-        int wimax_int;
+	struct wimax_cfg *g_cfg;
+	struct miscdevice swmxctl_dev;
+	int wimax_int;
+	struct	notifier_block pm_notifier;
 };
 
 #endif

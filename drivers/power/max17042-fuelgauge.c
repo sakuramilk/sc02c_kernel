@@ -49,6 +49,7 @@ struct max17042_chip {
 	int fuel_alert_soc;		/* fuel alert threshold */
 	bool is_fuel_alerted;	/* fuel alerted */
 	struct wake_lock fuel_alert_wake_lock;
+	bool is_enable;			/* can be fuel guage enable */
 
 #ifdef RECAL_SOC_FOR_MAXIM
 	int cnt;
@@ -56,6 +57,10 @@ struct max17042_chip {
 	int boot_cnt;
 #endif
 };
+
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+#define FUEL_ALERT_SOC_VALUE 3
+#endif
 
 static int max17042_get_property(struct power_supply *psy,
 			    enum power_supply_property psp,
@@ -123,16 +128,12 @@ static int max17042_read_reg(struct i2c_client *client, int reg, u8 * buf)
 {
 	int ret;
 
-#ifndef NO_READ_I2C_FOR_MAXIM
 	ret = i2c_smbus_read_i2c_block_data(client, reg, 2, buf);
 
 	if (ret < 0)
 		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
 	return ret;
-#else
-	return 1;
-#endif
 }
 
 static void max17042_write_reg_array(struct i2c_client *client,
@@ -147,23 +148,24 @@ static void max17042_write_reg_array(struct i2c_client *client,
 
 static void max17042_init_regs(struct i2c_client *client)
 {
+	struct max17042_chip *chip = i2c_get_clientdata(client);
 	u8 data[2];
 	/*struct max17042_platform_data *pdata = client->dev.platform_data; */
 
 	dev_info(&client->dev, "%s\n", __func__);
 
-#ifndef NO_READ_I2C_FOR_MAXIM
-/*	max17042_write_reg_array(client, pdata->init,
-		pdata->init_size);*/
+	if (chip->is_enable) {
+	/*	max17042_write_reg_array(client, pdata->init,
+			pdata->init_size);*/
 
-	if (max17042_read_reg(client, MAX17042_REG_FILTERCFG, data) < 0)
-		return;
+		if (max17042_read_reg(client, MAX17042_REG_FILTERCFG, data) < 0)
+			return;
 
-	/* Clear average vcell (12 sec) */
-	data[0] &= 0x8f;
+		/* Clear average vcell (12 sec) */
+		data[0] &= 0x8f;
 
-	max17042_write_reg(client, MAX17042_REG_FILTERCFG, data);
-#endif
+		max17042_write_reg(client, MAX17042_REG_FILTERCFG, data);
+	}
 }
 
 static void max17042_alert_init(struct i2c_client *client)
@@ -182,18 +184,18 @@ static int max17042_read_vfocv(struct i2c_client *client)
 	u32 vfocv = 0;
 	struct max17042_chip *chip = i2c_get_clientdata(client);
 
-#ifndef NO_READ_I2C_FOR_MAXIM
-	if (max17042_read_reg(client, MAX17042_REG_VFOCV, data) < 0)
-		return -1;
+	if (chip->is_enable) {
+		if (max17042_read_reg(client, MAX17042_REG_VFOCV, data) < 0)
+			return -1;
 
-	vfocv = ((data[0] >> 3) + (data[1] << 5)) * 625 / 1000;
+		vfocv = ((data[0] >> 3) + (data[1] << 5)) * 625 / 1000;
 
-	chip->vfocv = vfocv;
+		chip->vfocv = vfocv;
 
-	return vfocv;
-#else
-	return 4000;
-#endif
+		return vfocv;
+	} else
+		return 4000;
+
 }
 
 #if 0
@@ -227,28 +229,29 @@ static int max17042_read_vfsoc(struct i2c_client *client)
 
 static void max17042_reset_soc(struct i2c_client *client)
 {
+	struct max17042_chip *chip = i2c_get_clientdata(client);
 	u8 data[2];
 
-#ifndef NO_READ_I2C_FOR_MAXIM
-	dev_info(&client->dev, "%s : Before quick-start - "
-		"VfOCV(%d), VfSOC(%d)\n",
-		__func__, max17042_read_vfocv(client),
-		max17042_read_vfsoc(client));
+	if (chip->is_enable) {
+		dev_info(&client->dev, "%s : Before quick-start - "
+			"VfOCV(%d), VfSOC(%d)\n",
+			__func__, max17042_read_vfocv(client),
+			max17042_read_vfsoc(client));
 
-	if (max17042_read_reg(client, MAX17042_REG_MISCCFG, data) < 0)
-		return;
+		if (max17042_read_reg(client, MAX17042_REG_MISCCFG, data) < 0)
+			return;
 
-	/* Set bit10 makes quick start */
-	data[1] |= (0x1 << 2);
-	max17042_write_reg(client, MAX17042_REG_MISCCFG, data);
+		/* Set bit10 makes quick start */
+		data[1] |= (0x1 << 2);
+		max17042_write_reg(client, MAX17042_REG_MISCCFG, data);
 
-	msleep(500);
+		msleep(500);
 
-	dev_info(&client->dev, "%s : After quick-start - "
-		"VfOCV(%d), VfSOC(%d)\n",
-		__func__, max17042_read_vfocv(client),
-		max17042_read_vfsoc(client));
-#endif
+		dev_info(&client->dev, "%s : After quick-start - "
+			"VfOCV(%d), VfSOC(%d)\n",
+			__func__, max17042_read_vfocv(client),
+			max17042_read_vfsoc(client));
+	}
 
 	return;
 }
@@ -258,69 +261,69 @@ static void max17042_get_vcell(struct i2c_client *client)
 	struct max17042_chip *chip = i2c_get_clientdata(client);
 	u8 data[2];
 
-#ifndef NO_READ_I2C_FOR_MAXIM
-	if (max17042_read_reg(client, MAX17042_REG_VCELL, data) < 0)
-		return;
+	if (chip->is_enable) {
+		if (max17042_read_reg(client, MAX17042_REG_VCELL, data) < 0)
+			return;
 
-	chip->vcell = ((data[0] >> 3) + (data[1] << 5)) * 625;
+		chip->vcell = ((data[0] >> 3) + (data[1] << 5)) * 625;
 
-	if (max17042_read_reg(client, MAX17042_REG_AVGVCELL, data) < 0)
-		return;
+		if (max17042_read_reg(client, MAX17042_REG_AVGVCELL, data) < 0)
+			return;
 
-	chip->avgvcell = ((data[0] >> 3) + (data[1] << 5)) * 625;
-#else
-	chip->vcell = 4000000;
-	chip->avgvcell = 4000000;
-#endif
+		chip->avgvcell = ((data[0] >> 3) + (data[1] << 5)) * 625;
+	} else {
+		chip->vcell = 4000000;
+		chip->avgvcell = 4000000;
+	}
 }
 
 static int max17042_recalc_soc(struct i2c_client *client, int boot_cnt)
 {
+	struct max17042_chip *chip = i2c_get_clientdata(client);
 	struct power_supply *psy = power_supply_get_by_name("battery");
 	union power_supply_propval value;
 	u8 data[2];
 	u16 temp_vfocv = 0;
 	int soc;
 
-#ifndef NO_READ_I2C_FOR_MAXIM
-	/* AverageVcell : 175.8ms * 256 = 45s sampling */
-	if (boot_cnt < 4) /* 30s using VCELL */
-		max17042_read_reg(client, MAX17042_REG_VCELL, data);
-	else
-		max17042_read_reg(client, MAX17042_REG_AVGVCELL, data);
-	temp_vfocv = (data[1] << 8);
-	temp_vfocv |= data[0];
-
-	if (psy != NULL) {
-		psy->get_property(psy, POWER_SUPPLY_PROP_ONLINE, &value);
-
-		if (value.intval == 0)
-			temp_vfocv = temp_vfocv + 0x0380; // +70mV
+	if (chip->is_enable) {
+		/* AverageVcell : 175.8ms * 256 = 45s sampling */
+		if (boot_cnt < 4) /* 30s using VCELL */
+			max17042_read_reg(client, MAX17042_REG_VCELL, data);
 		else
-			temp_vfocv = temp_vfocv - 0x0380; // -70mV
+			max17042_read_reg(client, MAX17042_REG_AVGVCELL, data);
+		temp_vfocv = (data[1] << 8);
+		temp_vfocv |= data[0];
 
-		dev_info(&client->dev, "cable = %d, ", value.intval);
+		if (psy != NULL) {
+			psy->get_property(psy, POWER_SUPPLY_PROP_ONLINE, &value);
+
+			if (value.intval == 0)
+				temp_vfocv = temp_vfocv + 0x0380; // +70mV
+			else
+				temp_vfocv = temp_vfocv - 0x0380; // -70mV
+
+			dev_info(&client->dev, "cable = %d, ", value.intval);
+		} else
+			temp_vfocv = temp_vfocv + 0x0380; // +70mV
+
+		data[1] = temp_vfocv >> 8;
+		data[0] = 0x00FF & temp_vfocv;
+		dev_info(&client->dev, "forced write to vfocv %d mV\n",
+			 (temp_vfocv >> 4) * 125 / 100);
+		max17042_write_reg(client, MAX17042_REG_VFOCV, data);
+
+		msleep(200);
+
+		max17042_read_reg(client, MAX17042_REG_SOC_VF, data);
+		soc = min((int)data[1], 100);
+
+		max17042_read_reg(client, MAX17042_REG_VCELL, data);
+		dev_info(&client->dev, "new vcell = %d, vfocv = %d, soc = %d\n",
+			 ((data[0] >> 3) + (data[1] << 5)) * 625 / 1000,
+			 max17042_read_vfocv(client), soc);
 	} else
-		temp_vfocv = temp_vfocv + 0x0380; // +70mV
-
-	data[1] = temp_vfocv >> 8;
-	data[0] = 0x00FF & temp_vfocv;
-	dev_info(&client->dev, "forced write to vfocv %d mV\n",
-		 (temp_vfocv >> 4) * 125 / 100);
-	max17042_write_reg(client, MAX17042_REG_VFOCV, data);
-
-	msleep(200);
-
-	max17042_read_reg(client, MAX17042_REG_SOC_VF, data);
-	soc = min((int)data[1], 100);
-
-	max17042_read_reg(client, MAX17042_REG_VCELL, data);
-	dev_info(&client->dev, "new vcell = %d, vfocv = %d, soc = %d\n",
-		 ((data[0] >> 3) + (data[1] << 5)) * 625 / 1000,
-		 max17042_read_vfocv(client), soc);
-#else
-	soc = 100;
-#endif
+		soc = 70;
 
 	return soc;
 }
@@ -332,80 +335,98 @@ static void max17042_get_soc(struct i2c_client *client)
 	int soc;
 	int diff = 0;
 
-#ifndef NO_READ_I2C_FOR_MAXIM
-	if (max17042_read_reg(client, MAX17042_REG_SOC_VF, data) < 0)
-		return;
-	dev_info(&chip->client->dev, "%s : soc(%02x%02x)\n",
-			__func__, data[1], data[0]);
+	#if defined(CONFIG_MACH_C1_KDDI_REV00)
+	{
+		extern int sysfs_get_testmode_status(void);
+		int testmode_status = sysfs_get_testmode_status();
 
-	soc = (data[1] * 100) + (data[0] * 100 / 256);
+		dev_err(&chip->client->dev, "max17042_get_soc: sysfs_test_mode status = %x\n", testmode_status);
+		if ((testmode_status & 0x001F) == (0x0012))
+		{
+			dev_err(&chip->client->dev, "Test mode SOC is ON so don't read from REGISTERS\n");
+			return;
+		}
+	}
+	#endif
 
-	chip->raw_soc = min(soc / 100, 100);
+	if (chip->is_enable) {
+		if (max17042_read_reg(client, MAX17042_REG_SOC_VF, data) < 0)
+			return;
+		dev_info(&chip->client->dev, "%s : soc(%02x%02x)\n",
+				__func__, data[1], data[0]);
+
+		soc = (data[1] * 100) + (data[0] * 100 / 256);
+
+		chip->raw_soc = min(soc / 100, 100);
 
 #ifdef RECAL_SOC_FOR_MAXIM
-	if (chip->pdata->need_soc_recal()) {
-		dev_info(&client->dev, "%s : recalculate soc\n", __func__);
+		if (chip->pdata->need_soc_recal()) {
+			dev_info(&client->dev, "%s : recalculate soc\n", __func__);
 
-		/*modified 3.6V cut-off */
-		/*raw 3% ~ 95% */
-		soc = (soc < 300) ? 0 : ((soc - 300) * 100 / 9200) + 1;
+			/*modified 3.6V cut-off */
+			/*raw 3% ~ 95% */
+			soc = (soc < 300) ? 0 : ((soc - 300) * 100 / 9200) + 1;
 
-		if (chip->boot_cnt < 4)
-			chip->boot_cnt++;
+			if (chip->boot_cnt < 4)
+				chip->boot_cnt++;
 
-		dev_info(&client->dev, "vcell = %d, vfocv = %d, soc = %d\n",
-			chip->vcell,  max17042_read_vfocv(client), soc);
+			dev_info(&client->dev, "vcell = %d, vfocv = %d, soc = %d\n",
+				chip->vcell,  max17042_read_vfocv(client), soc);
 
-		if (soc < 5) {
-			dev_info(&client->dev,
-				 "recalc force soc = %d, diff = %d!\n", soc,
-				 diff);
-			chip->recalc_180s = 1;
-		}
-
-		/*when using fuelgauge level, diff is calculated */
-		if (chip->recalc_180s == 0 && chip->boot_cnt != 1) {
-			if (chip->soc > soc)
-				diff = chip->soc - soc;
-			else
-				diff = soc - chip->soc;
-		} else	/*during recalc, diff is not valid */
-			diff = 0;
-
-		if (diff > 10) {
-			dev_info(&client->dev,
-				 "recalc 180s soc = %d, diff = %d!\n", soc,
-				 diff);
-			chip->recalc_180s = 1;
-		}
-
-		if (chip->recalc_180s == 1) {
-			if (chip->cnt < 18) {
-				chip->cnt++;
-				soc = max17042_recalc_soc(client,
-					chip->boot_cnt);
-			} else {
-				chip->recalc_180s = 0;
-				chip->cnt = 0;
+			if (soc < 5) {
+				dev_info(&client->dev,
+					 "recalc force soc = %d, diff = %d!\n", soc,
+					 diff);
+				chip->recalc_180s = 1;
 			}
+
+			/*when using fuelgauge level, diff is calculated */
+			if (chip->recalc_180s == 0 && chip->boot_cnt != 1) {
+				if (chip->soc > soc)
+					diff = chip->soc - soc;
+				else
+					diff = soc - chip->soc;
+			} else	/*during recalc, diff is not valid */
+				diff = 0;
+
+			if (diff > 10) {
+				dev_info(&client->dev,
+					 "recalc 180s soc = %d, diff = %d!\n", soc,
+					 diff);
+				chip->recalc_180s = 1;
+			}
+
+			if (chip->recalc_180s == 1) {
+				if (chip->cnt < 18) {
+					chip->cnt++;
+					soc = max17042_recalc_soc(client,
+						chip->boot_cnt);
+				} else {
+					chip->recalc_180s = 0;
+					chip->cnt = 0;
+				}
+			}
+		} else {
+			/*modified 3.4V cut-off */
+			/*raw 1.6% ~ 97.6% */
+			soc = (soc > 100) ? ((soc - 60) * 100 / 9700) : 0;
+			/*raw 1.5% ~ 95% */
+			/*soc = (soc < 150) ? 0 : ((soc - 150) * 100 / 9350) + 1; */
 		}
-	} else {
-		/*modified 3.4V cut-off */
-		/*raw 1.6% ~ 97.6% */
-		soc = (soc > 100) ? ((soc - 60) * 100 / 9700) : 0;
-		/*raw 1.5% ~ 95% */
-		/*soc = (soc < 150) ? 0 : ((soc - 150) * 100 / 9350) + 1; */
-		dev_info(&client->dev, "%s : use raw (%d), soc (%d)\n",
-			__func__, chip->raw_soc, soc);
-	}
-#endif
 #else
-	soc = 100;
+		/* adjusted soc by adding 0.45 */
+		soc += 45;
+		soc /= 100;
 #endif
+	} else
+		soc = 70;
 
 	soc = min(soc, 100);
 
 	chip->soc = soc;
+
+	dev_info(&client->dev, "%s : use raw (%d), soc (%d)\n",
+		__func__, chip->raw_soc, soc);
 }
 
 static void max17042_get_temperature(struct i2c_client *client)
@@ -414,41 +435,55 @@ static void max17042_get_temperature(struct i2c_client *client)
 	u8 data[2];
 	s32 temper = 0;
 
-#ifndef NO_READ_I2C_FOR_MAXIM
-	if (max17042_read_reg(client, MAX17042_REG_TEMPERATURE, data) < 0)
-		return;
+	#if defined(CONFIG_MACH_C1_KDDI_REV00)
+	{
+		extern int sysfs_get_testmode_status(void);
+		int testmode_status = sysfs_get_testmode_status();
 
-	/* data[] store 2's compliment format number */
-	if (data[1] & (0x1 << 7)) {
-		/* Negative */
-		temper = ((~(data[1])) & 0xFF) + 1;
-		temper *= (-1000);
-	} else {
-		temper = data[1] & 0x7F;
-		temper *= 1000;
-		temper += data[0] * 39 / 10;
+		dev_err(&chip->client->dev, "max17042_get_temperature: sysfs_test_mode status = %x\n", testmode_status);
+		if ((testmode_status & 0x001F) == (0x0011))
+		{
+			dev_err(&chip->client->dev, "Test mode TEMP is ON so don't read from REGISTERS\n");
+			return;
+		}
 	}
+	#endif
 
-	dev_dbg(&client->dev, "%s: MAX17042 Temperature = %d\n",
-		__func__, chip->temperature);
-#else
-	temper = 40;
-#endif
+	if (chip->is_enable) {
+		if (max17042_read_reg(client, MAX17042_REG_TEMPERATURE, data) < 0)
+			return;
+
+		/* data[] store 2's compliment format number */
+		if (data[1] & (0x1 << 7)) {
+			/* Negative */
+			temper = ((~(data[1])) & 0xFF) + 1;
+			temper *= (-1000);
+		} else {
+			temper = data[1] & 0x7F;
+			temper *= 1000;
+			temper += data[0] * 39 / 10;
+		}
+
+		dev_dbg(&client->dev, "%s: MAX17042 Temperature = %d\n",
+			__func__, chip->temperature);
+	} else
+		temper = 40;
 
 	chip->temperature = temper;
 }
 
 static void max17042_get_version(struct i2c_client *client)
 {
+	struct max17042_chip *chip = i2c_get_clientdata(client);
 	u8 data[2];
 
-#ifndef NO_READ_I2C_FOR_MAXIM
-	if (max17042_read_reg(client, MAX17042_REG_VERSION, data) < 0)
-		return;
+	if (chip->is_enable) {
+		if (max17042_read_reg(client, MAX17042_REG_VERSION, data) < 0)
+			return;
 
-	dev_info(&client->dev, "MAX17042 Fuel-Gauge Ver %d%d\n",
-			data[0], data[1]);
-#endif
+		dev_info(&client->dev, "MAX17042 Fuel-Gauge Ver %d%d\n",
+				data[0], data[1]);
+	}
 }
 
 static int max17042_set_property(struct power_supply *psy,
@@ -462,7 +497,8 @@ static int max17042_set_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_TEMP:
-		if (chip->pdata->enable_gauging_temperature) {
+		if (chip->pdata->enable_gauging_temperature
+			&& chip->is_enable) {
 		data[0] = 0;
 			data[1] = val->intval;
 			max17042_write_reg(chip->client,
@@ -470,6 +506,7 @@ static int max17042_set_property(struct power_supply *psy,
 		} else
 			return -EINVAL;
 		break;
+
 	default:
 		return -EINVAL;
 	}
@@ -613,6 +650,20 @@ static ssize_t sec_fg_store(struct device *dev,
 				max17042_reset_soc(chip->client);
 			ret = count;
 		}
+#if 1	/* tester requested to sustain unity with parental models but keep source code for later */
+		{
+			struct power_supply *psy = power_supply_get_by_name("battery");
+			union power_supply_propval value;
+
+			if (!psy) {
+				pr_err("%s: fail to get battery ps\n", __func__);
+				return -ENODEV;
+			}
+
+			value.intval = 0;	/* dummy value */
+			psy->set_property(psy, POWER_SUPPLY_PROP_CAPACITY, &value);
+		}
+#endif
 		break;
 	default:
 		ret = -EINVAL;
@@ -641,30 +692,30 @@ succeed:
 
 static bool max17042_check_status(struct i2c_client *client)
 {
+	struct max17042_chip *chip = i2c_get_clientdata(client);
 	u8 data[2];
 	bool ret = false;
 
-#ifndef NO_READ_I2C_FOR_MAXIM
-	/* check if Smn was generated */
-	if (max17042_read_reg(client, MAX17042_REG_STATUS, data) < 0)
-		return ret;
+	if (chip->is_enable) {
+		/* check if Smn was generated */
+		if (max17042_read_reg(client, MAX17042_REG_STATUS, data) < 0)
+			return ret;
 
-	dev_info(&client->dev, "%s : status_reg(%02x%02x)\n",
-			__func__, data[1], data[0]);
+		dev_info(&client->dev, "%s : status_reg(%02x%02x)\n",
+				__func__, data[1], data[0]);
 
-	/* minimum SOC threshold exceeded. */
-	if (data[1] & (0x1 << 2))
+		/* minimum SOC threshold exceeded. */
+		if (data[1] & (0x1 << 2))
+			ret = true;
+
+		/* clear status reg */
+		if (!ret) {
+			data[1] = 0;
+			max17042_write_reg(client, MAX17042_REG_STATUS, data);
+			msleep(200);
+		}
+	} else
 		ret = true;
-
-	/* clear status reg */
-	if (!ret) {
-		data[1] = 0;
-		max17042_write_reg(client, MAX17042_REG_STATUS, data);
-		msleep(200);
-	}
-#else
-	ret = true;
-#endif
 
 	return ret;
 }
@@ -837,6 +888,9 @@ static int __devinit max17042_probe(struct i2c_client *client,
 	int i;
 	struct max17042_reg_data *data;
 	int ret;
+	u8 i2c_data[2];
+
+	dev_info(&client->dev, "%s: MAX17042 Driver Loading\n", __func__);
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE))
 		return -EIO;
@@ -870,30 +924,42 @@ static int __devinit max17042_probe(struct i2c_client *client,
 		return ret;
 	}
 
+	if (max17042_read_reg(client, MAX17042_REG_VERSION, i2c_data) < 0)
+		chip->is_enable = false;
+	else
+		chip->is_enable = true;
+
+	dev_info(&client->dev, "%s : is enable (%d)\n",
+		__func__, chip->is_enable);
+
 	/* initialize fuel gauge registers */
 	max17042_init_regs(client);
 
-#ifndef NO_READ_I2C_FOR_MAXIM
-	/* register low batt intr */
-	chip->pdata->alert_irq = gpio_to_irq(chip->pdata->alert_gpio);
+	if (chip->is_enable) {
+		/* register low batt intr */
+		chip->pdata->alert_irq = gpio_to_irq(chip->pdata->alert_gpio);
 
-	wake_lock_init(&chip->fuel_alert_wake_lock, WAKE_LOCK_SUSPEND,
-		       "fuel_alerted");
+		wake_lock_init(&chip->fuel_alert_wake_lock, WAKE_LOCK_SUSPEND,
+			       "fuel_alerted");
 
-	data = chip->pdata->alert_init;
-	for (i = 0; i < chip->pdata->alert_init_size; i += 3)
-		if ((data + i)->reg_addr ==
-			MAX17042_REG_SALRT_TH)
-			chip->fuel_alert_soc =
-			(data + i)->reg_data1;
+		data = chip->pdata->alert_init;
+		#if defined(CONFIG_MACH_C1_KDDI_REV00) // FIX FOR PLM - 3569 issue
+		for (i = 0; i < chip->pdata->alert_init_size; i += 3)
+			if ((data + i)->reg_addr == MAX17042_REG_SALRT_TH)
+				chip->fuel_alert_soc = FUEL_ALERT_SOC_VALUE;
+		#else
+		for (i = 0; i < chip->pdata->alert_init_size; i += 3)
+			if ((data + i)->reg_addr == MAX17042_REG_SALRT_TH)
+				chip->fuel_alert_soc = (data + i)->reg_data1;
+		#endif
 
-	dev_info(&client->dev, "fuel alert soc (%d)\n",
-		chip->fuel_alert_soc);
+		dev_info(&client->dev, "fuel alert soc (%d)\n",
+			chip->fuel_alert_soc);
 
-	ret = max17042_irq_init(chip);
-	if (ret)
-		goto err_kfree;
-#endif
+		ret = max17042_irq_init(chip);
+		if (ret)
+			goto err_kfree;
+	}
 
 	max17042_get_version(client);
 
@@ -902,6 +968,8 @@ static int __devinit max17042_probe(struct i2c_client *client,
 
 	INIT_DELAYED_WORK_DEFERRABLE(&chip->work, max17042_work);
 	schedule_delayed_work(&chip->work, MAX17042_SHORT_DELAY);
+
+	dev_info(&client->dev, "%s: MAX17042 Driver Loaded\n", __func__);
 
 	return 0;
 

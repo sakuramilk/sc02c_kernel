@@ -202,6 +202,7 @@ struct mfc_inst_ctx {
 #endif
 #ifdef CONFIG_CPU_FREQ
 	int busfreq_flag; /* context bus frequency flag*/
+	int cpufreq_flag; /* context CPU frequency flag*/
 #endif
 };
 

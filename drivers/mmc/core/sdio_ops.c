@@ -206,3 +206,56 @@ int sdio_reset(struct mmc_host *host)
 	return ret;
 }
 
+int wimax_cmc7xx_sdio_reset(struct mmc_host *host)
+{
+	struct mmc_command cmd;
+	int err;
+	u8	*out;
+	int	write;
+	u8	in;
+	u8 abort;
+
+	abort = 0xF;
+	out = NULL;
+	write = 1;
+	in = abort;
+
+	BUG_ON(!host);
+
+	/* sanity check */
+	if (SDIO_CCCR_ABORT & ~0x1FFFF)
+		return -EINVAL;
+
+	memset(&cmd, 0, sizeof(struct mmc_command));
+
+	cmd.opcode = SD_IO_RW_DIRECT;
+	cmd.arg = write ? 0x80000000 : 0x00000000;
+	cmd.arg |= (write && out) ? 0x08000000 : 0x00000000;
+	cmd.arg |= SDIO_CCCR_ABORT << 9;
+	cmd.arg |= in;
+	cmd.flags = MMC_RSP_SPI_R5 | MMC_RSP_R5 | MMC_CMD_BCR;
+
+	err = mmc_wait_for_cmd(host, &cmd, 0);
+	if (err)
+		return err;
+
+	if (mmc_host_is_spi(host)) {
+		/* host driver already reported errors */
+	} else {
+		if (cmd.resp[0] & R5_ERROR)
+			return -EIO;
+		if (cmd.resp[0] & R5_FUNCTION_NUMBER)
+			return -EINVAL;
+		if (cmd.resp[0] & R5_OUT_OF_RANGE)
+			return -ERANGE;
+	}
+
+	if (out) {
+		if (mmc_host_is_spi(host))
+			*out = (cmd.resp[0] >> 8) & 0xFF;
+		else
+			*out = cmd.resp[0] & 0xFF;
+	}
+
+	return 0;
+}

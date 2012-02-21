@@ -38,6 +38,8 @@
 #include <plat/tvout.h>
 #include <plat/s5p-otghost.h>
 
+#include <linux/power_supply.h>
+
 #if defined(CONFIG_VIDEO_MFC5X) || defined(CONFIG_VIDEO_MFC50)
 static struct resource s5p_mfc_resources[] = {
 	[0] = {
@@ -865,6 +867,32 @@ EXPORT_SYMBOL(s3c_device_usb_ohci);
 #endif /* CONFIG_USB_ARCH_HAS_EHCI */
 
 /* we don't use OTGDRVVBUS pin for powering up otg charging pump */
+#ifdef CONFIG_SMB328_CHARGER		/* Q1 EUR OPEN */
+static void otg_power_cb(int enable)
+{
+	u8 on = (u8)!!enable;
+	struct power_supply *psy_sub =
+		power_supply_get_by_name("smb328-charger");
+	union power_supply_propval value;
+	int ret;
+
+	if (!psy_sub) {
+		pr_info("%s: fail to get charger ps\n", __func__);
+		return;
+	}
+
+	value.intval = on;
+	ret = psy_sub->set_property(psy_sub,
+					POWER_SUPPLY_PROP_CHARGE_TYPE, /* only for OTG */
+					&value);
+	if (ret) {
+		pr_info("%s: fail to set OTG (%d)\n",
+			__func__, ret);
+		return;
+	}
+	pr_info("%s: otg power = %d\n", __func__, on);
+}
+#else
 static void otg_power_cb(int enable)
 {
 #ifdef GPIO_USB_OTG_EN
@@ -872,9 +900,10 @@ static void otg_power_cb(int enable)
 	gpio_request(GPIO_USB_OTG_EN, "USB_OTG_EN");
 	gpio_direction_output(GPIO_USB_OTG_EN, on);
 	gpio_free(GPIO_USB_OTG_EN);
-#endif
 	pr_info("%s: otg power = %d\n", __func__, on);
+#endif
 }
+#endif
 
 static struct host_notify_dev otg_ndev = {
 	.name = "usb_otg",
@@ -961,6 +990,15 @@ static char *usb_functions_ums_acm_adb[] = {
 	"acm",
 	"adb",
 };
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_MTP_ADB
+/* debug mode : using MS Composite : ACM,MTP,ADB*/
+/* Usb connecting concept change ( adb with mtp )*/
+static char *usb_functions_mtp_acm_adb[] = {
+	"mtp",
+	"acm",
+	"adb",
+};
+#endif
 #  else /* USE MCCI HOST DRIVER */
 /* kies mode */
 static char *usb_functions_acm_mtp[] = {
@@ -1072,9 +1110,15 @@ static struct android_usb_product usb_products[] = {
 #      endif
 #    else /* Not used KIES_UMS */
 	{
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_MTP_ADB
+		.product_id	= SAMSUNG_KIES_PRODUCT_ID,
+		.num_functions	= ARRAY_SIZE(usb_functions_mtp_acm_adb),
+		.functions	= usb_functions_mtp_acm_adb,
+#else
 		.product_id	= SAMSUNG_DEBUG_PRODUCT_ID,
 		.num_functions	= ARRAY_SIZE(usb_functions_ums_acm_adb),
 		.functions	= usb_functions_ums_acm_adb,
+#endif
 		.bDeviceClass	= 0xEF,
 		.bDeviceSubClass= 0x02,
 		.bDeviceProtocol= 0x01,

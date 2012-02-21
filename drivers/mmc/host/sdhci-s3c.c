@@ -375,7 +375,8 @@ static void sdhci_s3c_requlator_work(struct work_struct *work)
 		if (!gpio_get_value(sc->ext_cd_gpio)) {
 			regulator_enable(host->vmmc);
 		} else {
-			regulator_disable(host->vmmc);
+			if (regulator_is_enabled(host->vmmc))
+				regulator_disable(host->vmmc);
 		}
 	}
 }

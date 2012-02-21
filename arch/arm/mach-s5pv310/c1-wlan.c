@@ -103,11 +103,12 @@ void wlan_setup_power(int on, int flag)
 	}
 
 	/* mmc_rescan*/
-	#ifdef CONFIG_MACH_C1_NA_SPR_REV05
+#if defined(CONFIG_MACH_C1_NA_SPR_REV05) || defined(CONFIG_MACH_C1_NA_SPR_EPIC2_REV00) \
+	|| defined(CONFIG_MACH_C1_NA_USCC_REV05) || defined(CONFIG_MACH_C1_KDDI_REV00)
 	sdhci_s3c_force_presence_change(&s3c_device_hsmmc2);
-	#else
+#else
 	sdhci_s3c_force_presence_change(&s3c_device_hsmmc3);
-	#endif
+#endif
 
 }
 EXPORT_SYMBOL(wlan_setup_power);

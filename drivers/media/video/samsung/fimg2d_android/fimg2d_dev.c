@@ -1,6 +1,6 @@
 /* drivers/media/video/samsung/fimg2d_android/fimg2d3x_dev.c
  *
- * Copyright  2010 Samsung Electronics Co, Ltd. All Rights Reserved. 
+ * Copyright  2010 Samsung Electronics Co, Ltd. All Rights Reserved.
  *		      http://www.samsungsemi.com/
  *
  * This program is free software; you can redistribute it and/or modify
@@ -46,7 +46,7 @@
 
 #if defined(CONFIG_S5PV310_DEV_PD)
 #include <linux/pm_runtime.h>
-#endif 
+#endif
 
 #include "fimg2d.h"
 #include "fimg2d3x_regs.h"
@@ -73,9 +73,11 @@ irqreturn_t g2d_irq(int irq, void *dev_id)
 {
 	g2d_set_int_finish(g2d_dev);
 
-	atomic_set(&g2d_dev->in_use,  0);
+	g2d_dev->irq_handled = 1;
 
 	wake_up_interruptible(&g2d_dev->waitq);
+
+	atomic_set(&g2d_dev->in_use, 0);
 
 	return IRQ_HANDLED;
 }
@@ -101,7 +103,7 @@ static int g2d_release(struct inode *inode, struct file *file)
 }
 
 
-static int g2d_mmap(struct file* filp, struct vm_area_struct *vma) 
+static int g2d_mmap(struct file* filp, struct vm_area_struct *vma)
 {
 	return 0;
 }
@@ -145,7 +147,7 @@ static int g2d_ioctl(struct inode *inode, struct file *file, unsigned int cmd, u
 		}
 
 		if (dma_info.addr == 0) {
-			FIMG2D_ERROR("addr Null Error!!!\n");                
+			FIMG2D_ERROR("addr Null Error!!!\n");
 			mutex_unlock(&g2d_dev->lock);
 			return -EINVAL;
 		}
@@ -164,28 +166,32 @@ static int g2d_ioctl(struct inode *inode, struct file *file, unsigned int cmd, u
 		FIMG2D_ERROR("G2D TimeOut Error\n");
 		ret = 0;
 		goto g2d_ioctl_done;
-		
+
 	case G2D_BLIT:
 		if  (atomic_read(&g2d_dev->ready_to_run) == 0)
 			goto g2d_ioctl_done2;
-		
+
 		mutex_lock(&g2d_dev->lock);
-		
-		atomic_set(&g2d_dev->in_use, 1);
 
 		g2d_clk_enable(g2d_dev);
 
 		if (copy_from_user(&params, (struct g2d_params *)arg, sizeof(g2d_params))) {
 			FIMG2D_ERROR("error : copy_from_user\n");
 			goto g2d_ioctl_done;
-		}	
+		}
 
-		if (!g2d_do_blit(g2d_dev, &params))
+		g2d_dev->irq_handled = 0;
+		atomic_set(&g2d_dev->in_use, 1);
+		if (atomic_read(&g2d_dev->ready_to_run) == 0)
 			goto g2d_ioctl_done;
-		
+
+		if (!g2d_do_blit(g2d_dev, &params)) {
+			g2d_dev->irq_handled = 1;
+			goto g2d_ioctl_done;
+		}
 
 		if (!(params.flag.render_mode & G2D_HYBRID_MODE)) {
-			if(!(file->f_flags & O_NONBLOCK)) {             
+			if(!(file->f_flags & O_NONBLOCK)) {
 				if (!g2d_wait_for_finish(g2d_dev, &params))
 					goto g2d_ioctl_done;
 			}
@@ -198,16 +204,18 @@ static int g2d_ioctl(struct inode *inode, struct file *file, unsigned int cmd, u
 
 		break;
 	default :
-		goto g2d_ioctl_done;
+		goto g2d_ioctl_done2;
+
 		break;
 	}
 
 g2d_ioctl_done :
 
-	atomic_set(&g2d_dev->in_use, 0);
 	g2d_clk_disable(g2d_dev);
 
 	mutex_unlock(&g2d_dev->lock);
+
+	atomic_set(&g2d_dev->in_use, 0);
 
 g2d_ioctl_done2 :
 
@@ -221,7 +229,7 @@ static unsigned int g2d_poll(struct file *file, poll_table *wait)
 	if (atomic_read(&g2d_dev->in_use) == 0) {
 		mask = POLLOUT | POLLWRNORM;
 		g2d_clk_disable(g2d_dev);
-		
+
 		mutex_unlock(&g2d_dev->lock);
 
 	} else {
@@ -230,19 +238,19 @@ static unsigned int g2d_poll(struct file *file, poll_table *wait)
 		if(atomic_read(&g2d_dev->in_use) == 0) {
 			mask = POLLOUT | POLLWRNORM;
 			g2d_clk_disable(g2d_dev);
-			
+
 			mutex_unlock(&g2d_dev->lock);
 		}
 	}
-	
+
 	return mask;
 }
 
 static struct file_operations fimg2d_fops = {
-	.owner 		= THIS_MODULE,
-	.open 		= g2d_open,
-	.release 	= g2d_release,
-	.mmap 		= g2d_mmap,
+	.owner		= THIS_MODULE,
+	.open		= g2d_open,
+	.release	= g2d_release,
+	.mmap		= g2d_mmap,
 	.ioctl		= g2d_ioctl,
 	.poll		= g2d_poll,
 };
@@ -260,10 +268,10 @@ static int g2d_probe(struct platform_device *pdev)
 	int ret;
 	struct clk *parent;
 	struct clk *sclk;
-	
+
 	FIMG2D_DEBUG("start probe : name=%s num=%d res[0].start=0x%x res[1].start=0x%x\n",
-	        			pdev->name, pdev->num_resources, 
-	        			pdev->resource[0].start, pdev->resource[1].start);
+					pdev->name, pdev->num_resources,
+					pdev->resource[0].start, pdev->resource[1].start);
 
 	/* alloc g2d global */
 	g2d_dev = kzalloc(sizeof(*g2d_dev), GFP_KERNEL);
@@ -282,17 +290,17 @@ static int g2d_probe(struct platform_device *pdev)
 	}
 
 	/* request momory region */
-	g2d_dev->mem = request_mem_region(res->start, 
-					          res->end - res->start + 1, 
+	g2d_dev->mem = request_mem_region(res->start,
+					          res->end - res->start + 1,
 					          pdev->name);
 	if(g2d_dev->mem == NULL) {
 		FIMG2D_ERROR("failed to reserve memory region\n");
 		return -ENOENT;
 		goto err_mem_req;
 	}
-	
+
 	/* ioremap */
-	g2d_dev->base = ioremap(g2d_dev->mem->start, 
+	g2d_dev->base = ioremap(g2d_dev->mem->start,
 				g2d_dev->mem->end - res->start + 1);
 	if(g2d_dev->base == NULL) {
 		FIMG2D_ERROR("failed ioremap\n");
@@ -309,7 +317,7 @@ static int g2d_probe(struct platform_device *pdev)
 	}
 
 	/* request irq */
-	ret = request_irq(g2d_dev->irq_num, g2d_irq, 
+	ret = request_irq(g2d_dev->irq_num, g2d_irq,
 			IRQF_DISABLED, pdev->name, NULL);
 	if (ret) {
 		FIMG2D_ERROR("request_irq(g2d) failed.\n");
@@ -372,7 +380,7 @@ static int g2d_probe(struct platform_device *pdev)
 
 	g2d_sysmmu_on(g2d_dev);
 
-	
+
 
 #if defined(CONFIG_S5PV310_DEV_PD)
 	/* to use the runtime PM helper functions */
@@ -384,7 +392,7 @@ static int g2d_probe(struct platform_device *pdev)
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 	g2d_dev->early_suspend.suspend = g2d_early_suspend;
 	g2d_dev->early_suspend.resume = g2d_late_resume;
-	g2d_dev->early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
+	g2d_dev->early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB-3; 
 	register_early_suspend(&g2d_dev->early_suspend);
 #endif
 
@@ -397,7 +405,7 @@ static int g2d_probe(struct platform_device *pdev)
 
 err_misc_reg:
 	clk_put(g2d_dev->clock);
-	g2d_dev->clock = NULL;	
+	g2d_dev->clock = NULL;
 err_mem:
 err_clk_get3:
 	clk_put(sclk);
@@ -410,7 +418,7 @@ err_irq_req:
 err_mem_map:
 	release_resource(g2d_dev->mem);
 	kfree(g2d_dev->mem);
-err_mem_req:	
+err_mem_req:
 err_get_res:
 	kfree(g2d_dev);
 probe_out:
@@ -425,7 +433,7 @@ static int g2d_remove(struct platform_device *dev)
 
 	free_irq(g2d_dev->irq_num, NULL);
 
-	if (g2d_dev->mem != NULL) {   
+	if (g2d_dev->mem != NULL) {
 		FIMG2D_INFO("releasing resource\n");
 		iounmap(g2d_dev->base);
 		release_resource(g2d_dev->mem);
@@ -445,9 +453,9 @@ static int g2d_remove(struct platform_device *dev)
 	}
 
 	mutex_destroy(&g2d_dev->lock);
-	
+
 	kfree(g2d_dev);
-	
+
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 	unregister_early_suspend(&g2d_dev->early_suspend);
 #endif
@@ -472,10 +480,10 @@ void g2d_early_suspend(struct early_suspend *h)
 	while(1) {
 		if (!atomic_read(&g2d_dev->in_use))
 			break;
-		
+
 		msleep_interruptible(2);
 	}
-	
+
 	g2d_sysmmu_off(g2d_dev);
 
 #if defined(CONFIG_S5PV310_DEV_PD)
@@ -508,16 +516,16 @@ static int g2d_suspend(struct platform_device *dev, pm_message_t state)
 	while(1) {
 		if (!atomic_read(&g2d_dev->in_use))
 			break;
-		
+
 		msleep_interruptible(2);
 	}
-	
+
 	g2d_sysmmu_off(g2d_dev);
-	
+
 #if defined(CONFIG_S5PV310_DEV_PD)
 	/* disable the power domain */
 	pm_runtime_put(g2d_dev->dev);
-#endif	
+#endif
 
 	return 0;
 }
@@ -573,10 +581,10 @@ static struct platform_driver fimg2d_driver = {
 
 int __init g2d_init(void)
 {
- 	if(platform_driver_register(&fimg2d_driver)!=0) {
-   		FIMG2D_ERROR("platform device register Failed \n");
-   		return -1;
-  	}
+	if(platform_driver_register(&fimg2d_driver)!=0) {
+		FIMG2D_ERROR("platform device register Failed \n");
+		return -1;
+	}
 
 	FIMG2D_DEBUG("ok!\n");
 

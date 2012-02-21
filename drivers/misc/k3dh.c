@@ -94,7 +94,12 @@ static int k3dh_read_accel_raw_xyz(struct k3dh_data *k3dh,
 
 	acc->x = acc->x >> 4;
 	acc->y = acc->y >> 4;
-	#if defined(CONFIG_MACH_C1_NA_SPR_REV05)	
+
+	#if defined(CONFIG_MACH_C1_NA_SPR_REV05)			\
+		|| defined(CONFIG_MACH_C1_NA_SPR_EPIC2_REV00)	\
+		|| defined(CONFIG_MACH_C1_NA_USCC_REV05)		\
+		|| defined(CONFIG_MACH_Q1_REV02)				\
+		|| defined(CONFIG_MACH_C1_KDDI_REV00)
 	acc->z = -acc->z >> 4;
 	#else
 	acc->z = acc->z >> 4;
@@ -156,7 +161,7 @@ static int k3dh_open_calibration(struct k3dh_data *k3dh)
 	return err;
 }
 
-static int k3dh_do_calibrate(struct device *dev)
+static int k3dh_do_calibrate(struct device *dev, bool do_calib)
 {
 	struct k3dh_data *k3dh = dev_get_drvdata(dev);
 	struct k3dh_acc data = { 0, };
@@ -166,24 +171,31 @@ static int k3dh_do_calibrate(struct device *dev)
 	int i;
 	mm_segment_t old_fs;
 
-	for (i = 0; i < CALIBRATION_DATA_AMOUNT; i++) {
-		mutex_lock(&k3dh->read_lock);
-		err = k3dh_read_accel_raw_xyz(k3dh, &data);
-		mutex_unlock(&k3dh->read_lock);
-		if (err < 0) {
-			pr_err("%s: k3dh_read_accel_raw_xyz() "
-				"failed in the %dth loop\n", __func__, i);
-			return err;
+	if (do_calib) {
+		for (i = 0; i < CALIBRATION_DATA_AMOUNT; i++) {
+			mutex_lock(&k3dh->read_lock);
+			err = k3dh_read_accel_raw_xyz(k3dh, &data);
+			mutex_unlock(&k3dh->read_lock);
+			if (err < 0) {
+				pr_err("%s: k3dh_read_accel_raw_xyz() "
+					"failed in the %dth loop\n",
+					__func__, i);
+				return err;
+			}
+
+			sum[0] += data.x;
+			sum[1] += data.y;
+			sum[2] += data.z;
 		}
 
-		sum[0] += data.x;
-		sum[1] += data.y;
-		sum[2] += data.z;
+		k3dh->cal_data.x = sum[0] / CALIBRATION_DATA_AMOUNT;
+		k3dh->cal_data.y = sum[1] / CALIBRATION_DATA_AMOUNT;
+		k3dh->cal_data.z = (sum[2] / CALIBRATION_DATA_AMOUNT) - 1024;
+	} else {
+		k3dh->cal_data.x = 0;
+		k3dh->cal_data.y = 0;
+		k3dh->cal_data.z = 0;
 	}
-
-	k3dh->cal_data.x = sum[0] / CALIBRATION_DATA_AMOUNT;
-	k3dh->cal_data.y = sum[1] / CALIBRATION_DATA_AMOUNT;
-	k3dh->cal_data.z = (sum[2] / CALIBRATION_DATA_AMOUNT) - 1024;
 
 	printk(KERN_INFO "%s: cal data (%d,%d,%d)\n", __func__,
 			k3dh->cal_data.x, k3dh->cal_data.y, k3dh->cal_data.z);
@@ -433,6 +445,9 @@ static ssize_t k3dh_calibration_show(struct device *dev,
 	if (err < 0)
 		pr_err("%s: k3dh_open_calibration() failed\n", __func__);
 
+	if (!k3dh->cal_data.x && !k3dh->cal_data.y && !k3dh->cal_data.z)
+		err = -1;
+
 	return sprintf(buf, "%d %d %d %d\n",
 		err, k3dh->cal_data.x, k3dh->cal_data.y, k3dh->cal_data.z);
 }
@@ -441,9 +456,19 @@ static ssize_t k3dh_calibration_store(struct device *dev,
 					struct device_attribute *attr,
 					const char *buf, size_t count)
 {
+	bool do_calib;
 	int err;
 
-	err = k3dh_do_calibrate(dev);
+	if (sysfs_streq(buf, "1"))
+		do_calib = true;
+	else if (sysfs_streq(buf, "0"))
+		do_calib = false;
+	else {
+		pr_debug("%s: invalid value %d\n", __func__, *buf);
+		return -EINVAL;
+	}
+
+	err = k3dh_do_calibrate(dev, do_calib);
 	if (err < 0) {
 		pr_err("%s: k3dh_do_calibrate() failed\n", __func__);
 		return err;

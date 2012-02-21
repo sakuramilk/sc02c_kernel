@@ -778,7 +778,6 @@ int s3c_i2sv2_probe(struct platform_device *pdev,
 
 	clk_enable(i2s->iis_pclk);
 
-#ifdef CONFIG_SND_S5P_RP
 	i2s->audss_srp = clk_get(dev, "srp");
 	if (IS_ERR(i2s->audss_srp)) {
 		dev_err(dev, "failed to get srp_clock\n");
@@ -787,7 +786,7 @@ int s3c_i2sv2_probe(struct platform_device *pdev,
 	}
 
 	clk_enable(i2s->audss_srp);
-#endif
+
 	/* I2S Reset */
 	writel(((1<<0)|(1<<31)), i2s->regs + S3C2412_IISCON);
 

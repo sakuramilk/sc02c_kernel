@@ -39,7 +39,11 @@ static struct resource s3c_i2c_resource[] = {
 };
 
 struct platform_device s3c_device_i2c3 = {
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+	.name		  = "s3c2440-i2c",
+#else
 	.name		  = "s3c2410-i2c",
+#endif	
 	.id		  = 3,
 	.num_resources	  = ARRAY_SIZE(s3c_i2c_resource),
 	.resource	  = s3c_i2c_resource,
@@ -48,9 +52,17 @@ struct platform_device s3c_device_i2c3 = {
 static struct s3c2410_platform_i2c default_i2c_data3 __initdata = {
 	.flags		= 0,
 	.bus_num	= 3,
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+	.slave_addr = 0x48,
+#else
 	.slave_addr	= 0x10,
+#endif	
 	.frequency	= 100*1000,
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+	.sda_delay	= 20*1000*1000,
+#else
 	.sda_delay	= 100,
+#endif	
 };
 
 void __init s3c_i2c3_set_platdata(struct s3c2410_platform_i2c *pd)

@@ -990,6 +990,12 @@ config USB_ANDROID_SAMSUNG_MTP
 	help
 	  Provides Media Transfer Protocol (MTP) support for samsung gadget driver.
 
+config USB_ANDROID_SAMSUNG_MTP_ADB
+	boolean "Samsung MTP whith ADB function"
+	depends on USB_ANDROID
+	help
+	  Provides Media Transfer Protocol (MTP) support for usb debugging mode.
+
 config USB_CDC_COMPOSITE
 	tristate "CDC Composite Device (Ethernet and ACM)"
 	depends on NET

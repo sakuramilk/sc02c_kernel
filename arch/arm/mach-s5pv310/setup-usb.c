@@ -158,6 +158,24 @@ void otg_phy_init(void)
 
 	/* HD DC Voltage Level Adjustment [3:0] (1011 : +16%) */
 	__raw_writel((__raw_readl(S3C_USBOTG_PHYTUNE) & ~(0xf)) | (0xb), S3C_USBOTG_PHYTUNE);
+#elif defined (CONFIG_TARGET_LOCALE_NAATT)
+	/* Enables HS Transmitter pre-emphasis [20] */
+	__raw_writel(__raw_readl(S3C_USBOTG_PHYTUNE) |(0x1<<20), S3C_USBOTG_PHYTUNE);
+	udelay(10);
+
+	/* HD DC Voltage Level Adjustment [3:0] (1111 : +16%) */
+	__raw_writel((__raw_readl(S3C_USBOTG_PHYTUNE) & ~(0xf)) | (0xF), S3C_USBOTG_PHYTUNE);
+#endif
+#if defined(CONFIG_MACH_Q1_REV02)	\
+	|| defined(CONFIG_MACH_C1_KDDI_REV00)
+	/* Enables HS Transmitter pre-emphasis [20] */
+	__raw_writel(__raw_readl(S3C_USBOTG_PHYTUNE) | (0x1<<20),
+			S3C_USBOTG_PHYTUNE);
+	udelay(10);
+	/* HS DC Voltage Level Adjustment [3:0] (1000 : +10%) */
+	__raw_writel((__raw_readl(S3C_USBOTG_PHYTUNE)
+				& ~(0xf)) | (0x1<<3), S3C_USBOTG_PHYTUNE);
+	udelay(10);
 #endif
 }
 EXPORT_SYMBOL(otg_phy_init);

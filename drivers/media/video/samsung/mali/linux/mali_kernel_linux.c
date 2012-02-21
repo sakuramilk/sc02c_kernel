@@ -130,6 +130,17 @@ struct file_operations mali_fops =
 int mali_driver_init(void)
 {
 	int err;
+
+	#if defined(CONFIG_MACH_C1_KDDI_REV00)
+	extern int sec_isLpmMode(void);
+
+	if (sec_isLpmMode())
+	{
+		MALI_PRINT(("LPM MODE (mali_driver_init)!\n"));
+		return 0;
+	}
+	#endif
+
 #if USING_MALI_PMM
 #if MALI_LICENSE_IS_GPL
 #ifdef CONFIG_PM

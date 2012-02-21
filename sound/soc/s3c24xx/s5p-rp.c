@@ -70,14 +70,15 @@
 	#define _OBUF0_OFFSET_AB_	(0x0A000)
 	#define _OBUF1_OFFSET_AB_	(0x15000)
 	#define _OBUF_SIZE_C_		(4608 * 2)	/* 2Frames */
-	#define _OBUF0_OFFSET_C_	(0x19000)
-	#define _OBUF1_OFFSET_C_	(0x1C800)
+	#define _OBUF0_OFFSET_C_	(0x19800)
+	#define _OBUF1_OFFSET_C_	(0x1CC00)
 
 	#define _VLIW_SIZE_		(128 * 1024)	/* 128KBytes */
 	#define _DATA_SIZE_		(128 * 1024)	/* 128KBytes */
 	#define _CGA_SIZE_		( 36 * 1024)	/* 36KBytes */
 
 	#define _PCM_DUMP_SIZE_		(  4 * 1024)	/* 4KBytes */
+	#define _AM_FILTER_SIZE_	(  4 * 1024)	/* 4KBytes */
 
 	/* Reserved memory on DRAM */
 	#define _BASE_MEM_SIZE_		(CONFIG_AUDIO_SAMSUNG_MEMSIZE_SRP << 10)
@@ -200,6 +201,14 @@ struct s5p_rp_info {
 	unsigned long effect_def;		/* Effect definition */
 	unsigned long effect_eq_user;		/* Effect EQ user */
 	unsigned long effect_speaker;		/* Effect Speaker mode */
+
+	unsigned long force_mono_enabled;	/* Force MONO enable switch */
+
+	unsigned char *am_filter;		/* AM filter setting in DRAM */
+	unsigned long am_filter_pa;		/* Physical address */
+	unsigned long am_filter_loaded;		/* AM filter switch */
+
+	unsigned long sb_tablet_mode;		/* SB 0:Handphone, 1:Tablet */
 };
 
 static struct s5p_rp_info s5p_rp;
@@ -228,6 +237,7 @@ void s5p_i2s_do_suspend_for_rp(void);
 
 static void s5p_rp_set_effect_apply(void);
 static void s5p_rp_set_gain_apply(void);
+static void s5p_rp_set_force_mono_apply(void);
 
 #ifdef CONFIG_SND_S5P_RP_DEBUG
 static char rp_op_level_str[][10] = { "LPA", "AFTR" };
@@ -285,9 +295,11 @@ static void s5p_rp_commbox_init(void)
 	writel(s5p_rp.pcm_dump_pa, s5p_rp.commbox + RP_PCM_DUMP_ADDR);
 	writel(s5p_rp.fw_code_cga_pa, s5p_rp.commbox + RP_CONF_START_ADDR);
 	writel(s5p_rp.fw_code_cga_sa_pa, s5p_rp.commbox + RP_LOAD_CGA_SA_ADDR);
+	writel(s5p_rp.am_filter_pa, s5p_rp.commbox + RP_INFORMATION);	/* AM Filter */
 
 	s5p_rp_set_effect_apply();
 	s5p_rp_set_gain_apply();
+	s5p_rp_set_force_mono_apply();
 }
 
 static void s5p_rp_commbox_deinit(void)
@@ -400,7 +412,6 @@ static void s5p_rp_check_stream_info(void)
 		s5p_rp.channel &= RP_ARM_INTR_CODE_CHINF_MASK;
 		if (s5p_rp.channel) {
 			s5pdbg("Channel = %lu\n", s5p_rp.channel);
-			printk(KERN_INFO "S5P_RP: Channel = %lu\n", s5p_rp.channel);
 		}
 	}
 
@@ -426,7 +437,6 @@ static void s5p_rp_check_stream_info(void)
 		}
 		if (s5p_rp.frame_size) {
 			s5pdbg("Frame size = %lu\n", s5p_rp.frame_size);
-			printk(KERN_INFO "S5P_RP: Frame size = %lu\n", s5p_rp.frame_size);
 		}
 	}
 }
@@ -437,8 +447,10 @@ static void s5p_rp_reset(void)
 
 	writel(0x00000001, s5p_rp.commbox + RP_PENDING);
 
-	/* Operation mode (A/B/C) & PCM dump */
+	/* Operation mode (A/B/C) & PCM dump & AM filter load & SB tablet mode */
 	writel((s5p_rp.pcm_dump_enabled ? RP_ARM_INTR_CODE_PCM_DUMP_ON : 0) |
+		(s5p_rp.am_filter_loaded ? RP_ARM_INTR_CODE_AM_FILTER_LOAD : 0) |
+		(s5p_rp.sb_tablet_mode ? RP_ARM_INTR_CODE_SB_TABLET : 0) |
 		s5p_rp.op_mode, s5p_rp.commbox + RP_ARM_INTERRUPT_CODE);
 	writel(s5p_rp.vliw_rp, s5p_rp.commbox + RP_CODE_START_ADDR);
 	writel(s5p_rp.obuf0_pa, s5p_rp.commbox + RP_PCM_BUFF0);
@@ -450,6 +462,8 @@ static void s5p_rp_reset(void)
 	writel(s5p_rp.ibuf_size, s5p_rp.commbox + RP_BITSTREAM_BUFF_DRAM_SIZE);
 	writel(_BITSTREAM_SIZE_MAX_, s5p_rp.commbox + RP_BITSTREAM_SIZE);
 	s5p_rp_set_effect_apply();
+	s5p_rp_set_force_mono_apply();
+
 	writel(0x00000000, s5p_rp.commbox + RP_CONT);	/* RESET */
 	writel(0x00000001, s5p_rp.commbox + RP_INTERRUPT);
 
@@ -503,7 +517,6 @@ static void s5p_rp_pause_request(void)
 	s5pdbg("Pause requsted\n");
 	if (!s5p_rp_is_running) {
 		s5pdbg("Pause ignored\n");
-		printk(KERN_INFO "S5P_RP: Pause ignored (rp is not running)\n");
 		return;
 	}
 
@@ -607,6 +620,16 @@ static void s5p_rp_set_gain_apply(void)
 			s5p_rp.commbox + RP_GAIN_CTRL_FACTOR_L);
 	writel((s5p_rp.gain * s5p_rp.gain_subr) / 100,
 			s5p_rp.commbox + RP_GAIN_CTRL_FACTOR_R);
+}
+
+static void s5p_rp_set_force_mono_apply(void)
+{
+	unsigned long arm_intr_code = readl(s5p_rp.commbox +
+					RP_ARM_INTERRUPT_CODE);
+
+	arm_intr_code &= ~RP_ARM_INTR_CODE_FORCE_MONO;
+	arm_intr_code |= s5p_rp.force_mono_enabled ? RP_ARM_INTR_CODE_FORCE_MONO : 0;
+	writel(arm_intr_code, s5p_rp.commbox + RP_ARM_INTERRUPT_CODE);
 }
 
 static irqreturn_t s5p_rp_i2s_irq(int irqno, void *dev_id)
@@ -805,7 +828,6 @@ static ssize_t s5p_rp_write(struct file *file, const char *buffer,
 	if (s5p_rp.decoding_started &&
 		(!s5p_rp_is_running || s5p_rp.auto_paused)) {
 		s5pdbg("Resume RP\n");
-		printk(KERN_INFO "S5P_RP: Resume RP\n");
 		s5p_rp_flush_obuf();
 		s5p_rp_continue();
 		s5p_rp_is_running = 1;
@@ -877,7 +899,6 @@ static ssize_t s5p_rp_write(struct file *file, const char *buffer,
 #endif
 		if (!s5p_rp.decoding_started) {
 			s5pdbg("Start RP decoding!!\n");
-			printk(KERN_INFO "S5P_RP: Start RP decoding!!\n");
 			writel(0x00000000, s5p_rp.commbox + RP_PENDING);
 			s5p_rp_is_running = 1;
 			s5p_rp.decoding_started = 1;
@@ -943,8 +964,6 @@ static int s5p_rp_ioctl(struct inode *inode, struct file *file,
 		if ((val >= 4*1024) && (val <= _IBUF_SIZE_)) {
 			s5pdbg("Init, IBUF size [%ld], OBUF size [%ld]\n",
 				val, s5p_rp.obuf_size);
-			printk(KERN_INFO "S5P_RP: Init, IBUF size [%ld], OBUF size [%ld]\n",
-				val, s5p_rp.obuf_size);
 			s5p_rp.ibuf_size = val;
 			s5p_rp_flush_ibuf();
 			s5p_rp_reset();
@@ -957,14 +976,12 @@ static int s5p_rp_ioctl(struct inode *inode, struct file *file,
 
 	case S5P_RP_DEINIT:
 		s5pdbg("Deinit\n");
-		printk(KERN_INFO "S5P_RP: Deinit\n");
 		writel(0x00000001, s5p_rp.commbox + RP_PENDING);
 		s5p_rp_is_running = 0;
 		break;
 
 	case S5P_RP_PAUSE:
 		s5pdbg("Pause\n");
-		printk(KERN_INFO "S5P_RP: Pause\n");
 #ifdef _USE_EOS_TIMEOUT_
 		s5p_rp.timeout_eos_enabled = 0;
 #endif
@@ -973,7 +990,6 @@ static int s5p_rp_ioctl(struct inode *inode, struct file *file,
 
 	case S5P_RP_STOP:
 		s5pdbg("Stop\n");
-		printk(KERN_INFO "S5P_RP: Stop\n");
 		s5p_rp_stop();
 		s5p_rp_is_running = 0;
 		s5p_rp.decoding_started = 0;
@@ -982,7 +998,6 @@ static int s5p_rp_ioctl(struct inode *inode, struct file *file,
 	case S5P_RP_FLUSH:
 		/* Do not change s5p_rp_is_running state during flush */
 		s5pdbg("Flush\n");
-		printk(KERN_INFO "S5P_RP: Flush\n");
 		s5p_rp_stop();
 		s5p_rp_flush_ibuf();
 		s5p_rp_set_default_fw();
@@ -1003,7 +1018,6 @@ static int s5p_rp_ioctl(struct inode *inode, struct file *file,
 				s5p_rp_write_last();	/* Fill one more IBUF */
 
 			s5pdbg("Start RP decoding!!\n");
-			printk(KERN_INFO "S5P_RP: Start RP decoding!!\n");
 			writel(0x00000000, s5p_rp.commbox + RP_PENDING);
 			s5p_rp_is_running = 1;
 			s5p_rp.wait_for_eos = 1;
@@ -1017,7 +1031,6 @@ static int s5p_rp_ioctl(struct inode *inode, struct file *file,
 
 	case S5P_RP_RESUME_EOS:
 		s5pdbg("Resume after EOS pause\n");
-		printk(KERN_INFO "S5P_RP: Resume after EOS pause\n");
 		s5p_rp_flush_obuf();
 		s5p_rp_continue();
 		s5p_rp_is_running = 1;
@@ -1215,7 +1228,7 @@ static irqreturn_t s5p_rp_irq(int irqno, void *dev_id)
 
 	if (irq_code & (RP_INTR_CODE_PLAYDONE | RP_INTR_CODE_ERROR)) {
 		s5pdbg("Stop at EOS\n");
-		s5p_rp_is_running = 0;
+/*		s5p_rp_is_running = 0;	leave rp-state as running */
 		s5pdbg("Total decoded: %ld frames (RP_read:%08X)\n",
 			s5p_rp_get_frame_counter(),
 			readl(s5p_rp.commbox + RP_READ_BITSTREAM_SIZE));
@@ -1290,7 +1303,6 @@ static int s5p_rp_ctrl_ioctl(struct inode *inode, struct file *file,
 	switch (cmd) {
 	case S5P_RP_CTRL_SET_GAIN:
 		s5pdbg("CTRL: Gain [0x%08lX]\n", arg);
-		printk(KERN_INFO "S5P_RP: CTRL: Gain [0x%08lX]\n", arg);
 		s5p_rp.gain = arg;
 		if (s5p_rp_is_opened)		/* Change gain immediately */
 			s5p_rp_set_gain_apply();
@@ -1306,8 +1318,6 @@ static int s5p_rp_ctrl_ioctl(struct inode *inode, struct file *file,
 			s5p_rp.gain_subr = 100;
 
 		s5pdbg("CTRL: Gain sub [L:%03ld, R:%03ld]\n",
-			s5p_rp.gain_subl, s5p_rp.gain_subr);
-		printk(KERN_INFO "S5P_RP: CTRL: Gain sub [L:%03ld, R:%03ld]\n",
 			s5p_rp.gain_subl, s5p_rp.gain_subr);
 		if (s5p_rp_is_opened)		/* Change gain immediately */
 			s5p_rp_set_gain_apply();
@@ -1387,6 +1397,27 @@ static int s5p_rp_ctrl_ioctl(struct inode *inode, struct file *file,
 		}
 		break;
 
+	case S5P_RP_CTRL_FORCE_MONO:
+		arg &= 0x01;
+		s5pdbg("CTRL: Force Mono mode %s\n", arg ? "ON" : "OFF");
+		if (s5p_rp.force_mono_enabled != arg) {
+			s5p_rp.force_mono_enabled = arg;
+			if (s5p_rp_is_opened)
+				s5p_rp_set_force_mono_apply();
+		}
+		break;
+
+	case S5P_RP_CTRL_AMFILTER_LOAD:
+		s5p_rp.am_filter_loaded = 1;
+		s5pdbg("CTRL: AM Filter Loading\n");
+		ret_val = copy_from_user(s5p_rp.am_filter, (void *)arg, 60);
+		break;
+
+	case S5P_RP_CTRL_SB_TABLET:
+		s5p_rp.sb_tablet_mode = arg;
+		s5pdbg("CTRL: SB Mode %s\n", arg ? "Tablet" : "Handphone");
+		break;
+
 	case S5P_RP_CTRL_IS_OPENED:
 		val = (unsigned long)s5p_rp_is_opened;
 		s5pdbg("CTRL: RP is [%s]\n",
@@ -1411,8 +1442,14 @@ static int s5p_rp_ctrl_ioctl(struct inode *inode, struct file *file,
 
 	case S5P_RP_CTRL_IS_PCM_DUMP:
 		val = (unsigned long)s5p_rp.pcm_dump_enabled;
-		ret_val = copy_to_user((unsigned long *)arg, &val, sizeof(unsigned long));
+		ret_val = copy_to_user((unsigned long *)arg,
+					&val, sizeof(unsigned long));
+		break;
 
+	case S5P_RP_CTRL_IS_FORCE_MONO:
+		val = (unsigned long)s5p_rp.force_mono_enabled;
+		ret_val = copy_to_user((unsigned long *)arg,
+					&val, sizeof(unsigned long));
 		break;
 
 	case S5P_RP_CTRL_ALTFW_STATE:
@@ -1528,11 +1565,20 @@ static int s5p_rp_prepare_fw_buff(struct device *dev)
 			   (dma_addr_t *)&s5p_rp.wbuf_pa, GFP_KERNEL);
 	s5p_rp.pcm_dump = dma_alloc_writecombine(0, _PCM_DUMP_SIZE_,
 			   (dma_addr_t *)&s5p_rp.pcm_dump_pa, GFP_KERNEL);
+	s5p_rp.am_filter = dma_alloc_writecombine(0, _AM_FILTER_SIZE_,
+			   (dma_addr_t *)&s5p_rp.am_filter_pa, GFP_KERNEL);
 
+#ifdef CONFIG_TARGET_LOCALE_NAATT
+	s5p_rp.fw_code_vliw_size = rp_fw_vliw_len_att;
+	s5p_rp.fw_code_cga_size = rp_fw_cga_len_att;
+	s5p_rp.fw_code_cga_sa_size = rp_fw_cga_sa_len_att;
+	s5p_rp.fw_data_size = rp_fw_data_len_att;
+#else
 	s5p_rp.fw_code_vliw_size = rp_fw_vliw_len;
 	s5p_rp.fw_code_cga_size = rp_fw_cga_len;
 	s5p_rp.fw_code_cga_sa_size = rp_fw_cga_sa_len;
 	s5p_rp.fw_data_size = rp_fw_data_len;
+#endif
 
 	s5pdbg("VLIW,       VA = 0x%08lX, PA = 0x%08lX\n",
 		(unsigned long)s5p_rp.fw_code_vliw, s5p_rp.fw_code_vliw_pa);
@@ -1548,6 +1594,8 @@ static int s5p_rp_prepare_fw_buff(struct device *dev)
 		(unsigned long)s5p_rp.ibuf1, s5p_rp.ibuf1_pa);
 	s5pdbg("PCM DUMP,   VA = 0x%08lX, PA = 0x%08lX\n",
 		(unsigned long)s5p_rp.pcm_dump, s5p_rp.pcm_dump_pa);
+	s5pdbg("AM FILTER,  VA = 0x%08lX, PA = 0x%08lX\n",
+		(unsigned long)s5p_rp.am_filter, s5p_rp.am_filter_pa);
 
 	/* Clear Firmware memory & IBUF */
 	memset(s5p_rp.fw_code_vliw, 0, _VLIW_SIZE_);
@@ -1558,10 +1606,20 @@ static int s5p_rp_prepare_fw_buff(struct device *dev)
 	memset(s5p_rp.ibuf1, 0xFF, _IBUF_SIZE_);
 
 	/* Copy Firmware */
+#ifdef CONFIG_TARGET_LOCALE_NAATT
+	memcpy(s5p_rp.fw_code_vliw, rp_fw_vliw_att, s5p_rp.fw_code_vliw_size);
+	memcpy(s5p_rp.fw_code_cga, rp_fw_cga_att, s5p_rp.fw_code_cga_size);
+	memcpy(s5p_rp.fw_code_cga_sa, rp_fw_cga_sa_att, s5p_rp.fw_code_cga_sa_size);
+	memcpy(s5p_rp.fw_data, rp_fw_data_att, s5p_rp.fw_data_size);
+#else
 	memcpy(s5p_rp.fw_code_vliw, rp_fw_vliw, s5p_rp.fw_code_vliw_size);
 	memcpy(s5p_rp.fw_code_cga, rp_fw_cga, s5p_rp.fw_code_cga_size);
 	memcpy(s5p_rp.fw_code_cga_sa, rp_fw_cga_sa, s5p_rp.fw_code_cga_sa_size);
 	memcpy(s5p_rp.fw_data, rp_fw_data, s5p_rp.fw_data_size);
+#endif
+
+	/* Clear AM filter setting */
+	memset(s5p_rp.am_filter, 0, _AM_FILTER_SIZE_);
 
 	return 0;
 }
@@ -1583,6 +1641,8 @@ static int s5p_rp_remove_fw_buff(void)
 	dma_free_writecombine(0, _IBUF_SIZE_, s5p_rp.ibuf0, s5p_rp.ibuf0_pa);
 	dma_free_writecombine(0, _IBUF_SIZE_, s5p_rp.ibuf1, s5p_rp.ibuf1_pa);
 	dma_free_writecombine(0, _WBUF_SIZE_, s5p_rp.wbuf, s5p_rp.wbuf_pa);
+	dma_free_writecombine(0, _AM_FILTER_SIZE_,
+			s5p_rp.am_filter, s5p_rp.am_filter_pa);
 
 	s5p_rp.fw_code_vliw_pa = 0;
 	s5p_rp.fw_code_cga_pa = 0;
@@ -1591,6 +1651,7 @@ static int s5p_rp_remove_fw_buff(void)
 	s5p_rp.ibuf0_pa = 0;
 	s5p_rp.ibuf1_pa = 0;
 	s5p_rp.wbuf_pa = 0;
+	s5p_rp.am_filter_pa = 0;
 
 	return 0;
 }
@@ -1631,7 +1692,6 @@ static struct miscdevice s5p_rp_ctrl_miscdev = {
 void s5p_rp_early_suspend(struct early_suspend *h)
 {
 	s5pdbg("early_suspend\n");
-	printk(KERN_INFO "S5P_RP: early_suspend\n");
 
 	s5p_rp.early_suspend_entered = 1;
 	if (s5p_rp_is_running) {
@@ -1643,7 +1703,6 @@ void s5p_rp_early_suspend(struct early_suspend *h)
 void s5p_rp_late_resume(struct early_suspend *h)
 {
 	s5pdbg("late_resume\n");
-	printk(KERN_INFO "S5P_RP: late_resume\n");
 
 	s5p_rp.early_suspend_entered = 0;
 
@@ -1732,6 +1791,15 @@ static int __init s5p_rp_probe(struct platform_device *pdev)
 	s5p_rp.effect_def = 0;
 	s5p_rp.effect_eq_user = 0;
 	s5p_rp.effect_speaker = 1;
+
+	/* Disable force mono */
+	s5p_rp.force_mono_enabled = 0;
+
+	/* Disable AM filter load */
+	s5p_rp.am_filter_loaded = 0;
+
+	/* Set SB Handphone mode (0:Handphone, 1:Tablet)*/
+	s5p_rp.sb_tablet_mode = 0;
 
 	/* Clear alternate Firmware */
 	s5p_rp.alt_fw_loaded = 0;

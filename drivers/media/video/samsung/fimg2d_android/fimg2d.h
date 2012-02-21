@@ -7,7 +7,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
- 
+
 #ifndef __SEC_FIMG2D_H_
 #define __SEC_FIMG2D_H_
 
@@ -34,21 +34,21 @@
 #define G2D_GET_MEMORY_SIZE             _IOR(G2D_IOCTL_MAGIC,3, unsigned int)
 #define G2D_DMA_CACHE_CLEAN	        _IOWR(G2D_IOCTL_MAGIC,4, struct g2d_dma_info)
 #define G2D_DMA_CACHE_FLUSH	        _IOWR(G2D_IOCTL_MAGIC,5, struct g2d_dma_info)
-#define G2D_SYNC                    	_IO(G2D_IOCTL_MAGIC,6)
-#define G2D_RESET                    	_IO(G2D_IOCTL_MAGIC, 7)
+#define G2D_SYNC			_IO(G2D_IOCTL_MAGIC,6)
+#define G2D_RESET			_IO(G2D_IOCTL_MAGIC, 7)
 
 #define G2D_TIMEOUT             (1000)
 
-#define G2D_MAX_WIDTH   	(2048)
-#define G2D_MAX_HEIGHT  	(2048)
+#define G2D_MAX_WIDTH		(2048)
+#define G2D_MAX_HEIGHT		(2048)
 
-#define G2D_ALPHA_VALUE_MAX 	(255)
+#define G2D_ALPHA_VALUE_MAX	(255)
 
-#define G2D_POLLING         	(1<<0)
-#define G2D_INTERRUPT       	(0<<0)
-#define G2D_CACHE_OP      	(1<<1)
-#define G2D_NONE_INVALIDATE 	(0<<1)
-#define G2D_HYBRID_MODE 	(1<<2)
+#define G2D_POLLING		(1<<0)
+#define G2D_INTERRUPT		(0<<0)
+#define G2D_CACHE_OP		(1<<1)
+#define G2D_NONE_INVALIDATE	(0<<1)
+#define G2D_HYBRID_MODE		(1<<2)
 
 #define G2D_PT_NOTVALID		(0)
 #define G2D_PT_CACHED		(1)
@@ -84,7 +84,7 @@ typedef enum {
 	G2D_ALPHA_BLENDING_MAX    = 255, // 255
 	G2D_ALPHA_BLENDING_OPAQUE = 256, // opaque
 } G2D_ALPHA_BLENDING_MODE;
-    
+
 typedef enum {
 	G2D_COLORKEY_NONE = 0,
 	G2D_COLORKEY_SRC_ON,
@@ -122,7 +122,7 @@ typedef enum {
 	G2D_RED,
 	G2D_GREEN,
 	G2D_BLUE,
-	G2D_WHITE, 
+	G2D_WHITE,
 	G2D_YELLOW,
 	G2D_CYAN,
 	G2D_MAGENTA
@@ -160,7 +160,7 @@ typedef enum {
 	G2D_BGRX_4444 = ((3<<4)|5),
 	G2D_XRGB_4444 = ((0<<4)|5),
 	G2D_RGBX_4444 = ((1<<4)|5),
-	
+
 	G2D_PACKED_BGR_888 = ((2<<4)|7),
 	G2D_PACKED_RGB_888 = ((0<<4)|7),
 
@@ -213,7 +213,7 @@ typedef struct {
         unsigned int    full_h;
         int             color_format;
         unsigned int    bytes_per_pixel;
-        unsigned char 	* addr;
+        unsigned char	* addr;
 } g2d_rect;
 
 typedef struct {
@@ -232,11 +232,11 @@ typedef struct {
         unsigned int    color_switch_val;     //one color
 
         unsigned int    src_color;            // when set one color on SRC
-        		
+
         unsigned int    third_op_mode;
         unsigned int    rop_mode;
         unsigned int    mask_mode;
-        unsigned int    render_mode;    
+        unsigned int    render_mode;
         unsigned int    potterduff_mode;
         unsigned int    memory_type;
 } g2d_flag;
@@ -244,7 +244,7 @@ typedef struct {
 typedef struct {
         g2d_rect src_rect;
         g2d_rect dst_rect;
-        g2d_clip clip;   
+        g2d_clip clip;
         g2d_flag flag;
 } g2d_params;
 
@@ -277,26 +277,27 @@ struct g2d_timer {
 };
 
 struct g2d_global {
-	int             	irq_num;
-	struct resource 	* mem;
-	void   __iomem  	* base;
-	struct clk 		* clock;
+	int			irq_num;
+	struct resource		* mem;
+	void   __iomem		* base;
+	struct clk		* clock;
 	atomic_t		clk_enable_flag;
-	wait_queue_head_t 	waitq;
-	atomic_t        	in_use;
+	wait_queue_head_t	waitq;
+	atomic_t		in_use;
 	atomic_t		num_of_object;
 	struct mutex		lock;
 	struct device		* dev;
-	atomic_t 		ready_to_run;
-	int 			src_attribute;
-	int 			dst_attribute;
+	atomic_t		ready_to_run;
+	int			src_attribute;
+	int			dst_attribute;
 
 	struct g2d_reserved_mem	reserved_mem;		/* for reserved memory */
 	atomic_t		is_mmu_faulted;
 	unsigned int		faulted_addr;
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend	early_suspend;
-#endif	
+#endif
+	int			irq_handled;
 };
 
 
@@ -369,7 +370,7 @@ void g2d_mem_inner_cache(g2d_params *params);
 void g2d_mem_outer_cache(struct g2d_global *g2d_dev, g2d_params *params, int *need_dst_clean);
 void g2d_mem_cache_oneshot(void *src_addr,  void *dst_addr, unsigned long src_size, unsigned long dst_size);
 u32 g2d_mem_cache_op(unsigned int cmd, void * addr, unsigned int size);
-void g2d_mem_outer_cache_flush(void *start_addr, unsigned long size);                                      
+void g2d_mem_outer_cache_flush(void *start_addr, unsigned long size);
 void g2d_mem_outer_cache_clean(const void *start_addr, unsigned long size);
 void g2d_mem_outer_cache_inv(g2d_params *params);
 u32 g2d_check_pagetable(void * vaddr, unsigned int size, unsigned long pgd);

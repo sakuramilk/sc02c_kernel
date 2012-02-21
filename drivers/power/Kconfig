@@ -189,4 +189,23 @@ config MAX8922_CHARGER
 	  Say Y here to enable support for the battery charger in the Maxim
 	  MAX8922 Charger IC.
 
+config SMB136_CHARGER
+	tristate "SMB136 battery charger support"
+	depends on I2C
+	help
+	  Say Y here to enable support for the SMB136 charger
+
+config SMB328_CHARGER
+	tristate "SMB328 battery charger support"
+	depends on I2C
+	help
+	  Say Y here to enable support for the SMB328 charger
+
+config MAX8903_CHARGER
+	tristate "MAX8903 Battery DC-DC Charger for USB and Adapter Power"
+	depends on GENERIC_HARDIRQS
+	help
+	Say Y to enable support for the MAX8903 DC-DC charger and sysfs.
+	The driver supports controlling charger-enable and current-limit
+	pins based on the status of charger connections with interrupt handlers.
 endif # POWER_SUPPLY

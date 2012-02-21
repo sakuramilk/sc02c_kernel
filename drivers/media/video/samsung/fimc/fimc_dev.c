@@ -46,6 +46,10 @@
 #include <plat/sysmmu.h>
 #endif
 
+#ifdef CONFIG_CPU_FREQ
+#include <mach/cpufreq.h>
+#endif
+
 #include "fimc.h"
 
 char buf[32];
@@ -994,7 +998,8 @@ static inline int fimc_mmap_cap(struct file *filp, struct vm_area_struct *vma)
 	u32 size = vma->vm_end - vma->vm_start;
 	u32 pfn, idx = vma->vm_pgoff;
 
-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+	if (ctrl->cap->fmt.priv != V4L2_PIX_FMT_MODE_HDR)
+		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 	vma->vm_flags |= VM_RESERVED;
 
 	/*
@@ -1311,6 +1316,20 @@ static int fimc_open(struct file *filp)
 		writel(0xff0062, qos_regs + 0xc);
 #endif
 
+#if defined(CONFIG_MACH_Q1_REV02) || defined(CONFIG_MACH_C1_KDDI_REV00)
+#if defined(CONFIG_CPU_FREQ) && defined(CONFIG_S5PV310_BUSFREQ)
+		if ((ctrl->id == FIMC1) || (ctrl->id == FIMC3)) {
+			if (atomic_read(&ctrl->busfreq_lock_cnt) == 0) {
+				s5pv310_busfreq_lock(DVFS_LOCK_ID_CAM, BUS_L1);
+				fimc_warn("[%s] Bus Freq Locked L0\n", __func__);
+			}
+			atomic_inc(&ctrl->busfreq_lock_cnt);
+			ctrl->busfreq_flag = true;
+		}
+#endif /* CONFIG_CPU_FREQ && CONFIG_S5PV310_BUSFREQ */
+#endif /* CONFIG_MACH_Q1_REV02 */
+
+#if !defined(CONFIG_MACH_Q1_REV02) && !defined(CONFIG_MACH_Q1_REV00) && !defined(CONFIG_MACH_C1_KDDI_REV00)
 		if(ctrl->id == FIMC2) {
 			/* ioremap for register block */
 			qos_regs0 = ioremap(0x11600400, 0x10);
@@ -1341,7 +1360,7 @@ static int fimc_open(struct file *filp)
 			iounmap(qos_regs1);
 			qos_regs1 = NULL;
 		}
-
+#endif
 	}
 	prv_data->ctrl = ctrl;
 	if (prv_data->ctrl->out != NULL) {
@@ -1437,7 +1456,26 @@ static int fimc_release(struct file *filp)
 		}
 /* #endif */
 #endif
-		if(ctrl->id == FIMC2) {
+
+#if defined(CONFIG_MACH_Q1_REV02) || defined(CONFIG_MACH_C1_KDDI_REV00)
+#if defined(CONFIG_CPU_FREQ) && defined(CONFIG_S5PV310_BUSFREQ)
+		/* Release Bus Frequency lock for High resolution */
+		if ((ctrl->id == FIMC1) || (ctrl->id == FIMC3)) {
+			if (ctrl->busfreq_flag == true) {
+				atomic_dec(&ctrl->busfreq_lock_cnt);
+				ctrl->busfreq_flag = false;
+				if (atomic_read(&ctrl->busfreq_lock_cnt) == 0) {
+					/* release Freq lock back to normal */
+					s5pv310_busfreq_lock_free(DVFS_LOCK_ID_CAM);
+					fimc_warn("[%s] Bus Freq lock Released Normal !!\n", __func__);
+				}
+			}
+		}
+#endif /* CONFIG_CPU_FREQ && CONFIG_S5PV310_BUSFREQ */
+#endif /* CONFIG_MACH_Q1_REV02 */
+
+#if !defined(CONFIG_MACH_Q1_REV02) && !defined(CONFIG_MACH_Q1_REV00) && !defined(CONFIG_MACH_C1_KDDI_REV00)
+		if (ctrl->id == FIMC2) {
 			/* ioremap for register block */
 			qos_regs0 = ioremap(0x11600400, 0x10);
 			if (!qos_regs0) {
@@ -1462,6 +1500,7 @@ static int fimc_release(struct file *filp)
 			iounmap(qos_regs1);
 			qos_regs1 = NULL;
 		}
+#endif
 
 	}
 	if (ctrl->out) {
@@ -1899,6 +1938,14 @@ static int __devinit fimc_probe(struct platform_device *pdev)
 	if (ctrl->id == FIMC3)
 		ctrl->sysmmu_flag = FIMC_SYSMMU_ON;
 #endif
+
+#if defined(CONFIG_MACH_Q1_REV02) || defined(CONFIG_MACH_C1_KDDI_REV00)
+#ifdef CONFIG_CPU_FREQ
+	if (ctrl->id == FIMC1)
+		atomic_set(&ctrl->busfreq_lock_cnt, 0);
+#endif
+#endif
+
 	pdata = to_fimc_plat(&pdev->dev);
 	if ((ctrl->id == FIMC0) && (pdata->cfg_gpio))
 		pdata->cfg_gpio(pdev);
@@ -2093,7 +2140,7 @@ static inline int fimc_suspend_cap(struct fimc_control *ctrl)
 
 			if (ctrl->cam->cam_power)
 				ctrl->cam->cam_power(0);
-			
+
 			/* shutdown the MCLK */
 			clk_disable(ctrl->cam->clk);
 			fimc->mclk_status = CAM_MCLK_OFF;
@@ -2321,8 +2368,9 @@ static inline int fimc_resume_cap(struct fimc_control *ctrl)
 {
 	struct fimc_global *fimc = get_fimc_dev();
 	int tmp;
-	fimc_dbg("%s\n", __func__);
 	u32 timeout;
+
+	fimc_dbg("%s\n", __func__);
 
 	__raw_writel(S5P_INT_LOCAL_PWR_EN, S5P_PMU_CAM_CONF);
 
@@ -2353,7 +2401,7 @@ static inline int fimc_resume_cap(struct fimc_control *ctrl)
 			clk_enable(ctrl->cam->clk);
 			fimc->mclk_status = CAM_MCLK_ON;
 			fimc_info1("clock for camera: %d\n", ctrl->cam->clk_rate);
-		
+
 			if (ctrl->cam->cam_power)
 				ctrl->cam->cam_power(1);
 

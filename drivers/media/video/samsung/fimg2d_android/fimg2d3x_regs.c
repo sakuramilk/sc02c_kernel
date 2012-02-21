@@ -314,7 +314,7 @@ u32 g2d_set_alpha(struct g2d_global *g2d_dev, g2d_flag * flag)
 
 	/* Alpha Value */
 	if(flag->alpha_val <= G2D_ALPHA_VALUE_MAX) {
-		if (flag->potterduff_mode == G2D_Clear_Mode)
+		if ((flag->potterduff_mode == G2D_Clear_Mode) || (flag->potterduff_mode == G2D_Src_Mode))
 			blt_cmd |= G2D_BLT_CMD_R_ALPHA_BLEND_NONE;
 		else
 			blt_cmd |= G2D_BLT_CMD_R_ALPHA_BLEND_ALPHA_BLEND;

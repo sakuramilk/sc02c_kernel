@@ -100,7 +100,11 @@ static	inline
 void	otg_list_pop(otg_list_head *list_entity_p)
 {
 	otg_dbg(OTG_DBG_OTGHCDI_LIST, "otg_list_pop \n");
+
+	if (list_entity_p->prev && list_entity_p->next)
 	list_del(list_entity_p);
+	else
+		pr_info("usb: otg_list_pop error\n");
 }
 //-------------------------------------------------------------------------------
 

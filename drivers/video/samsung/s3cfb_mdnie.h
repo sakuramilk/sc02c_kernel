@@ -23,6 +23,8 @@
 
 #define	S3C_MDNIE_SIZE_MASK				(0x7FF<<0)
 
+#define END_SEQ					0xffff
+
 #if 0  /* C110 MDNIE ADDRESS */
 #define S3C_MDNIE_rR36                                  0x0090
 #define S3C_MDNIE_rR37                                  0x0094
@@ -316,30 +318,9 @@
 #define S3C_MDNIE_PWM_CT(n)				(((n)&0x3F)<<0)
 #endif
 
-#define SIG_MDNIE_UI_MODE				0
-#define SIG_MDNIE_VIDEO_MODE			1
-#define SIG_MDNIE_VIDEO_WARM_MODE	2
-#define SIG_MDNIE_VIDEO_COLD_MODE	3
-#define SIG_MDNIE_CAMERA_MODE		4
-#define SIG_MDNIE_NAVI					5
-#define SIG_MDNIE_GALLERY				6
-#define SIG_MDNIE_BYPASS				7 
-
 #define SIG_MDNIE_DYNAMIC				0
 #define SIG_MDNIE_STANDARD				1
 #define SIG_MDNIE_MOVIE				2
-
-#ifdef CONFIG_TARGET_LOCALE_KOR
-#define SIG_MDNIE_DMB_MODE			20
-#define SIG_MDNIE_DMB_WARM_MODE	21
-#define SIG_MDNIE_DMB_COLD_MODE	22
-#endif	/* CONFIG_TARGET_LOCALE_KOR */
-
-#ifdef CONFIG_TARGET_LOCALE_NTT
-#define SIG_MDNIE_ISDBT_MODE		30
-#define SIG_MDNIE_ISDBT_WARM_MODE	31
-#define SIG_MDNIE_ISDBT_COLD_MODE	32
-#endif
 
 #define UI_STANDARD_MODE_PATH				"/system/etc/mdnie_tune_ui_standard_mode"
 #define UI_MOVIE_MODE_PATH				"/system/etc/mdnie_tune_ui_movie_mode"

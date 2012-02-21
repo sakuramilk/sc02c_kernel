@@ -19,10 +19,9 @@
 #include <linux/mmc/sdio_ids.h>
 #include <linux/mmc/sdio_func.h>
 #include <asm/byteorder.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <linux/wakelock.h>
 #include <linux/wimax/samsung/wimax732.h>
-#include "buffer.h"
 #include "wimax_sdio.h"
 
 #define WIMAXMAC_TXT_PATH	"/efs/WiMAXMAC.txt"
@@ -31,13 +30,13 @@
 #define WIMAX_BOOTIMAGE_PATH	"/system/etc/wimax_boot.bin"
 
 #define STATUS_SUCCESS			((u_long)0x00000000L)
-#define STATUS_PENDING			((u_long)0x00000103L)	/* The operation that was requested is pending completion */
+#define STATUS_PENDING			((u_long)0x00000103L)
 #define STATUS_RESOURCES		((u_long)0x00001003L)
 #define STATUS_RESET_IN_PROGRESS	((u_long)0xc001000dL)
 #define STATUS_DEVICE_FAILED		((u_long)0xc0010008L)
 #define STATUS_NOT_ACCEPTED		((u_long)0x00010003L)
 #define STATUS_FAILURE			((u_long)0xC0000001L)
-#define STATUS_UNSUCCESSFUL		((u_long)0xC0000002L)	/* The requested operation was unsuccessful */
+#define STATUS_UNSUCCESSFUL		((u_long)0xC0000002L)
 #define STATUS_CANCELLED		((u_long)0xC0000003L)
 
 #ifndef TRUE_FALSE_
@@ -49,6 +48,9 @@ enum BOOL {
 #endif
 
 #define HARDWARE_USE_ALIGN_HEADER
+#define RX_SINGLE_BLOCK_MODE
+#define CMC7xx_MULTIPACKET_SUPPORT
+/*#define RD_DONE_NOTI_BY_REG */
 
 #define dump_debug(args...)	\
 {	\
@@ -57,28 +59,30 @@ enum BOOL {
 	printk("\x1b[0m\n");	\
 }
 
-
+extern int wimax_cmc7xx_sdio_reset_comm(struct mmc_card *card);
 /* external functions & variables */
 extern void set_wimax_pm(void(*suspend)(void), void(*resume)(void));
 extern void unset_wimax_pm(void);
 extern int cmc732_sdio_reset_comm(struct mmc_card *card);
 extern u_int system_rev;
 
-/* receive.c functions */
-u_int process_sdio_data(struct net_adapter *adapter, void *buffer, u_long length, long Timeout);
+
 
 /* control.c functions */
 u_int control_send(struct net_adapter *adapter, void *buffer, u_long length);
-void control_recv(struct net_adapter   *adapter, void *buffer, u_long length);
+void control_recv(struct net_adapter   *adapter, void *buffer, u32 length);
 u_int control_init(struct net_adapter *adapter);
 void control_remove(struct net_adapter *adapter);
+u_long process_private_cmd(struct net_adapter *adapter, void *buffer);
+void process_indicate_packet(struct net_adapter *adapter, u_char *buffer);
 
-struct process_descriptor *process_by_id(struct net_adapter *adapter, u_int id);
-struct process_descriptor *process_by_type(struct net_adapter *adapter, u_short type);
-void remove_process(struct net_adapter *adapter, u_int id);
+struct process_descriptor *process_by_id(struct net_adapter *adapter, u32 id);
+struct process_descriptor *process_by_type(struct net_adapter *adapter,
+		u16 type);
+void remove_process(struct net_adapter *adapter, u32 id);
 
 u_long buffer_count(struct list_head ListHead);
-struct buffer_descriptor *buffer_by_type(struct list_head ListHead, u_short type);
+struct buffer_descriptor *buffer_by_type(struct net_adapter *adapter, u16 type);
 void dump_buffer(const char *desc, u_char *buffer, u_int len);
 
 /* hardware.c functions */
@@ -92,15 +96,17 @@ void switch_uart_wimax(void);
 void hw_init_gpios(void);
 void hw_deinit_gpios(void);
 
-u_int sd_send(struct net_adapter *adapter, u_char *buffer, u_int len);
-u_int sd_send_data(struct net_adapter *adapter, struct buffer_descriptor *dsc);
-u_int hw_send_data(struct net_adapter *adapter, void *buffer, u_long length,bool);
-void hw_return_packet(struct net_adapter *adapter, u_short type);
+u_int sd_send(struct net_adapter *adapter, u8 *buffer, u32 len);
+int sd_send_data(struct net_adapter *adapter, struct buffer_descriptor *dsc,
+		bool *tx_pending);
+u_int hw_send_data(struct net_adapter *adapter, void *buffer, u_long length,
+		bool);
 
 void s3c_bat_use_wimax(int onoff);
+void cmc7xx_tune_cpu(struct net_adapter *adapter, int onoff);
 
-int gpio_wimax_poweron (void);
-int gpio_wimax_poweroff (void);
+int gpio_wimax_poweron(void);
+int gpio_wimax_poweroff(void);
 
 int hw_start(struct net_adapter *adapter);
 int hw_stop(struct net_adapter *adapter);

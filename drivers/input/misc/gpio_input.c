@@ -224,8 +224,9 @@ static int gpio_event_input_request_irqs(struct gpio_input_state *ds)
 	return 0;
 
 	for (i = ds->info->keymap_size - 1; i >= 0; i--) {
-		free_irq(gpio_to_irq(ds->info->keymap[i].gpio),
-			 &ds->key_state[i]);
+		irq = gpio_to_irq(ds->info->keymap[i].gpio);
+		disable_irq_wake(irq);
+		free_irq(irq, &ds->key_state[i]);
 err_request_irq_failed:
 err_gpio_get_irq_num_failed:
 		;
@@ -241,6 +242,7 @@ int gpio_event_input_func(struct gpio_event_input_devs *input_devs,
 	unsigned long irqflags;
 	struct gpio_event_input_info *di;
 	struct gpio_input_state *ds = *data;
+	unsigned int irq;
 
 	di = container_of(info, struct gpio_event_input_info, info);
 
@@ -333,8 +335,8 @@ int gpio_event_input_func(struct gpio_event_input_devs *input_devs,
 	hrtimer_cancel(&ds->timer);
 	if (ds->use_irq) {
 		for (i = di->keymap_size - 1; i >= 0; i--) {
-			free_irq(gpio_to_irq(di->keymap[i].gpio),
-				 &ds->key_state[i]);
+			irq = gpio_to_irq(di->keymap[i].gpio);
+			free_irq(irq, &ds->key_state[i]);
 		}
 	}
 	spin_unlock_irqrestore(&ds->irq_lock, irqflags);

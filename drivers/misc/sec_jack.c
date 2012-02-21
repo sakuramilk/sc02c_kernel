@@ -117,10 +117,19 @@ static int sec_jack_get_adc_data(struct s3c_adc_client *padc)
 	int adc_max = 0;
 	int adc_min = 0xFFFF;
 	int adc_total = 0;
+	int adc_retry_cnt = 0;
 	int i;
 
 	for (i = 0; i < SEC_JACK_SAMPLE_SIZE; i++) {
 		adc_data = s3c_adc_read(padc, SEC_JACK_ADC_CH);
+
+		if (adc_data < 0 ) {
+
+			adc_retry_cnt++;
+
+			if (adc_retry_cnt > 10)
+				return adc_data;
+		}
 
 		if (i != 0) {
 			if (adc_data > adc_max)
@@ -285,7 +294,11 @@ static void determine_jack_type(struct sec_jack_info *hi)
 
 	while (gpio_get_value(pdata->det_gpio) ^ npolarity) {
 		adc = sec_jack_get_adc_data(hi->padc);
+
 		pr_debug("%s: adc = %d\n", __func__, adc);
+
+		if (adc < 0)
+			break;
 
 		/* determine the type of headset based on the
 		 * adc value.  An adc value can fall in various
@@ -617,14 +630,47 @@ static int sec_jack_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int sec_jack_suspend(struct device *dev)
+{
+	struct sec_jack_info *hi = dev_get_drvdata(dev);
+	int ret;
+
+	ret = enable_irq_wake(hi->det_irq);
+
+	pr_info("%s: enable_irq_wake(%d)\n", __func__, ret);
+	disable_irq(hi->det_irq);
+
+	return 0;
+}
+
+static int sec_jack_resume(struct device *dev)
+{
+	struct sec_jack_info *hi = dev_get_drvdata(dev);
+	int ret;
+
+	ret = disable_irq_wake(hi->det_irq);
+
+	pr_info("%s: disable_irq_wake(%d)\n", __func__, ret);
+	enable_irq(hi->det_irq);
+
+	return 0;
+}
+
+static const struct dev_pm_ops sec_jack_dev_pm_ops = {
+	.suspend 	= sec_jack_suspend,
+	.resume 	= sec_jack_resume,
+};
+
 static struct platform_driver sec_jack_driver = {
-	.probe = sec_jack_probe,
+	.probe 	= sec_jack_probe,
 	.remove = sec_jack_remove,
 	.driver = {
-			.name = "sec_jack",
-			.owner = THIS_MODULE,
-		   },
+		.name = "sec_jack",
+		.owner = THIS_MODULE,
+		.pm	= &sec_jack_dev_pm_ops,
+	},
 };
+
 static int __init sec_jack_init(void)
 {
 	return platform_driver_register(&sec_jack_driver);

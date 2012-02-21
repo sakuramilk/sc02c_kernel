@@ -40,7 +40,7 @@ static void s5p_dsim_enable_d_phy(unsigned char enable)
 	reg |= (enable << 0);
 	writel(reg, S5P_MIPI_CONTROL0);
 
-	printk("%s : %x\n", __func__, reg);
+	//printk("%s : %x\n", __func__, reg);
 }
 
 static void s5p_dsim_enable_dsi_master(unsigned char enable)
@@ -51,7 +51,7 @@ static void s5p_dsim_enable_dsi_master(unsigned char enable)
 	reg |= (enable << 2);
 	writel(reg, S5P_MIPI_CONTROL0);
 
-	printk("%s : %x\n", __func__, reg);
+	//printk("%s : %x\n", __func__, reg);
 }
 
 void s5p_dsim_enable_clk(void *d_clk, unsigned char enable)

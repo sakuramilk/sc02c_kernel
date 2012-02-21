@@ -14,16 +14,17 @@ struct image_data g_wimax_image;
 int load_wimax_image(int mode)
 {
 	struct file	*fp;
-	int 		read_size = 0;
+	int		read_size = 0;
 
 	if (mode == AUTH_MODE)
-		fp = klib_fopen(WIMAX_LOADER_PATH, O_RDONLY, 0);	/* download mode */
+		fp = klib_fopen(WIMAX_LOADER_PATH, O_RDONLY, 0);/*dn mode*/
 	else
-		fp = klib_fopen(WIMAX_IMAGE_PATH, O_RDONLY, 0);		/* wimax mode */
+		fp = klib_fopen(WIMAX_IMAGE_PATH, O_RDONLY, 0);	/* wimax mode */
 
 	if (fp) {
-		if (g_wimax_image.data == NULL)	{	/* check already allocated */
-			g_wimax_image.data = (u_char *)vmalloc(MAX_WIMAXFW_SIZE);
+		if (g_wimax_image.data == NULL)	{/* check already allocated */
+			g_wimax_image.data = (u_char *)
+				vmalloc(MAX_WIMAXFW_SIZE);
 
 			if (!g_wimax_image.data) {
 				dump_debug("Error: Memory alloc failure");
@@ -33,7 +34,8 @@ int load_wimax_image(int mode)
 		}
 
 		memset(g_wimax_image.data, 0, MAX_WIMAXFW_SIZE);
-		read_size = klib_flen_fcopy(g_wimax_image.data, MAX_WIMAXFW_SIZE, fp);
+		read_size = klib_flen_fcopy(g_wimax_image.data,
+				MAX_WIMAXFW_SIZE, fp);
 
 		g_wimax_image.size = read_size;
 		g_wimax_image.address = CMC732_WIMAX_ADDRESS;
@@ -81,7 +83,8 @@ u_char send_cmd_packet(struct net_adapter *adapter, u_short cmd_id)
 
 	status = sd_send(adapter, tx_buf, size);
 	if (status != STATUS_SUCCESS) {
-		/* crc error or data error - set PCWRT '1' & send current type A packet again */
+		/* crc error or data error - set PCWRT '1' &
+		   send current type A packet again */
 		dump_debug("hwSdioWrite : crc or data error");
 		return status;
 	}
@@ -121,7 +124,8 @@ u_char send_image_info_packet(struct net_adapter *adapter, u_short cmd_id)
 	status = sd_send(adapter, tx_buf, size);
 
 	if (status != STATUS_SUCCESS) {
-		/* crc error or data error - set PCWRT '1' & send current type A packet again */
+		/* crc error or data error - set PCWRT '1' &
+		   send current type A packet again */
 		dump_debug("hwSdioWrite : crc error");
 		return status;
 	}
@@ -139,7 +143,7 @@ u_char send_image_data_packet(struct net_adapter *adapter, u_short cmd_id)
 	u_int				offset;
 	u_int				size;
 
-	tx_buf = (u_char *)kmalloc(MAX_IMAGE_DATA_MSG_LENGTH, GFP_KERNEL);
+	tx_buf = kmalloc(MAX_IMAGE_DATA_MSG_LENGTH, GFP_KERNEL);
 	if (tx_buf == NULL) {
 		dump_debug("MALLOC FAIL!!");
 		return -1;
@@ -164,7 +168,8 @@ u_char send_image_data_packet(struct net_adapter *adapter, u_short cmd_id)
 	pImageDataPayload->offset = be32_to_cpu(g_wimax_image.offset);
 	pImageDataPayload->size = be32_to_cpu(len);
 
-	memcpy(pImageDataPayload->data, g_wimax_image.data + g_wimax_image.offset, len);
+	memcpy(pImageDataPayload->data,
+			g_wimax_image.data + g_wimax_image.offset, len);
 
 	size = len + 8; /* length of Payload offset + length + data */
 	pkt_hdr->length = be16_to_cpu(CMD_MSG_TOTAL_LENGTH + size);
@@ -175,7 +180,8 @@ u_char send_image_data_packet(struct net_adapter *adapter, u_short cmd_id)
 	status = sd_send(adapter, tx_buf, size);
 
 	if (status != STATUS_SUCCESS) {
-		/* crc error or data error - set PCWRT '1' & send current type A packet again */
+		/* crc error or data error - set PCWRT '1' &
+		   send current type A packet again */
 		dump_debug("hwSdioWrite : crc error");
 		kfree(tx_buf);
 		return status;
@@ -201,27 +207,41 @@ u_int sd_send(struct net_adapter *adapter, u_char *buffer, u_int len)
 		dump_debug("Halted Already");
 		return STATUS_UNSUCCESSFUL;
 	}
-	
-	sdio_claim_host(adapter->func);
-	hwSdioWriteBankIndex(adapter, &nWriteIdx, &nRet); 
 
-	if(nRet || (nWriteIdx < 0) )
-		return STATUS_UNSUCCESSFUL;
+	sdio_claim_host(adapter->func);
+	hwSdioWriteBankIndex(adapter, &nWriteIdx, &nRet);
+
+	if (nRet || (nWriteIdx < 0)) {
+		pr_err("%s: Bank Index read error nRet = %d, nWriteIdx = %d",
+				__func__, nRet, nWriteIdx);
+		goto out;
+	}
 
 	sdio_writeb(adapter->func, (nWriteIdx + 1) % 15, SDIO_H2C_WP_REG, NULL);
 
-	nRet = sdio_memcpy_toio(adapter->func, SDIO_TX_BANK_ADDR+(SDIO_BANK_SIZE * nWriteIdx)+4, buffer, len);
+	nRet = sdio_memcpy_toio(adapter->func,
+		SDIO_TX_BANK_ADDR+(SDIO_BANK_SIZE * nWriteIdx)+4, buffer, len);
 
 	if (nRet < 0) {
-		dump_debug("sd_send : error in sending packet!! nRet = %d",nRet);
+		pr_err("%s: error in sending packet!! nRet = %d", __func__,
+				nRet);
+		goto out;
 	}
 
-	nRet = sdio_memcpy_toio(adapter->func, SDIO_TX_BANK_ADDR + (SDIO_BANK_SIZE * nWriteIdx), &len, 4);
+	nRet = sdio_memcpy_toio(adapter->func, SDIO_TX_BANK_ADDR +
+			(SDIO_BANK_SIZE * nWriteIdx), &len, 4);
 
 	if (nRet < 0) {
-		dump_debug("sd_send : error in writing bank length!! nRet = %d",nRet);
+		pr_err("%s: error in writing bank length!! nRet = %d", __func__,
+				nRet);
+		goto out;
 	}
 	sdio_release_host(adapter->func);
 
 	return nRet;
+
+out:
+	sdio_release_host(adapter->func);
+	return STATUS_UNSUCCESSFUL;
+
 }

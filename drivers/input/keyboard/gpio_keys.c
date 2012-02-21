@@ -25,6 +25,9 @@
 #include <linux/gpio_keys.h>
 #include <linux/workqueue.h>
 #include <linux/gpio.h>
+#ifdef CONFIG_MACH_C1_NA_SPR_EPIC2_REV00
+#include <plat/gpio-cfg.h>
+#endif
 
 struct gpio_button_data {
 	struct gpio_keys_button *button;
@@ -44,7 +47,13 @@ struct gpio_keys_drvdata {
 
 #define HOME_KEY_VAL	102
 extern int touch_is_pressed;
+#if !defined(CONFIG_TOUCHSCREEN_MXT540E)
 extern void Mxt224_force_released(void);
+#endif
+
+#ifdef CONFIG_MACH_C1_NA_SPR_EPIC2_REV00
+#define HALL_CODE 248
+#endif
 
 /*
  * SYSFS interface for enabling/disabling keys and switches:
@@ -113,7 +122,7 @@ static void gpio_keys_disable_button(struct gpio_button_data *bdata)
 		/*
 		 * Disable IRQ and possible debouncing timer.
 		 */
-#if 0
+#ifdef CONFIG_MACH_Q1_REV02
 		disable_irq(gpio_to_irq(bdata->button->gpio));
 		if (bdata->button->debounce_interval)
 			del_timer_sync(&bdata->timer);
@@ -135,7 +144,7 @@ static void gpio_keys_disable_button(struct gpio_button_data *bdata)
 static void gpio_keys_enable_button(struct gpio_button_data *bdata)
 {
 	if (bdata->disabled) {
-#if 0
+#ifdef CONFIG_MACH_Q1_REV02
 		enable_irq(gpio_to_irq(bdata->button->gpio));
 #endif
 		bdata->disabled = false;
@@ -304,7 +313,7 @@ ATTR_STORE_FN(disabled_switches, EV_SW);
  * /sys/devices/platform/gpio-keys/disabled_keys [rw]
  * /sys/devices/platform/gpio-keys/disables_switches [rw]
  */
-static DEVICE_ATTR(disabled_keys, 0664,
+static DEVICE_ATTR(disabled_keys, S_IWUSR | S_IRUGO,
 		   gpio_keys_show_disabled_keys,
 		   gpio_keys_store_disabled_keys);
 static DEVICE_ATTR(disabled_switches, S_IWUSR | S_IRUGO,
@@ -331,7 +340,39 @@ static ssize_t key_pressed_show(struct device *dev,
 	return strlen(buf);
 }
 
+/* the volume keys can be the wakeup keys in special case */
+static ssize_t wakeup_enable(struct device *dev,
+	struct device_attribute *attr, char *buf, size_t count)
+{
+	struct gpio_keys_drvdata *ddata = dev_get_drvdata(dev);
+	int n_events = get_n_events_by_type(EV_KEY);
+	unsigned long *bits;
+	ssize_t error;
+	int i;
+
+	bits = kcalloc(BITS_TO_LONGS(n_events), sizeof(*bits), GFP_KERNEL);
+	if (!bits)
+		return -ENOMEM;
+
+	error = bitmap_parselist(buf, bits, n_events);
+	if (error)
+		goto out;
+
+	for (i = 0; i < ddata->n_buttons; i++) {
+		struct gpio_button_data *button = &ddata->data[i];
+		if (test_bit(button->button->code, bits))
+			button->button->wakeup = 1;
+		else
+			button->button->wakeup = 0;
+	}
+
+out:
+	kfree(bits);
+	return count;
+}
+
 static DEVICE_ATTR(key_pressed, 0664, key_pressed_show, NULL);
+static DEVICE_ATTR(wakeup_keys, S_IWUSR|S_IWGRP, NULL, wakeup_enable);
 
 static struct attribute *gpio_keys_attrs[] = {
 	&dev_attr_keys.attr,
@@ -339,6 +380,7 @@ static struct attribute *gpio_keys_attrs[] = {
 	&dev_attr_key_pressed.attr,
 	&dev_attr_disabled_keys.attr,
 	&dev_attr_disabled_switches.attr,
+	&dev_attr_wakeup_keys.attr,
 	NULL,
 };
 
@@ -354,25 +396,53 @@ static void gpio_keys_report_event(struct gpio_button_data *bdata)
 	struct irq_desc *desc = irq_to_desc(gpio_to_irq(button->gpio));
 	int state = (gpio_get_value(button->gpio) ? 1 : 0) ^ button->active_low;
 
-	bdata->key_state = !!state;
-
-	if (state && (button->code == HOME_KEY_VAL)) {
-		if (touch_is_pressed) {
-			printk(KERN_ERR
-			       "In Key routine, Touch Down!!! Touch state clear!!");
-			Mxt224_force_released();
+#ifdef CONFIG_MACH_C1_NA_SPR_EPIC2_REV00
+	int gpio_hall_ic ;
+	if(button->code == HALL_CODE)
+	{
+		gpio_hall_ic = gpio_get_value(button->gpio);
+		if(gpio_hall_ic) //open
+		{
+			input_report_switch(input, SW_LID, !gpio_hall_ic);
+			input_sync(input);
+			printk("** SLIDE OPEN : %d\n ",!gpio_hall_ic);
+		}
+		else
+		{
+			input_report_switch(input, SW_LID, !gpio_hall_ic);
+			input_sync(input);
+			printk("** SLIDE CLOSED : %d\n ",!gpio_hall_ic);
 		}
 	}
+	else
+	{
+#endif
+		bdata->key_state = !!state;
 
-	input_event(input, type, button->code,
-		    (desc->status & IRQ_WAKEUP) ? 1 : !!state);
-	
-	/*
-	if (bdata->key_state == 1)
-		printk(KERN_ERR "key [%d] is pressed\n", bdata->button->code);
-	*/
-	
-	input_sync(input);
+#if !defined(CONFIG_TOUCHSCREEN_MXT540E)
+		if (state && (button->code == HOME_KEY_VAL)) {
+			if (touch_is_pressed) {
+				printk(KERN_ERR
+				       "In Key routine, Touch Down!!! Touch state clear!!");
+#if !defined(CONFIG_MACH_C1_KDDI_REV00)
+				Mxt224_force_released();
+#endif
+			}
+		}
+#endif
+
+		input_event(input, type, button->code,
+			    (desc->status & IRQ_WAKEUP) ? 1 : !!state);
+
+		/*
+		if (bdata->key_state == 1)
+			printk(KERN_ERR "key [%d] is pressed\n", bdata->button->code);
+		*/
+
+		input_sync(input);
+#ifdef CONFIG_MACH_C1_NA_SPR_EPIC2_REV00
+	}
+#endif
 }
 
 static void gpio_keys_work_func(struct work_struct *work)
@@ -449,6 +519,12 @@ static int __devinit gpio_keys_setup_key(struct platform_device *pdev,
 	}
 
 	irqflags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING;
+#ifdef CONFIG_MACH_C1_NA_SPR_EPIC2_REV00
+	if (button->code == HALL_CODE)
+	{
+		s3c_gpio_setpull(button->gpio,S3C_GPIO_PULL_UP);
+	}
+#endif
 	/*
 	 * If platform has specified that the button can be disabled,
 	 * we don't want it to share the interrupt line.
@@ -526,8 +602,26 @@ static int __devinit gpio_keys_probe(struct platform_device *pdev)
 
 		if (button->wakeup)
 			wakeup = 1;
-
-		input_set_capability(input, type, button->code);
+#ifdef CONFIG_MACH_C1_NA_SPR_EPIC2_REV00
+		if(button->code== HALL_CODE)
+		{
+			input_set_capability(input, EV_SW, SW_LID);
+			if(gpio_get_value(button->gpio))
+			{
+				input->sw[SW_LID] = 0;
+			}
+			else
+			{
+				input->sw[SW_LID] = 1;
+			}
+		}
+		else
+		{
+#endif
+			input_set_capability(input, type, button->code);
+#ifdef CONFIG_MACH_C1_NA_SPR_EPIC2_REV00
+		}
+#endif
 	}
 
 	set_bit(KEY_CAMERA & KEY_MAX, input->keybit); /* for factory key test */
@@ -604,15 +698,21 @@ static int __devexit gpio_keys_remove(struct platform_device *pdev)
 static int gpio_keys_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
+#ifndef CONFIG_MACH_Q1_REV02
 	struct gpio_keys_drvdata *ddata = platform_get_drvdata(pdev);
+#endif
 	struct gpio_keys_platform_data *pdata = pdev->dev.platform_data;
 	int i;
 
 	if (device_may_wakeup(&pdev->dev)) {
 		for (i = 0; i < pdata->nbuttons; i++) {
 			struct gpio_keys_button *button = &pdata->buttons[i];
+#ifdef CONFIG_MACH_Q1_REV02
+			if (button->wakeup) {
+#else
 			struct gpio_button_data *bdata = &ddata->data[i];
 			if (button->wakeup && !bdata->disabled) {
+#endif
 				int irq = gpio_to_irq(button->gpio);
 				enable_irq_wake(irq);
 			}
@@ -631,9 +731,13 @@ static int gpio_keys_resume(struct device *dev)
 
 	for (i = 0; i < pdata->nbuttons; i++) {
 		struct gpio_keys_button *button = &pdata->buttons[i];
+#ifdef CONFIG_MACH_Q1_REV02
+		if (button->wakeup && device_may_wakeup(&pdev->dev)) {
+#else
 		struct gpio_button_data *bdata = &ddata->data[i];
 		if (button->wakeup && !bdata->disabled
 		    && device_may_wakeup(&pdev->dev)) {
+#endif
 			int irq = gpio_to_irq(button->gpio);
 			disable_irq_wake(irq);
 		}

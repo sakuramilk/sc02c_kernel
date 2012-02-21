@@ -261,7 +261,7 @@ retry:
 	if (unlikely(ret < 0)) {
 		if (cam->cam_power)
 			cam->cam_power(0);
-		
+
 		if (fimc->mclk_status == CAM_MCLK_ON) {
 			clk_disable(ctrl->cam->clk);
 			fimc->mclk_status = CAM_MCLK_OFF;
@@ -831,10 +831,44 @@ static int fimc_calc_frame_ratio(struct fimc_control *ctrl,
 	struct fimc_capinfo *cap, struct v4l2_format *f)
 {
 	if (ctrl->cap->vt_mode) {
-		f->fmt.pix.width = 640;
-		f->fmt.pix.height = 480;
+#ifdef CONFIG_VIDEO_CONFERENCE_CALL
+		if (ctrl->cap->vt_mode != 3) {
+#endif
+			f->fmt.pix.width = 640;
+			f->fmt.pix.height = 480;
+#ifdef CONFIG_VIDEO_CONFERENCE_CALL
+		}
+#endif
 	} else if (ctrl->cap->movie_mode) {
 			switch (FRM_RATIO(f->fmt.pix.width, f->fmt.pix.height)) {
+
+#if defined(CONFIG_MACH_Q1_REV02)				
+			case FRM_RATIO_QCIF:
+				cap->fmt.width = f->fmt.pix.width = 880;
+				cap->fmt.height = f->fmt.pix.height = 720;
+				break;
+			case FRM_RATIO_VGA:
+				if (get_fimc_dev()->active_camera == 0) {
+					cap->fmt.width = f->fmt.pix.width = 1072; //640;
+					cap->fmt.height = f->fmt.pix.height = 800; // 480;
+				} else {
+					cap->fmt.width = f->fmt.pix.width = 640; //640;
+					cap->fmt.height = f->fmt.pix.height = 480; // 480;
+				}
+				break;
+			case FRM_RATIO_WVGA: //Not used in Q1
+				cap->fmt.width = f->fmt.pix.width = 1280;
+				cap->fmt.height = f->fmt.pix.height = 768;
+				break;
+			case FRM_RATIO_D1:
+				cap->fmt.width = f->fmt.pix.width = 1200;//720;
+				cap->fmt.height = f->fmt.pix.height = 800;//480;
+				break;
+			case FRM_RATIO_HD:
+				cap->fmt.width = 1280;//800;
+				cap->fmt.height = 720;//450;
+				break;
+#else
 			case FRM_RATIO_QCIF:
 				cap->fmt.width = f->fmt.pix.width = 528;
 				cap->fmt.height = f->fmt.pix.height = 432;
@@ -855,12 +889,13 @@ static int fimc_calc_frame_ratio(struct fimc_control *ctrl,
 				cap->fmt.width = 800;
 				cap->fmt.height = 450;
 				break;
+#endif
 			default:
 				fimc_warn("invalid frame ratio, %dx%d\n",
 					cap->fmt.width, cap->fmt.height);
 				break;
 			}
-	} else {	/* hdr */	
+	} else {	/* hdr */
 		switch (FRM_RATIO(f->fmt.pix.width, f->fmt.pix.height)) {
 			case FRM_RATIO_QCIF:
 				cap->fmt.width = 528;
@@ -911,9 +946,9 @@ int fimc_s_fmt_vid_capture(struct file *file, void *fh, struct v4l2_format *f)
 	memcpy(&cap->fmt, &f->fmt.pix, sizeof(cap->fmt));
 
 	if (ctrl->id != FIMC2) {
-		if (cap->movie_mode || cap->vt_mode || 
-				cap->fmt.priv == V4L2_PIX_FMT_MODE_HDR)
-		fimc_calc_frame_ratio(ctrl, cap, f);
+		if (cap->movie_mode || cap->vt_mode ||
+		    cap->fmt.priv == V4L2_PIX_FMT_MODE_HDR)
+			fimc_calc_frame_ratio(ctrl, cap, f);
 	}
 
 	/*
@@ -1352,7 +1387,7 @@ int fimc_querybuf_capture(void *fh, struct v4l2_buffer *b)
 		b->length = ctrl->cap->bufs[b->index].length[0]
 			+ ctrl->cap->bufs[b->index].length[1];
 		break;
-	case V4L2_PIX_FMT_NV12: 	/* fall through */
+	case V4L2_PIX_FMT_NV12:		/* fall through */
 	case V4L2_PIX_FMT_NV12T:
 		b->length = ALIGN(ctrl->cap->bufs[b->index].length[0], SZ_64K)
 			+ ALIGN(ctrl->cap->bufs[b->index].length[1], SZ_64K);
@@ -1445,7 +1480,7 @@ int fimc_s_ctrl_capture(void *fh, struct v4l2_control *c)
 
 	fimc_dbg("%s\n", __func__);
 
-	if (!ctrl->cam || !ctrl->cap) {
+	if (!ctrl->cam || !ctrl->cap ){
 		fimc_err("%s: No capture device.\n", __func__);
 		return -ENODEV;
 	}
@@ -1462,7 +1497,7 @@ int fimc_s_ctrl_capture(void *fh, struct v4l2_control *c)
 		if (fimc->mclk_status == CAM_MCLK_ON) {
 			if (ctrl->cam->cam_power)
 				ctrl->cam->cam_power(0);
-			
+
 			/* shutdown the MCLK */
 			clk_disable(ctrl->cam->clk);
 			fimc->mclk_status = CAM_MCLK_OFF;
@@ -1498,7 +1533,11 @@ int fimc_s_ctrl_capture(void *fh, struct v4l2_control *c)
 
 			ctrl->cam->initialized = 0;
 
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+			msleep(700);
+#else
 			msleep(5);
+#endif
 		}
 		ret = fimc_init_camera(ctrl);
 		break;
@@ -1586,7 +1625,7 @@ int fimc_s_ctrl_capture(void *fh, struct v4l2_control *c)
 		break;
 
 	case V4L2_CID_CAMERA_CHECK_DATALINE:
-		if (ctrl->cap->dtp_mode == c->value) {			
+		if (ctrl->cap->dtp_mode == c->value) {
 			ret = 0;
 			break;
 		} else {
@@ -1602,8 +1641,11 @@ int fimc_s_ctrl_capture(void *fh, struct v4l2_control *c)
 
 				ctrl->cam->initialized = 0;
 
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+				msleep(700);
+#else
 				msleep(100);
-
+#endif
 				ret = fimc_init_camera(ctrl);
 			}
 			ctrl->cap->dtp_mode = c->value;
@@ -1948,7 +1990,8 @@ int fimc_streamon_capture(void *fh)
 		rot = fimc_mapping_rot_flip(cap->rotate, cap->flip);
 
 		if (rot & FIMC_ROT) {
-			if( cap->fmt.width > cap->fmt.height )
+#ifndef CONFIG_VIDEO_CONFERENCE_CALL
+			if (cap->fmt.width > cap->fmt.height)
 				fimc_hwset_org_output_size(ctrl,
 					cap->fmt.width, cap->fmt.width);
 			else
@@ -1956,6 +1999,13 @@ int fimc_streamon_capture(void *fh)
 					cap->fmt.height, cap->fmt.height);
 
 			fimc_hwset_output_size(ctrl, cap->fmt.height, cap->fmt.width);
+#else
+			/* Fix codes 110723 */
+			fimc_hwset_org_output_size(ctrl,
+				cap->fmt.width, cap->fmt.height);
+			fimc_hwset_output_size(ctrl,
+				cap->fmt.height, cap->fmt.width);
+#endif
 		} else {
 			fimc_hwset_org_output_size(ctrl,
 				cap->fmt.width, cap->fmt.height);
@@ -2190,4 +2240,3 @@ int fimc_enum_frameintervals(struct file *filp, void *fh, struct v4l2_frmivalenu
 
 	return 0;
 }
-

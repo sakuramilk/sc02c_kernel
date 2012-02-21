@@ -23,9 +23,28 @@ static int current_mode;
 #define CFG1_REG		0x06
 #define SP_ILOCK_REG		0xE7
 #define CFGP_REG		0xEE
+#define PDS_REG			0x0A
+#define	BSTUP3_REG		0xF6
+#define	BST21_REG		0xF8
 
-static ssize_t mode_show(struct device *dev, struct device_attribute *attr, char *buf);
-static ssize_t mode_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size);
+/*
+ * 0x06; only AP (disable CP and WiMax)
+ * 0x0A; only CP (disable AP and Wimax)
+ * 0x00; enable all port
+ *
+ * bit :  3   2   1     0
+ *       AP, CP, WIMAX, RESERVED
+ */
+static int hub_port = 0x0;
+
+static ssize_t mode_show(struct device *dev,
+		struct device_attribute *attr, char *buf);
+static ssize_t mode_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size);
+static ssize_t port_show(struct device *dev,
+		struct device_attribute *attr, char *buf);
+static ssize_t port_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size);
 int usb3803_register_write(char reg, char data);
 int usb3803_register_read(char reg, char *data);
 
@@ -56,6 +75,44 @@ static ssize_t mode_store(
 		usb3803_set_mode(USB_3803_MODE_STANDBY);
 		pr_debug("usb3803 mode set to standby\n");
 	}
+	return size;
+}
+
+static DEVICE_ATTR(port, 0664, port_show, port_store);
+
+static ssize_t port_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "hub_port=0x%x", hub_port);
+}
+
+static ssize_t port_store(
+		struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t size)
+{
+	if (!strncmp(buf, "disable_cp", 10)) {
+		hub_port = (0x1 << 2) | hub_port ;
+		pr_debug("usb3803 port disable cp\n");
+	} else if (!strncmp(buf, "disable_wimax", 13)) {
+		hub_port = (0x1 << 1) | hub_port ;
+		pr_debug("usb3803 port disable wimaxb\n");
+	} else if (!strncmp(buf, "disable_ap", 10)) {
+		hub_port = (0x1 << 3) | hub_port ;
+		pr_debug("usb3803 port disable ap\n");
+	} else if (!strncmp(buf, "enable_cp", 9)) {
+		hub_port = ~(0x1 << 2) & hub_port ;
+		pr_debug("usb3803 port enable cp\n");
+	} else if (!strncmp(buf, "enable_wimax", 12)) {
+		hub_port = ~(0x1 << 1) & hub_port ;
+		pr_debug("usb3803 port enable wimaxb\n");
+	} else if (!strncmp(buf, "enable_ap", 9)) {
+		hub_port = ~(0x1 << 3) & hub_port ;
+		pr_debug("usb3803 port enable ap\n");
+	}
+
+	if(current_mode == USB_3803_MODE_HUB)
+		usb3803_set_mode(USB_3803_MODE_HUB);
+	pr_debug("usb3803 mode setting (%s)\n", buf);
 
 	return size;
 }
@@ -130,11 +187,7 @@ int usb3803_set_mode(int mode)
 			if(pdata->es_ver) {
 				int i;
 				char data;
-				
-				msleep(100);
-
-				/* dummy setting */
-				usb3803_register_write(0x00, 0x24);
+				msleep(5);
 
 				/* Step 1. Write value 0x03 to register 0xE7 after RESET_N transitioning to high. */
 				for(i=0; i<3; i++) {
@@ -159,6 +212,29 @@ int usb3803_set_mode(int mode)
 				usb3803_register_read(CFGP_REG, &data);
 				pr_info("[%s] read  CFGP_REG : 0x%x\n", __func__, data);
 
+				/* Step 2.5
+				 * Port Disable For Self Powered Operation
+				 */
+				usb3803_register_read(PDS_REG, &data);
+				pr_info("[%s] read  PDS_REG : 0x%x (default)\n"
+						, __func__, data);
+				usb3803_register_write(PDS_REG, hub_port);
+				usb3803_register_read(PDS_REG, &data);
+				pr_info("[%s] hub_port : 0x%x\n"
+						, __func__, hub_port);
+				pr_info("[%s] read  PDS_REG : 0x%x\n"
+						, __func__, data);
+#if defined(CONFIG_MACH_C1_KDDI_REV00)
+				data = 0x44; // drive strength +20%
+				usb3803_register_write(BSTUP3_REG, data);
+				usb3803_register_read(BSTUP3_REG, &data);
+				pr_info("[%s] read  BSTUP3_REG : 0x%x\n", __func__, data);
+
+				data = 0x44; // drive strength +20%
+				usb3803_register_write(BST21_REG, data);
+				usb3803_register_read(BST21_REG, &data);
+				pr_info("[%s] read  BST21_REG : 0x%x\n", __func__, data);
+#endif
 				/* Step 3. Set bit 7 (SELF_BUS_PWR) of register 0x06 to high. */
 				usb3803_register_read(CFG1_REG, &data);
 				pr_info("[%s] read  CFG1_REG : 0x%x (default)\n", __func__, data);
@@ -214,7 +290,10 @@ int usb3803_suspend(struct i2c_client *client, pm_message_t mesg)
 
 int usb3803_resume(struct i2c_client *client)
 {
-	usb3803_set_mode(current_mode);
+	if(current_mode == USB_3803_MODE_HUB)
+		pr_info("USB3803 skip hub mode setting\n");
+	else
+		usb3803_set_mode(current_mode);
 	if (current_mode==USB_3803_MODE_HUB)
 		pr_info("USB3803 resumed to mode %s\n", "hub");
 	else if (current_mode==USB_3803_MODE_BYPASS)
@@ -251,6 +330,7 @@ int usb3803_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	current_mode = pdata->inital_mode;
 
 	err = device_create_file(&client->dev, &dev_attr_mode);
+	err = device_create_file(&client->dev, &dev_attr_port);
 
 	if (current_mode==USB_3803_MODE_HUB)
 		printk("USB3803 probed on mode %s\n", "hub");
@@ -269,16 +349,26 @@ static int usb3803_remove(struct i2c_client *client)
 {
 	return 0;
 }
+
 static const struct i2c_device_id usb3803_id[] = {
 	{ USB3803_I2C_NAME, 0 },
 	{ }
 };
+
+
+static void usb3803_shutdown(struct platform_device *dev)
+{
+	printk(KERN_ERR "[usbhub] %s() ...\n", __func__);
+	mdelay(10);
+	usb3803_set_mode(USB_3803_MODE_STANDBY);
+}
 
 static struct i2c_driver usb3803_driver = {
 	.probe = usb3803_probe,
 	.remove = usb3803_remove,
 	.suspend = usb3803_suspend,
 	.resume = usb3803_resume,
+	.shutdown = usb3803_shutdown,
 	.id_table = usb3803_id,
 	.driver = {
 		.name = USB3803_I2C_NAME,
