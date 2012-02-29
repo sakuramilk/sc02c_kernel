@@ -233,10 +233,12 @@ struct interrupt_data {
 #define SC_WRITE_10			0x2a
 #define SC_WRITE_12			0xaa
 
+#ifdef CONFIG_MACH_C1_KDDI_REV00
 /* [ADD START] 2011/04/15 KDDI : define vendor command code */
 #define SC_VENDOR_START			0xe4
 #define SC_VENDOR_END			0xef
 /* [ADD END] 2011/04/15 KDDI : define vendor command code */
+#endif
 
 /* SCSI Sense Key/Additional Sense Code/ASC Qualifier values */
 #define SS_NO_SENSE				0
@@ -258,6 +260,7 @@ struct interrupt_data {
 #define ASC(x)		((u8) ((x) >> 8))
 #define ASCQ(x)		((u8) (x))
 
+#ifdef CONFIG_MACH_C1_KDDI_REV00
 /* [ADD START] 2011/04/15 KDDI : define count of vendor command */
 #define VENDOR_CMD_NR	(SC_VENDOR_END - SC_VENDOR_START + 1)
 /* [ADD END] 2011/04/15 KDDI : define count of vendor command */
@@ -273,9 +276,11 @@ struct interrupt_data {
 #define ALLOC_INI_SIZE  0x101000
 #define ALLOC_CMD_CNT   1
 /* [ADD ENDT] 2011/08/23 KDDI : buffer size alloc at __init() */
+#endif
 
 /*-------------------------------------------------------------------------*/
 
+#ifdef CONFIG_MACH_C1_KDDI_REV00
 /* [ADD START] 2011/04/15 KDDI : etc define for vendor command */
 struct op_desc {
 	struct device	dev;
@@ -296,6 +301,7 @@ static void op_release(struct device *dev);
 
 static DEFINE_MUTEX(sysfs_lock);
 /* [ADD END] 2011/04/15 KDDI : etc define for vendor command */
+#endif
 
 struct fsg_lun {
 	struct file	*filp;
@@ -316,6 +322,7 @@ struct fsg_lun {
 
 	struct device	dev;
 
+#ifdef CONFIG_MACH_C1_KDDI_REV00
 /* [ADD START] 2011/04/15 KDDI : add define to device struct */
 	struct op_desc *op_desc[VENDOR_CMD_NR];
 
@@ -327,6 +334,7 @@ struct fsg_lun {
 /* [ADD START] 2011/08/23 KDDI : add buffer malloc table */
 	char   *reserve_buf[VENDOR_CMD_NR];
 /* [ADD ENDT] 2011/08/23 KDDI : add buffer malloc table */
+#endif
 };
 
 #define fsg_lun_is_open(curlun)	((curlun)->filp != NULL)
@@ -336,12 +344,14 @@ static struct fsg_lun *fsg_lun_from_dev(struct device *dev)
 	return container_of(dev, struct fsg_lun, dev);
 }
 
+#ifdef CONFIG_MACH_C1_KDDI_REV00
 /* [ADD START] 2011/04/15 KDDI : define container(adress_get) */
 static struct op_desc *dev_to_desc(struct device *dev)
 {
 	return container_of(dev, struct op_desc, dev);
 }
 /* [ADD END] 2011/04/15 KDDI : define container(adress_get)*/
+#endif
 
 /* Big enough to hold our biggest descriptor */
 #define EP0_BUFSIZE	256

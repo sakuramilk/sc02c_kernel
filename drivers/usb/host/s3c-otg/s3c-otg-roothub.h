@@ -42,14 +42,20 @@ extern "C"
 #include "s3c-otg-hcdi-memory.h"
 #include "s3c-otg-oci.h"
 
-__inline__ int root_hub_feature( 
+#ifdef CONFIG_CC_OPTIMIZE_FOR_SPEED
+#define INLINE__ __inline__
+#else
+#define INLINE__ __inline__
+#endif
+
+INLINE__ int root_hub_feature( 
 		struct usb_hcd *hcd,
 		const u8 port,
 		const u16 type_req,
 		const u16 feature,
 		void *buf);
 
-__inline__ int get_otg_port_status(
+INLINE__ int get_otg_port_status(
 		struct usb_hcd *hcd, const u8 port, char *status);
 
 int reset_and_enable_port(struct usb_hcd *hcd, const u8 port); 

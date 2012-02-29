@@ -476,6 +476,9 @@ static struct s3c2410_uartcfg smdkc210_uartcfgs[] __initdata = {
 		.ulcon		= SMDKC210_ULCON_DEFAULT,
 		.ufcon		= SMDKC210_UFCON_DEFAULT,
 		.cfg_gpio	= s3c_setup_uart_cfg_gpio,
+#ifdef CONFIG_FEATURE_AOSP
+		.wake_peer	= c1_bt_uart_wake_peer,
+#endif
 	},
 	[1] = {
 		.hwport		= 1,
@@ -1299,6 +1302,7 @@ static struct max8997_regulator_data max8997_regulators[] = {
 #endif /* CONFIG_MACH_Q1_REV02 */
 };
 
+/*
 static int max8997_power_set_charger(int insert)
 {
 	struct power_supply *psy = power_supply_get_by_name("battery");
@@ -1316,6 +1320,7 @@ static int max8997_power_set_charger(int insert)
 
 	return psy->set_property(psy, POWER_SUPPLY_PROP_ONLINE, &value);
 }
+*/
 
 static struct max8997_power_data max8997_power = {
 /*	.set_charger = max8997_power_set_charger,	*/
@@ -1426,9 +1431,9 @@ void tsp_register_callback(void *function)
 	charging_cbs.tsp_set_charging_cable = function;
 }
 
-void tsp_read_ta_status(bool *ta_status)
+void tsp_read_ta_status(void *ta_status)
 {
-	*ta_status = is_cable_attached;
+	*((bool*)ta_status) = is_cable_attached;
 }
 
 static int max8997_muic_charger_cb(cable_type_t cable_type)
@@ -2826,7 +2831,11 @@ static int __init lcdtype_setup(char *str)
 	get_option(&str, &lcdtype);
 	return 1;
 }
+#if defined(CONFIG_TARGET_LOCALE_NTT)
+__setup("ld9040.get_lcdtype=", lcdtype_setup);
+#else
 __setup("lcdtype=", lcdtype_setup);
+#endif
 
 #ifdef CONFIG_FB_S3C_LD9040
 #ifndef LCD_ON_FROM_BOOTLOADER
@@ -4952,7 +4961,7 @@ static struct sec_jack_zone sec_jack_zones[] = {
 		 * stays in this range for 100ms (10ms delays, 10 samples)
 		 */
 		.adc_high = 3800,
-#if CONFIG_MACH_Q1_REV02
+#ifdef CONFIG_MACH_Q1_REV02
 		.delay_ms = 15,
 		.check_count = 20,
 #else
@@ -5770,6 +5779,9 @@ static void c1_reboot(char str, const char *cmd)
 		else if (!strcmp(cmd, "recovery"))
 			writel(REBOOT_PREFIX | REBOOT_MODE_RECOVERY,
 			       S5P_INFORM3);
+		else if (!strcmp(cmd, "bootloader"))
+			writel(REBOOT_PREFIX | REBOOT_MODE_DOWNLOAD,
+			       S5P_INFORM3);
 		else if (!strcmp(cmd, "download"))
 			writel(REBOOT_PREFIX | REBOOT_MODE_DOWNLOAD,
 			       S5P_INFORM3);
@@ -6193,6 +6205,8 @@ static void __init smdkc210_machine_init(void)
 	s3c_usb_set_serial();
 /* Changes value of nluns in order to use external storage */
 	usb_device_init();
+#else
+    s3c_usb_otg_composite_pdata(&fb_platform_data);
 #endif
 
 /* klaatu: semaphore logging code - for debug  */
@@ -6352,7 +6366,13 @@ static void __init s5pv310_reserve(void)
 }
 #endif
 
-MACHINE_START(C1, "SMDKC210")
+#if 0
+#define CUST_MACHINE_NAME	"SMDKV310"
+#else
+#define CUST_MACHINE_NAME	"SMDKC210"
+#endif
+
+MACHINE_START(C1, CUST_MACHINE_NAME)
 	/* Maintainer: Kukjin Kim <kgene.kim@samsung.com> */
 	.phys_io	= S3C_PA_UART & 0xfff00000,
 	.io_pg_offst	= (((u32)S3C_VA_UART) >> 18) & 0xfffc,
@@ -6363,7 +6383,7 @@ MACHINE_START(C1, "SMDKC210")
 	.timer		= &s5pv310_timer,
 MACHINE_END
 
-MACHINE_START(SMDKC210, "SMDKC210")
+MACHINE_START(SMDKC210, CUST_MACHINE_NAME)
 	/* Maintainer: Kukjin Kim <kgene.kim@samsung.com> */
 	.phys_io	= S3C_PA_UART & 0xfff00000,
 	.io_pg_offst	= (((u32)S3C_VA_UART) >> 18) & 0xfffc,

@@ -62,7 +62,7 @@
 
 struct s3cfb_fimd_desc		*fbfimd;
 
-inline struct s3cfb_global *get_fimd_global(int id)
+INLINE__ struct s3cfb_global *get_fimd_global(int id)
 {
 	struct s3cfb_global *fbdev;
 

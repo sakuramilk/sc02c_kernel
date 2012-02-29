@@ -432,7 +432,7 @@ static void mxt224_ta_probe(int ta_status)
 	u8 blen;
 	u8 calcfg_dis;
 	u8 calcfg_en;
-	u16 i;
+	//u16 i;
 	u8 size;
 	if (!mxt224_enabled) {
 		printk(KERN_ERR"[TSP] mxt224_enabled is 0\n");

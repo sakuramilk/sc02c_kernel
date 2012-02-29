@@ -28,7 +28,7 @@ void gps_uart_cfg_gpio(int array_size, unsigned int (*gpio_table)[4])
 	}
 }
 
-static void __init gps_gpio_init(void)
+static int __init gps_gpio_init(void)
 {
 	if (gpio_request(GPIO_GPS_nRST, "GPS_nRST"))
 		WARN(1, "fail to request gpio (GPS_nRST)\n");
@@ -96,6 +96,8 @@ static void __init gps_gpio_init(void)
 #endif
 
 	gps_uart_cfg_gpio(ARRAY_SIZE(gps_uart_on_table), gps_uart_on_table);
+
+	return 0;
 }
 
 arch_initcall(gps_gpio_init);

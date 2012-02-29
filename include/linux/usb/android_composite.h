@@ -49,6 +49,11 @@ struct android_usb_product {
 	__u8 bDeviceProtocol;
 	int  mode; /* if product id is same, you have to refer this mode value. */
 	char *s;
+#else
+	/* Vendor ID for this set of functions.
+	 * Default vendor_id in platform data will be used if this is zero.
+	 */
+	__u16 vendor_id;
 #endif
 };
 

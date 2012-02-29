@@ -92,7 +92,7 @@ static void setPortPower(bool on)
  * @remark
  *
  */
-__inline__ int get_otg_port_status(
+INLINE__ int get_otg_port_status(
 		struct usb_hcd *hcd, const u8 port, char *status)
 {
 
@@ -238,7 +238,7 @@ int reset_and_enable_port(struct usb_hcd *hcd, const u8 port)
  * @remark
  *
  */
-__inline__ int root_hub_feature( 
+INLINE__ int root_hub_feature( 
 		struct usb_hcd *hcd,
 		const u8 port,
 		const u16 type_req,

@@ -463,6 +463,18 @@ config LOG_BUF_SHIFT
 		     13 =>  8 KB
 		     12 =>  4 KB
 
+config CPU_UNDERVOLTING
+	bool "cpu undervolting"
+	default n
+	help
+	  enable undervolting. if unsure, say n.
+
+config GPU_UNDERVOLTING
+	bool "gpu undervolting"
+	default n
+	help
+	  enable undervolting. if unsure, say n.
+
 #
 # Architectures with an unreliable sched_clock() should select this:
 #
@@ -771,14 +783,30 @@ source "usr/Kconfig"
 
 endif
 
+choice
+	prompt "Build Optimize"
+	default CC_OPTIMIZE_FOR_NORMAL
+	help
+	   This option select a build optimize.
+
 config CC_OPTIMIZE_FOR_SIZE
 	bool "Optimize for size"
-	default y
 	help
 	  Enabling this option will pass "-Os" instead of "-O2" to gcc
 	  resulting in a smaller kernel.
 
-	  If unsure, say Y.
+config CC_OPTIMIZE_FOR_NORMAL
+	bool "Optimize for normal"
+	help
+	  Enabling this option will pass "-O2" to gcc
+	  resulting in a better size and speed kernel.
+
+config CC_OPTIMIZE_FOR_SPEED
+	bool "Optimize for speed"
+	help
+	  Enabling this option will pass "-O3" instead of "-O2" to gcc
+	  resulting in a good speed kernel.
+endchoice
 
 config SYSCTL
 	bool

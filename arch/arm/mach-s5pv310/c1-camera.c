@@ -756,7 +756,9 @@ static int m5mo_flash_power(int enable)
 			regulator_disable(movie);
 	}
 
+#if defined(CONFIG_MACH_Q1_REV02)
 torch_exit:
+#endif
 	regulator_put(flash);
 	regulator_put(movie);
 

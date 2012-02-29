@@ -600,7 +600,9 @@ static int fsg_setup(struct usb_function *f,
 	struct fsg_dev		*fsg = fsg_from_func(f);
 	struct usb_request	*req = fsg->common->ep0req;
 	u16			w_index = le16_to_cpu(ctrl->wIndex);
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 	u16			w_value = le16_to_cpu(ctrl->wValue);
+#endif
 	u16			w_length = le16_to_cpu(ctrl->wLength);
 
 	if (!fsg_is_set(fsg->common))
@@ -612,8 +614,10 @@ static int fsg_setup(struct usb_function *f,
 		if (ctrl->bRequestType !=
 		    (USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE))
 			break;
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 		if (w_index != fsg->interface_number || w_value != 0)
 			return -EDOM;
+#endif
 
 		/* Raise an exception to stop the current operation
 		 * and reinitialize our state. */
@@ -625,9 +629,11 @@ static int fsg_setup(struct usb_function *f,
 		if (ctrl->bRequestType !=
 		    (USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE))
 			break;
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 		if (w_index != fsg->interface_number || w_value != 0)
 			return -EDOM;
-		VDBG(fsg, "get max LUN\n");
+#endif
+		VDBG(fsg, "get max LUN: %d\n", fsg->common->nluns - 1);
 		*(u8 *) req->buf = fsg->common->nluns - 1;
 
 		/* Respond with data/status */
@@ -842,7 +848,7 @@ static int do_read(struct fsg_common *common)
 	return -EIO;		/* No default reply */
 }
 
-
+#ifdef CONFIG_MACH_C1_KDDI_REV00
 /* [ADD START] 2011/04/15 KDDI : vender read command */
 /*-------------------------------------------------------------------------*/
 static int do_read_buffer(struct fsg_common *common)
@@ -960,6 +966,7 @@ static int do_read_buffer(struct fsg_common *common)
 
 /*-------------------------------------------------------------------------*/
 /* [ADD END] 2011/04/15 KDDI : vender read command*/
+#endif /* CONFIG_MACH_C1_KDDI_REV00 */
 
 static int do_write(struct fsg_common *common)
 {
@@ -1153,7 +1160,7 @@ static int do_write(struct fsg_common *common)
 	return -EIO;		/* No default reply */
 }
 
-
+#ifdef CONFIG_MACH_C1_KDDI_REV00
 /* [ADD START] 2011/04/15 KDDI : vender write command */
 /* [CHANGE START] 2011/05/27 KDDI : [offset]use change */
 /*-------------------------------------------------------------------------*/
@@ -1300,6 +1307,7 @@ static int do_write_buffer(struct fsg_common *common)
 /*-------------------------------------------------------------------------*/
 /* [ADD END] 2011/04/15 KDDI : vender write command */
 /* [CHANGE END] 2011/05/27 KDDI : [offset]use change */
+#endif /* CONFIG_MACH_C1_KDDI_REV00 */
 
 static int do_synchronize_cache(struct fsg_common *common)
 {
@@ -1448,12 +1456,15 @@ static int do_inquiry(struct fsg_common *common, struct fsg_buffhd *bh)
 	buf[1] = curlun->removable ? 0x80 : 0;
 	buf[2] = 2;		/* ANSI SCSI level 2 */
 	buf[3] = 2;		/* SCSI-2 INQUIRY data format */
-
+#ifdef CONFIG_MACH_C1_KDDI_REV00
 /* [CHANGE START] 2011/07/27 KDDI : inquiry command extend ,[Lun0] only */
 	if ( strcmp(dev_name(&curlun->dev),"lun0") == 0 ){
 /* [CHANGE START] 2011/04/15 KDDI : return data size */
 	buf[4] = 31 + INQUIRY_VENDOR_SPECIFIC_SIZE;		/* Additional length */
 /* [CHANGE END] 2011/04/15 KDDI : return data size */
+#else
+	buf[4] = 31;		/* Additional length */
+#endif
 	buf[5] = 0;		/* No special options */
 	buf[6] = 0;
 	buf[7] = 0;
@@ -1482,6 +1493,7 @@ static int do_inquiry(struct fsg_common *common, struct fsg_buffhd *bh)
 #endif
 
 	memcpy(buf + 8, common->inquiry_string, sizeof common->inquiry_string);
+#ifdef CONFIG_MACH_C1_KDDI_REV00
 /* [CHANGE START] 2011/05/26 KDDI : return data set */
 	memcpy(buf + 8 + sizeof common->inquiry_string - 1,
 		   curlun->inquiry_vendor, INQUIRY_VENDOR_SPECIFIC_SIZE);
@@ -1496,6 +1508,9 @@ static int do_inquiry(struct fsg_common *common, struct fsg_buffhd *bh)
 		return 36;
 	}
 /* [CHANGE END] 2011/07/27 KDDI : inquiry command extend ,[Lun0] only */
+#else
+	return 36;
+#endif
 }
 
 
@@ -2231,9 +2246,12 @@ static int do_scsi_command(struct fsg_common *common)
 	int			reply = -EINVAL;
 	int			i;
 	static char		unknown[16];
+
+#ifdef CONFIG_MACH_C1_KDDI_REV00
 /* [ADD START] 2011/04/15 KDDI : for vendor command */
 	struct op_desc	*desc;
 /* [ADD END] 2011/04/15 KDDI : for vendor command */
+#endif
 
 	dump_cdb(common);
 
@@ -2455,6 +2473,7 @@ static int do_scsi_command(struct fsg_common *common)
 			reply = do_write(common);
 		break;
 
+#ifdef CONFIG_MACH_C1_KDDI_REV00
 /* [ADD START] 2011/04/15 KDDI : add case vendor command */
 	case SC_VENDOR_START ... SC_VENDOR_END:
 /* [ADD START] 2011/05/30 KDDI : mutex_lock */
@@ -2516,6 +2535,7 @@ static int do_scsi_command(struct fsg_common *common)
 			}
 		break;
 /* [ADD END] 2011/04/15 KDDI : add case vendor command */
+#endif /* CONFIG_MACH_C1_KDDI_REV00 */
 
 	/* Some mandatory commands that we recognize but don't implement.
 	 * They don't mean much in this setting.  It's left as an exercise
@@ -3021,6 +3041,7 @@ static int fsg_main_thread(void *common_)
 static DEVICE_ATTR(ro, 0644, fsg_show_ro, fsg_store_ro);
 static DEVICE_ATTR(file, 0644, fsg_show_file, fsg_store_file);
 
+#ifdef CONFIG_MACH_C1_KDDI_REV00
 /* [ADD START] 2011/04/15 KDDI : functions to handle vendor command */
 /*************************** VENDOR SCSI OPCODE ***************************/
 
@@ -3541,6 +3562,7 @@ static void op_release(struct device *dev)
 {
 }
 /* [ADD END] 2011/04/15 KDDI : functions to handle vendor command */
+#endif /* CONFIG_MACH_C1_KDDI_REV00 */
 
 /****************************** FSG COMMON ******************************/
 
@@ -3571,9 +3593,11 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 	struct fsg_lun *curlun;
 	struct fsg_lun_config *lcfg;
 	int nluns, i, rc;
+#ifdef CONFIG_MACH_C1_KDDI_REV00
 /* [ADD START] 2011/10/11 KDDI : "LUN1" is not created */
 	int j;
 /* [ADD END] 2011/10/11 KDDI : "LUN1" is not created */
+#endif
 	char *pathbuf;
 
 	/* Find out how many LUNs there should be */
@@ -3654,6 +3678,7 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 		if (rc)
 			goto error_luns;
 
+#ifdef CONFIG_MACH_C1_KDDI_REV00
 /* [CHANGE START] 2011/07/27 KDDI : 'export' file create ,[Lun0] only */
 		if ( i==0 ){
 /* [ADD START] 2011/04/15 KDDI : create file for vendor command */
@@ -3696,6 +3721,7 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 		
 		}
 /* [CHANGE END] 2011/07/27 KDDI : 'export' file create ,[Lun0] only */
+#endif /* CONFIG_MACH_C1_KDDI_REV00 */
 
 		if (lcfg->filename) {
 			rc = fsg_lun_open(curlun, lcfg->filename);
@@ -3837,13 +3863,15 @@ static void fsg_common_release(struct kref *ref)
 	if (likely(common->luns)) {
 		struct fsg_lun *lun = common->luns;
 		unsigned i = common->nluns;
-
+#ifdef CONFIG_MACH_C1_KDDI_REV00
 /* [ADD START] 2011/04/15 KDDI : delete file for vendor command */
 		unsigned j;
 /* [ADD END] 2011/04/15 KDDI : delete file for vendor command */
+#endif
 
 		/* In error recovery common->nluns may be zero. */
 		for (; i; --i, ++lun) {
+#ifdef CONFIG_MACH_C1_KDDI_REV00
 /* [CHANGE START] 2011/07/27 KDDI : 'export' file create ,[Lun0] only */
 			if (i == common->nluns){
 /* [ADD START] 2011/04/15 KDDI : delete file for vendor command */
@@ -3862,6 +3890,7 @@ static void fsg_common_release(struct kref *ref)
 /* [ADD END] 2011/04/15 KDDI : delete file for vendor command */
 			}
 /* [CHANGE END] 2011/07/27 KDDI : 'export' file create ,[Lun0] only */
+#endif
 			device_remove_file(&lun->dev, &dev_attr_ro);
 			device_remove_file(&lun->dev, &dev_attr_file);
 			fsg_lun_close(lun);

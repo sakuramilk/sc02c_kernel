@@ -5,6 +5,11 @@
 #ifndef __C1_H__
 #define __C1_H__
 
+#ifdef CONFIG_FEATURE_AOSP
+struct uart_port;
+extern void c1_bt_uart_wake_peer(struct uart_port *port);
+#endif
+
 extern struct ld9040_panel_data c1_panel_data;
 extern struct ld9040_panel_data c1_panel_data_a2;
 extern struct ld9040_panel_data c1_panel_data_m2;
@@ -21,7 +26,7 @@ extern void s3c_setup_uart_cfg_gpio(struct platform_device *pdev);
 extern void c1_fimc_set_platdata(void);
 
 extern void tsp_register_callback(void *function);
-extern void tsp_read_ta_status(bool *ta_status);
+extern void tsp_read_ta_status(void *ta_status);
 
 extern struct mxt224_platform_data mxt224_data;
 extern struct mxt540e_platform_data mxt540e_data;

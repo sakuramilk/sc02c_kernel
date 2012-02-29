@@ -123,6 +123,20 @@ static char *static_command_line;
 static char *execute_command;
 static char *ramdisk_execute_command;
 
+#if defined(CONFIG_BUILD_TARGET_SAMSUNG)
+unsigned int kproc_build_target = 0;
+#elif defined(CONFIG_BUILD_TARGET_AOSP)
+unsigned int kproc_build_target = 1;
+#elif defined(CONFIG_BUILD_TARGET_MULTI)
+unsigned int kproc_build_target = 2;
+#endif
+
+#if defined(CONFIG_FEATURE_AOSP)
+unsigned int kproc_feature_aosp = 1;
+#else
+unsigned int kproc_feature_aosp = 0;
+#endif
+
 #ifdef CONFIG_SMP
 /* Setup configured maximum number of CPUs to activate */
 unsigned int setup_max_cpus = NR_CPUS;
@@ -731,7 +745,7 @@ static struct boot_trace_ret ret;
 int do_one_initcall(initcall_t fn)
 {
 	int count = preempt_count();
-	ktime_t calltime, delta, rettime;
+	ktime_t calltime = { .tv64 = 0 }, delta, rettime;
 
 	if (initcall_debug) {
 		call.caller = task_pid_nr(current);

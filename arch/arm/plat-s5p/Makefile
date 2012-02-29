@@ -15,7 +15,11 @@ obj-				:=
 obj-y				+= dev-uart.o
 obj-y				+= cpu.o
 obj-y				+= clock.o
+ifeq ($(CONFIG_FEATURE_AOSP),y)
+obj-y				+= devs-aosp.o
+else
 obj-y				+= devs.o
+endif
 obj-y				+= irq.o
 obj-$(CONFIG_S5P_MEM_BOOTMEM)	+= bootmem.o
 obj-$(CONFIG_S5P_EXT_INT)	+= irq-eint.o

@@ -308,8 +308,14 @@ struct s3cfb_user_chroma {
 #define S3CFB_GET_FB_UMP_SECURE_ID_2      _IOWR('m', 312, unsigned int)
 #endif /* MALI_USE_UNIFIED_MEMORY_PROVIDER */
 
+#ifdef CONFIG_CC_OPTIMIZE_FOR_SPEED
+#define INLINE__ inline
+#else
+#define INLINE__ inline
+#endif
+
 extern struct fb_ops			s3cfb_ops;
-extern inline struct s3cfb_global	*get_fimd_global(int id);
+extern INLINE__ struct s3cfb_global	*get_fimd_global(int id);
 
 /* S3CFB */
 extern struct s3c_platform_fb *to_fb_plat(struct device *dev);

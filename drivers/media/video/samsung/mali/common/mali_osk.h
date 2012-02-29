@@ -21,6 +21,10 @@ extern "C"
 {
 #endif
 
+#ifndef MALI_STATE_TRACKING
+#define MALI_STATE_TRACKING 0
+#endif
+
 /**
  * @addtogroup uddapi Unified Device Driver (UDD) APIs
  *
@@ -1303,7 +1307,7 @@ void _mali_osk_notification_queue_term( _mali_osk_notification_queue_t *queue );
  */
 void _mali_osk_notification_queue_send( _mali_osk_notification_queue_t *queue, _mali_osk_notification_t *object );
 
-#if defined(MALI_STATE_TRACKING) && MALI_STATE_TRACKING
+#if MALI_STATE_TRACKING
 /** @brief Receive a notification from a queue
  *
  * Check if a notification queue is empty.
