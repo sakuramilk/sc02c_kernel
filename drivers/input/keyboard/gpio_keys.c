@@ -28,6 +28,8 @@
 #ifdef CONFIG_MACH_C1_NA_SPR_EPIC2_REV00
 #include <plat/gpio-cfg.h>
 #endif
+//for checking home key delay by tegrak
+#include <linux/time.h>
 
 struct gpio_button_data {
 	struct gpio_keys_button *button;
@@ -388,8 +390,23 @@ static struct attribute_group gpio_keys_attr_group = {
 	.attrs = gpio_keys_attrs,
 };
 
+// for caculating key delay by tegrak
+static inline u_int64_t ts_sub_to_ms(struct timespec dest, struct timespec src) {
+	u_int64_t result;
+
+	if (src.tv_sec > dest.tv_sec)
+		return 0;
+	if (src.tv_sec == dest.tv_sec && src.tv_nsec >= dest.tv_nsec)
+		return 0;
+
+	result = (dest.tv_sec - src.tv_sec) * MSEC_PER_SEC;
+	result += (dest.tv_nsec - src.tv_nsec) / NSEC_PER_MSEC;
+	return result;
+}
+
 static void gpio_keys_report_event(struct gpio_button_data *bdata)
 {
+	static struct timespec home_key_up_time = {0, 0};
 	struct gpio_keys_button *button = bdata->button;
 	struct input_dev *input = bdata->input;
 	unsigned int type = button->type ?: EV_KEY;
@@ -420,14 +437,23 @@ static void gpio_keys_report_event(struct gpio_button_data *bdata)
 		bdata->key_state = !!state;
 
 #if !defined(CONFIG_TOUCHSCREEN_MXT540E)
-		if (state && (button->code == HOME_KEY_VAL)) {
-			if (touch_is_pressed) {
-				printk(KERN_ERR
-				       "In Key routine, Touch Down!!! Touch state clear!!");
+		if (button->code == HOME_KEY_VAL) {
+			if (state) {
+				// we can't press this button again in 30ms! god finger? by tegrak
+				if (ts_sub_to_ms(current_kernel_time(), home_key_up_time) < 30) {
+					printk(KERN_ERR "Unintended home key repeatition. Ignore this action.");
+					return;
+				}
+				if (touch_is_pressed) {
+					printk(KERN_ERR
+						"In Key routine, Touch Down!!! Touch state clear!!");
 #if !defined(CONFIG_MACH_C1_KDDI_REV00)
-				Mxt224_force_released();
+					Mxt224_force_released();
 #endif
+				}
 			}
+		} else {
+			home_key_up_time = current_kernel_time();
 		}
 #endif
 
