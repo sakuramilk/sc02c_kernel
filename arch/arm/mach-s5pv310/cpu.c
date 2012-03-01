@@ -12,6 +12,7 @@
 #include <linux/sysdev.h>
 #include <linux/delay.h>
 #include <linux/clk.h>
+#include <linux/cpucust.h>
 #include <asm/hardware/cache-l2x0.h>
 
 #include <asm/mach/map.h>
@@ -352,11 +353,11 @@ int s5pv310_get_max_speed(void)
 
 			switch (pkg_id & 0x7) {
 			case 5:
-				max_speed = 1400000;
+				max_speed = CUST_ARM_CLK_MAX/*1400000*/;
 				break;
 			case 1:
 			case 7:
-				max_speed = 1200000;
+				max_speed = CUST_ARM_CLK_MAX/*1200000*/;
 				break;
 			case 0:
 			case 3:

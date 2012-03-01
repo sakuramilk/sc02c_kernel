@@ -784,4 +784,8 @@ struct sysinfo {
 # define REBUILD_DUE_TO_FTRACE_MCOUNT_RECORD
 #endif
 
+extern unsigned int kproc_build_target;
+extern unsigned int kproc_feature_aosp;
+#define FEATURE_AOSP_ENABLE	(kproc_feature_aosp)
+
 #endif

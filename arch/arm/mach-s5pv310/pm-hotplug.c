@@ -26,6 +26,7 @@
 #include <linux/sched.h>
 #include <linux/suspend.h>
 #include <linux/reboot.h>
+#include <linux/earlysuspend.h>
 
 #include <plat/map-base.h>
 #include <plat/gpio-cfg.h>
@@ -33,13 +34,14 @@
 #include <mach/regs-gpio.h>
 #include <mach/regs-irq.h>
 #include <linux/gpio.h>
-#include <linux/cpufreq.h>
 
 #define CPUMON 0
 
 #define CHECK_DELAY	(.5*HZ)
 #define TRANS_LOAD_L	20
 #define TRANS_LOAD_H	50
+#define TRANS_LOAD_L_SCREEN_OFF 35
+#define TRANS_LOAD_H_SCREEN_OFF 90
 
 #define HOTPLUG_UNLOCKED 0
 #define HOTPLUG_LOCKED 1
@@ -72,7 +74,6 @@ static DEFINE_MUTEX(hotplug_lock);
 static void hotplug_timer(struct work_struct *work)
 {
 	unsigned int i, avg_load = 0, load = 0;
-	unsigned int cur_freq;
 
 	mutex_lock(&hotplug_lock);
 
@@ -106,10 +107,7 @@ static void hotplug_timer(struct work_struct *work)
 
 	avg_load = load / num_online_cpus();
 
-	cur_freq = cpufreq_get(0);
-
-	if (((avg_load < trans_load_l) || (cur_freq <= 200 * 1000)) &&
-	    (cpu_online(1) == 1)) {
+	if (avg_load < trans_load_l && cpu_online(1)) {
 		printk("cpu1 turning off!\n");
 		cpu_down(1);
 #if CPUMON
@@ -117,8 +115,7 @@ static void hotplug_timer(struct work_struct *work)
 #endif
 		printk("cpu1 off end!\n");
 		hotpluging_rate = CHECK_DELAY;
-	} else if (((avg_load > trans_load_h) && (cur_freq > 200 * 1000)) &&
-		   (cpu_online(1) == 0)) {
+	} else if (avg_load > trans_load_h && !cpu_online(1)) {
 		printk("cpu1 turning on!\n");
 		cpu_up(1);
 #if CPUMON
@@ -130,7 +127,7 @@ static void hotplug_timer(struct work_struct *work)
  no_hotplug:
 
 	queue_delayed_work_on(0, hotplug_wq, &hotplug_work, hotpluging_rate);
-
+out:
 	mutex_unlock(&hotplug_lock);
 }
 
@@ -179,6 +176,32 @@ static struct notifier_block hotplug_reboot_notifier = {
 	.notifier_call = hotplug_reboot_notifier_call,
 };
 
+static void hotplug_early_suspend(struct early_suspend *handler)
+{
+	mutex_lock(&hotplug_lock);
+	trans_load_l = TRANS_LOAD_L_SCREEN_OFF;
+	trans_load_h = TRANS_LOAD_H_SCREEN_OFF;
+	mutex_unlock(&hotplug_lock);
+}
+
+static void hotplug_late_resume(struct early_suspend *handler)
+{
+	printk(KERN_INFO "pm-hotplug: enable cpu auto-hotplug\n");
+
+	mutex_lock(&hotplug_lock);
+	trans_load_l = TRANS_LOAD_L;
+	trans_load_h = TRANS_LOAD_H;
+	cpu_up(1); //when the screen is on, activate the second cpu no matter what the load is
+	queue_delayed_work_on(0, hotplug_wq, &hotplug_work, hotpluging_rate);
+	mutex_unlock(&hotplug_lock);
+}
+
+static struct early_suspend hotplug_early_suspend_notifier = {
+	.suspend = hotplug_early_suspend,
+	.resume = hotplug_late_resume,
+	.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
+};
+
 static int __init s5pv310_pm_hotplug_init(void)
 {
 	printk(KERN_INFO "SMDKV310 PM-hotplug init function\n");
@@ -194,6 +217,7 @@ static int __init s5pv310_pm_hotplug_init(void)
 
 	register_pm_notifier(&s5pv310_pm_hotplug_notifier);
 	register_reboot_notifier(&hotplug_reboot_notifier);
+	register_early_suspend(&hotplug_early_suspend_notifier);
 
 	return 0;
 }
