@@ -55,6 +55,12 @@
 
 ===========================================================================*/
 
+#ifdef READ
+#undef READ
+#endif
+#ifdef WRITE
+#undef WRITE
+#endif
 #define READ   1
 #define WRITE  0
 
