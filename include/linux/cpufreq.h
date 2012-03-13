@@ -178,6 +178,7 @@ struct cpufreq_governor {
 			will fallback to performance governor */
 	struct list_head	governor_list;
 	struct module		*owner;
+	int disableScalingDuringSuspend;
 };
 
 /* pass a target to the cpufreq driver 

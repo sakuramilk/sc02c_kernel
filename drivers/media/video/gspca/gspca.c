@@ -1508,7 +1508,7 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 	int i, ret = 0, streaming;
 
 	switch (rb->memory) {
-	case GSPCA_MEMORY_READ:			/* (internal call) */
+	case (enum v4l2_memory)GSPCA_MEMORY_READ:	/* (internal call) */
 	case V4L2_MEMORY_MMAP:
 	case V4L2_MEMORY_USERPTR:
 		break;

@@ -28,6 +28,8 @@
 #include <linux/cpu.h>
 #include <linux/completion.h>
 #include <linux/mutex.h>
+#include <linux/earlysuspend.h>
+#include <linux/cpucust.h>
 
 #define dprintk(msg...) cpufreq_debug_printk(CPUFREQ_DEBUG_CORE, \
 						"cpufreq-core", msg)
@@ -662,6 +664,156 @@ static ssize_t show_bios_limit(struct cpufreq_policy *policy, char *buf)
 	return sprintf(buf, "%u\n", policy->cpuinfo.max_freq);
 }
 
+/* UV control table */
+int exp_UV_mV[CUST_ARM_CLK_L_MAX] = {
+                                       CUST_ARM_V_L0,
+                                       CUST_ARM_V_L1,
+                                       CUST_ARM_V_L2,
+                                       CUST_ARM_V_L3,
+                                       CUST_ARM_V_L4,
+#ifdef CUST_ARM_CLK_L5
+                                       CUST_ARM_V_L5,
+#endif
+#ifdef CUST_ARM_CLK_L6
+                                       CUST_ARM_V_L6,
+#endif
+#ifdef CUST_ARM_CLK_L7
+                                       CUST_ARM_V_L7,
+#endif
+#ifdef CUST_ARM_CLK_L8
+                                       CUST_ARM_V_L8,
+#endif
+#ifdef CUST_ARM_CLK_L9
+                                       CUST_ARM_V_L9,
+#endif
+#ifdef CUST_ARM_CLK_L10
+                                       CUST_ARM_V_L10,
+#endif
+                                     };
+
+/* sysfs interface for UV control */
+static ssize_t show_UV_mV_table(struct cpufreq_policy *policy, char *buf) {
+	return sprintf(buf,
+					"%dmhz: %d mV\n"
+					"%dmhz: %d mV\n"
+					"%dmhz: %d mV\n"
+					"%dmhz: %d mV\n"
+					"%dmhz: %d mV\n"
+#ifdef CUST_ARM_CLK_L5
+					"%dmhz: %d mV\n"
+#endif
+#ifdef CUST_ARM_CLK_L6
+					"%dmhz: %d mV\n"
+#endif
+#ifdef CUST_ARM_CLK_L7
+					"%dmhz: %d mV\n"
+#endif
+#ifdef CUST_ARM_CLK_L8
+					"%dmhz: %d mV\n"
+#endif
+#ifdef CUST_ARM_CLK_L9
+					"%dmhz: %d mV\n"
+#endif
+#ifdef CUST_ARM_CLK_L10
+					"%dmhz: %d mV\n"
+#endif
+					,CUST_ARM_CLK_L0/1000, exp_UV_mV[0]/1000
+					,CUST_ARM_CLK_L1/1000, exp_UV_mV[1]/1000
+					,CUST_ARM_CLK_L2/1000, exp_UV_mV[2]/1000
+					,CUST_ARM_CLK_L3/1000, exp_UV_mV[3]/1000
+					,CUST_ARM_CLK_L4/1000, exp_UV_mV[4]/1000
+#ifdef CUST_ARM_CLK_L5
+					,CUST_ARM_CLK_L5/1000, exp_UV_mV[5]/1000
+#endif
+#ifdef CUST_ARM_CLK_L6
+					,CUST_ARM_CLK_L6/1000, exp_UV_mV[6]/1000
+#endif
+#ifdef CUST_ARM_CLK_L7
+					,CUST_ARM_CLK_L7/1000, exp_UV_mV[7]/1000
+#endif
+#ifdef CUST_ARM_CLK_L8
+					,CUST_ARM_CLK_L8/1000, exp_UV_mV[8]/1000
+#endif
+#ifdef CUST_ARM_CLK_L9
+					,CUST_ARM_CLK_L9/1000, exp_UV_mV[9]/1000
+#endif
+#ifdef CUST_ARM_CLK_L10
+					,CUST_ARM_CLK_L9/1000, exp_UV_mV[10]/1000
+#endif
+					);
+}
+
+static ssize_t store_UV_mV_table(struct cpufreq_policy *policy,
+									const char *buf, size_t count) {
+	unsigned int ret = -EINVAL;
+	int i;
+
+	ret = sscanf(buf,
+					"%d"
+					" %d"
+					" %d"
+					" %d"
+					" %d"
+#ifdef CUST_ARM_CLK_L5
+					" %d"
+#endif
+#ifdef CUST_ARM_CLK_L6
+					" %d"
+#endif
+#ifdef CUST_ARM_CLK_L7
+					" %d"
+#endif
+#ifdef CUST_ARM_CLK_L8
+					" %d"
+#endif
+#ifdef CUST_ARM_CLK_L9
+					" %d"
+#endif
+#ifdef CUST_ARM_CLK_L10
+					" %d"
+#endif
+					,&exp_UV_mV[0]
+					,&exp_UV_mV[1]
+					,&exp_UV_mV[2]
+					,&exp_UV_mV[3]
+					,&exp_UV_mV[4]
+#ifdef CUST_ARM_CLK_L5
+					,&exp_UV_mV[5]
+#endif
+#ifdef CUST_ARM_CLK_L6
+					,&exp_UV_mV[6]
+#endif
+#ifdef CUST_ARM_CLK_L7
+					,&exp_UV_mV[7]
+#endif
+#ifdef CUST_ARM_CLK_L8
+					,&exp_UV_mV[8]
+#endif
+#ifdef CUST_ARM_CLK_L9
+					,&exp_UV_mV[9]
+#endif
+#ifdef CUST_ARM_CLK_L10
+					,&exp_UV_mV[10]
+#endif
+					);
+	if(ret != CUST_ARM_CLK_L_MAX) {
+		return -EINVAL;
+	}
+
+	for (i = 0; i < CUST_ARM_CLK_L_MAX; i++) {
+		exp_UV_mV[i] *= 1000;
+
+		/* Maximum/Minimum Voltage */
+		if (exp_UV_mV[i] > CUST_ARM_V_MAX)
+			exp_UV_mV[i] = CUST_ARM_V_MAX;
+		else
+		if (exp_UV_mV[i] < CUST_ARM_V_MIN)
+			exp_UV_mV[i] = CUST_ARM_V_MIN;
+	}
+
+	return count;
+}
+
 cpufreq_freq_attr_ro_perm(cpuinfo_cur_freq, 0400);
 cpufreq_freq_attr_ro(cpuinfo_min_freq);
 cpufreq_freq_attr_ro(cpuinfo_max_freq);
@@ -676,6 +828,8 @@ cpufreq_freq_attr_rw(scaling_min_freq);
 cpufreq_freq_attr_rw(scaling_max_freq);
 cpufreq_freq_attr_rw(scaling_governor);
 cpufreq_freq_attr_rw(scaling_setspeed);
+/* UV table */
+cpufreq_freq_attr_rw(UV_mV_table);
 
 static struct attribute *default_attrs[] = {
 	&cpuinfo_min_freq.attr,
@@ -689,6 +843,7 @@ static struct attribute *default_attrs[] = {
 	&scaling_driver.attr,
 	&scaling_available_governors.attr,
 	&scaling_setspeed.attr,
+	&UV_mV_table.attr,
 	NULL
 };
 
@@ -977,6 +1132,7 @@ static int cpufreq_add_dev(struct sys_device *sys_dev)
 	unsigned int j;
 #ifdef CONFIG_HOTPLUG_CPU
 	int sibling;
+	struct cpufreq_policy *cp = NULL;
 #endif
 
 	if (cpu_is_offline(cpu))
@@ -1026,7 +1182,7 @@ static int cpufreq_add_dev(struct sys_device *sys_dev)
 	/* Set governor before ->init, so that driver could check it */
 #ifdef CONFIG_HOTPLUG_CPU
 	for_each_online_cpu(sibling) {
-		struct cpufreq_policy *cp = per_cpu(cpufreq_cpu_data, sibling);
+		cp = per_cpu(cpufreq_cpu_data, sibling);
 		if (cp && cp->governor &&
 		    (cpumask_test_cpu(cpu, cp->related_cpus))) {
 			policy->governor = cp->governor;
@@ -1045,6 +1201,17 @@ static int cpufreq_add_dev(struct sys_device *sys_dev)
 		dprintk("initialization failed\n");
 		goto err_unlock_policy;
 	}
+#ifdef CONFIG_HOTPLUG_CPU
+	for_each_online_cpu(sibling) {
+		struct cpufreq_policy *cp = per_cpu(cpufreq_cpu_data, sibling);
+		if (cp && cp->governor &&
+		    (cpumask_test_cpu(cpu, cp->related_cpus))) {
+			policy->min = cp->min;
+			policy->max = cp->max;
+			break;
+		}
+	}
+#endif
 	policy->user_policy.min = policy->min;
 	policy->user_policy.max = policy->max;
 
@@ -1213,12 +1380,28 @@ static int __cpufreq_remove_dev(struct sys_device *sys_dev)
 		cpufreq_driver->exit(data);
 	unlock_policy_rwsem_write(cpu);
 
+	cpufreq_debug_enable_ratelimit();
+
+#ifdef CONFIG_HOTPLUG_CPU
+	/* when the CPU which is the parent of the kobj is hotplugged
+	 * offline, check for siblings, and create cpufreq sysfs interface
+	 * and symlinks
+	 */
+	if (unlikely(cpumask_weight(data->cpus) > 1)) {
+		/* first sibling now owns the new sysfs dir */
+		cpumask_clear_cpu(cpu, data->cpus);
+		cpufreq_add_dev(get_cpu_sysdev(cpumask_first(data->cpus)));
+
+		/* finally remove our own symlink */
+		lock_policy_rwsem_write(cpu);
+		__cpufreq_remove_dev(sys_dev);
+	}
+#endif
+
 	free_cpumask_var(data->related_cpus);
 	free_cpumask_var(data->cpus);
 	kfree(data);
-	per_cpu(cpufreq_cpu_data, cpu) = NULL;
 
-	cpufreq_debug_enable_ratelimit();
 	return 0;
 }
 
@@ -1644,6 +1827,18 @@ int cpufreq_register_governor(struct cpufreq_governor *governor)
 	err = -EBUSY;
 	if (__find_governor(governor->name) == NULL) {
 		err = 0;
+/*		if (!strncmp(governor->name, "smartassV2", CPUFREQ_NAME_LEN)
+		|| !strncmp(governor->name, "ondemand", CPUFREQ_NAME_LEN)
+		|| !strncmp(governor->name, "interactive", CPUFREQ_NAME_LEN)
+		|| !strncmp(governor->name, "interactiveX", CPUFREQ_NAME_LEN)
+		|| !strncmp(governor->name, "ondemandx", CPUFREQ_NAME_LEN)
+		|| !strncmp(governor->name, "lagfree", CPUFREQ_NAME_LEN)
+		|| !strncmp(governor->name, "brazilianwax", CPUFREQ_NAME_LEN)
+		|| !strncmp(governor->name, "SavagedZen", CPUFREQ_NAME_LEN)
+		|| !strncmp(governor->name, "conservative", CPUFREQ_NAME_LEN))*/
+			governor->disableScalingDuringSuspend = 1;
+/*		else
+			governor->disableScalingDuringSuspend = 0;*/
 		list_add(&governor->governor_list, &cpufreq_governor_list);
 	}
 

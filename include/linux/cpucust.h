@@ -113,7 +113,7 @@
 #else
 
 /* Default clock max 1200MHz */
-#define CUST_ARM_V_MAX              (1300000)
+#define CUST_ARM_V_MAX              (1400000)
 #define CUST_ARM_V_MIN              ( 700000)
 
 #define CUST_ARM_CLK_L_MAX          (5)

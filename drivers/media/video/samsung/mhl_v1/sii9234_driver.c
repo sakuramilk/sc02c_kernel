@@ -1107,16 +1107,16 @@ static void InitCBusRegs( void )
 	I2C_WriteByte(SA_TX_CBUS_Primary, 0x8F, 0);										//reserved
 
 	// Make bits 2,3 (initiator timeout) to 1,1 for register CBUS_LINK_CONTROL_2
-	regval = I2C_ReadByte(SA_TX_CBUS_Primary, REG_CBUS_LINK_CONTROL_2 );
+	regval = I2C_ReadByte(SA_TX_CBUS_Primary, (unsigned char)(REG_CBUS_LINK_CONTROL_2 & 0xFF));
 	regval = (regval | 0x0C);
-	I2C_WriteByte(SA_TX_CBUS_Primary,REG_CBUS_LINK_CONTROL_2, regval);
+	I2C_WriteByte(SA_TX_CBUS_Primary, (unsigned char)(REG_CBUS_LINK_CONTROL_2 & 0xFF), regval);
 
 	// Clear legacy bit on Wolverine TX.
-    regval = I2C_ReadByte(SA_TX_CBUS_Primary, REG_MSC_TIMEOUT_LIMIT);
-    I2C_WriteByte(SA_TX_CBUS_Primary, REG_MSC_TIMEOUT_LIMIT, (regval & MSC_TIMEOUT_LIMIT_MSB_MASK));
+    regval = I2C_ReadByte(SA_TX_CBUS_Primary, (unsigned char)(REG_MSC_TIMEOUT_LIMIT & 0xFF));
+    I2C_WriteByte(SA_TX_CBUS_Primary, (unsigned char)(REG_MSC_TIMEOUT_LIMIT & 0xFF), (regval & MSC_TIMEOUT_LIMIT_MSB_MASK));
 
 	// Set NMax to 1
-	I2C_WriteByte(SA_TX_CBUS_Primary, REG_CBUS_LINK_CONTROL_1, 0x01);
+	I2C_WriteByte(SA_TX_CBUS_Primary, (unsigned char)(REG_CBUS_LINK_CONTROL_1 & 0xFF), 0x01);
 
 }
 
