@@ -49,3 +49,4 @@ obj-$(CONFIG_SEC_DEV_JACK)	+= sec_jack_spr.o
 else
 obj-$(CONFIG_SEC_DEV_JACK)	+= sec_jack.o
 endif
+obj-$(CONFIG_GENERIC_BLN)	+= bln.o
